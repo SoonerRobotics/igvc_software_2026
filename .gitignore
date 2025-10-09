@@ -1,0 +1,26 @@
+# Build and install directories
+build/
+install/
+log/
+
+# Python virtual environments
+venv/
+.venv/
+
+# ROS 2 specific files and directories
+*.rosinstall
+*.repos
+.vscode/ # VS Code specific files, if used
+.idea/ # IntelliJ/CLion specific files, if used
+.DS_Store # macOS specific files
+
+# Editor and OS generated files
+*~
+*.swp
+*.bak
+*.orig
+Thumbs.db
+
+# Ignore .vscode but keep .vscode/c_cpp_properties.json
+.vscode/*
+!.vscode/c_cpp_properties.json
