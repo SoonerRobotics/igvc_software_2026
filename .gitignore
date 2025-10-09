@@ -1,7 +1,7 @@
 # Build and install directories
-build/
-install/
-log/
+**/build/
+**/install/
+**/log/
 
 # Python virtual environments
 venv/
@@ -10,9 +10,8 @@ venv/
 # ROS 2 specific files and directories
 *.rosinstall
 *.repos
-.vscode/ # VS Code specific files, if used
-.idea/ # IntelliJ/CLion specific files, if used
-.DS_Store # macOS specific files
+.idea/
+.DS_Store
 
 # Editor and OS generated files
 *~
