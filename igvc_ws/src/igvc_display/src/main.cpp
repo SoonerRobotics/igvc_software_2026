@@ -1,4 +1,5 @@
 #include "rclcpp/rclcpp.hpp"
+#include "igvc/node.hpp"
 #include <chrono>
 #include "raylib.h"
 // #include <cv_bridge/cv_bridge.h>
@@ -8,31 +9,36 @@
 #include "igvc_display/clayrib.h"
 
 // helpful constants and helpers
-#define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector) \
-    (Clay_Vector2) { .x = vector.x, .y = vector.y }
+#define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector) (Clay_Vector2) { .x = vector.x, .y = vector.y }
 #define COLOR_ORANGE (Clay_Color){225, 138, 50, 255}
 #define COLOR_BLUE (Clay_Color){111, 173, 162, 255}
 Clay_TextElementConfig headerTextConfig = {.textColor = {0, 0, 0, 255}, .fontId = 0, .fontSize = 24};
 
+// chrono stuff
 using namespace std::chrono_literals;
 
+// error handling
 void HandleClayErrors(Clay_ErrorData errorData)
 {
     RCLCPP_ERROR(rclcpp::get_logger("clay"), "%s", errorData.errorText.chars);
 }
 
-class IGVCDisplay : public rclcpp::Node
+class IGVCCommander : public IGVC::Node
 {
 public:
-    IGVCDisplay() : Node("igvc_display")
+    IGVCCommander() : IGVC::Node("igvc_display")
+    {
+    }
+
+    void init() override
     {
         // int
-        init();
+        startDisplay();
 
         // if we reach here our window closed, kill this ros node
         rclcpp::shutdown();
     }
-
+    
 private:
     Clay_RenderCommandArray CreateLayout(void)
     {
@@ -77,7 +83,7 @@ private:
         }
     }
 
-    void init()
+    void startDisplay()
     {
         Clay_Raylib_Initialize(1920, 1080, "IGVC 2026", FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
 
@@ -138,11 +144,5 @@ private:
 
 int main(int argc, char *argv[])
 {
-    rclcpp::init(argc, argv);
-
-    std::shared_ptr<IGVCDisplay> node = std::make_shared<IGVCDisplay>();
-    rclcpp::spin(node);
-
-    rclcpp::shutdown();
-    return 0;
+    IGVC::Node::create_and_run<IGVCCommander>(argc, argv);
 }

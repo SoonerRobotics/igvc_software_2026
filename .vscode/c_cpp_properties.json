@@ -7,7 +7,6 @@
 
                 // ROS includes
                 "/opt/ros/jazzy/include/**",
-                "/igvc/igvc_ws/src/**",
 
                 // OpenCV includes
                 "/usr/include/opencv4/**"

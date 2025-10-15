@@ -20,6 +20,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(igvc REQUIRED)
 
 # raylib :)
 FetchContent_Declare(
@@ -39,9 +40,10 @@ endif()
 
 # creating executables
 add_executable(display_test src/main.cpp)
-# ament_target_dependencies(display_test rclcpp sensor_msgs std_msgs)
-ament_target_dependencies(display_test rclcpp std_msgs sensor_msgs)
+
+ament_target_dependencies(display_test rclcpp std_msgs sensor_msgs igvc)
 target_link_libraries(display_test raylib)
+
 target_include_directories(display_test PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
