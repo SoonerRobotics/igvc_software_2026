@@ -12,7 +12,10 @@ find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
+
+# OpenCV
 find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS} /usr/include/opencv4)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -24,6 +27,7 @@ endif()
 # creating executables
 add_executable(vision_test src/main.cpp)
 ament_target_dependencies(vision_test rclcpp std_msgs sensor_msgs cv_bridge image_transport OpenCV)
+target_link_libraries(vision_test ${OpenCV_LIBS} opencv_core opencv_imgproc opencv_highgui)
 
 # installing executables
 install(TARGETS
