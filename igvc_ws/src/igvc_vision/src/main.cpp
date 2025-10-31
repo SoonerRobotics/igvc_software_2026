@@ -14,11 +14,10 @@
 
 using namespace std::chrono_literals;
 
-class StandardVisionNode : public IGVC::Node
+class IGVCVisionTransformerNode : public IGVC::Node
 {
 public:
-    StandardVisionNode(std::string cameraId) 
-        : IGVC::Node("vision_node_" + cameraId), mCameraId(cameraId) {}
+    IGVCVisionTransformerNode(std::string cameraId) : IGVC::Node("igvc_vision_transformer_" + cameraId), mCameraId(cameraId) {}
 
     void init() override
     {
@@ -39,7 +38,7 @@ public:
         mImageSubscription = this->create_subscription<sensor_msgs::msg::CompressedImage>(
             IGVC::Util::prepare(IGVC::Topics::CAMERA, mCameraId),
             10,
-            std::bind(&StandardVisionNode::onImageReceived, this, std::placeholders::_1)
+            std::bind(&IGVCVisionTransformerNode::onImageReceived, this, std::placeholders::_1)
         );
 
         mProcessedImagePublisher = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
@@ -83,5 +82,5 @@ private:
 
 int main(int argc, char *argv[])
 {
-    IGVC::Node::create_and_run<StandardVisionNode>(argc, argv, "front");
+    IGVC::Node::create_and_run<IGVCVisionTransformerNode>(argc, argv, "front");
 }

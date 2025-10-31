@@ -60,9 +60,8 @@ namespace IGVC
 
     void Node::onDeviceInitialized(const igvc_messages::msg::IGVCDeviceInit::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "received json: %s | %s", msg->target.c_str(), msg->json.c_str());
         // ignore messages for anything that is not us
-        if (msg->target != this->get_name())
+        if (msg->target != std::string(this->get_name()))
         {
             return;
         }
@@ -70,17 +69,14 @@ namespace IGVC
         nlohmann::json j = nlohmann::json::parse(msg->json);
         mSystemState = static_cast<SystemState>(j["system_state"].get<int>());
         mDeviceState = static_cast<DeviceState>(j["device_state"].get<int>());
-        mConfig.loadFromJson(j["config"].get<std::string>());
-
-        // // start
+        mConfig.loadFromJson(j["configuration"].get<std::string>());
+        
+        // start
         init();
-
-        RCLCPP_INFO(this->get_logger(), "Received initialization packet");
     }
 
     void Node::onConfigUpdated(const std_msgs::msg::String::SharedPtr msg)
     {
-        RCLCPP_INFO(this->get_logger(), "received config update: %s", msg->data.c_str());
         mConfig.loadFromJson(msg->data);
     }
 
@@ -97,14 +93,14 @@ namespace IGVC
         auto future = mConfigUpdateClient->async_send_request(request);
 
         // wait for the result
-        try
-        {
-            auto response = future.get();
-            RCLCPP_INFO(this->get_logger(), "Configuration update response: %s", response->ok ? "ok" : "failed");
-        }
-        catch (const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Failed to call configuration update service: %s", e.what());
-        }
+        // try
+        // {
+        //     auto response = future.get();
+        //     RCLCPP_INFO(this->get_logger(), "Configuration update response: %s", response->ok ? "ok" : "failed");
+        // }
+        // catch (const std::exception &e)
+        // {
+        //     RCLCPP_ERROR(this->get_logger(), "Failed to call configuration update service: %s", e.what());
+        // }
     }
 }

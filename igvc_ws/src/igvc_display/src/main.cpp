@@ -14,6 +14,11 @@
 #define COLOR_BLUE (Clay_Color){111, 173, 162, 255}
 Clay_TextElementConfig headerTextConfig = {.textColor = {0, 0, 0, 255}, .fontId = 0, .fontSize = 24};
 
+struct DisplayState
+{
+    bool test = false;
+} displayState;
+
 // chrono stuff
 using namespace std::chrono_literals;
 
@@ -23,11 +28,24 @@ void HandleClayErrors(Clay_ErrorData errorData)
     RCLCPP_ERROR(rclcpp::get_logger("clay"), "%s", errorData.errorText.chars);
 }
 
+void HandleHeaderButtonInteraction(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData)
+{
+    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME)
+    {
+        displayState.test = !displayState.test;
+    }   
+}
+
 class IGVCCommander : public IGVC::Node
 {
 public:
     IGVCCommander() : IGVC::Node("igvc_display")
     {
+    }
+
+    void test_function()
+    {
+        mConfig.visionConfig.setGaussianBlurKernelSize(15);
     }
 
     void init() override
@@ -43,6 +61,12 @@ private:
     Clay_RenderCommandArray CreateLayout(void)
     {
         Clay_BeginLayout();
+
+        if (displayState.test)
+        {
+            test_function();
+            displayState.test = false;
+        }
 
         CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_GROW()}, .layoutDirection = CLAY_TOP_TO_BOTTOM}})
         {
@@ -79,6 +103,7 @@ private:
     {
         CLAY_AUTO_ID(HeaderButtonStyle(Clay_Hovered()))
         {
+            Clay_OnHover(HandleHeaderButtonInteraction, 0);
             CLAY_TEXT(text, CLAY_TEXT_CONFIG(headerTextConfig));
         }
     }

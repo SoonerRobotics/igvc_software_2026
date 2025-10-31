@@ -2,6 +2,7 @@
 
 // general
 #include <cstdint>
+#include <csignal>
 
 // ros
 #include "rclcpp/rclcpp.hpp"
@@ -38,6 +39,14 @@ namespace IGVC
         static std::shared_ptr<TNODE> create_and_run(int argc, char *argv[], TARGS&&... args)
         {
             rclcpp::init(argc, argv);
+
+            auto signalHandler = [](int signum)
+            {
+                RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "Signal %d received, shutting down.", signum);
+                rclcpp::shutdown();
+            };
+            std::signal(SIGINT, signalHandler);
+            std::signal(SIGTERM, signalHandler);
 
             std::shared_ptr<TNODE> node = std::make_shared<TNODE>(std::forward<TARGS>(args)...);
             rclcpp::executors::MultiThreadedExecutor executor;

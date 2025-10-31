@@ -38,7 +38,6 @@ private:
         std::shared_ptr<igvc_messages::srv::UpdateConfiguration::Response> response
     )
     {
-        RCLCPP_INFO(this->get_logger(), "Received configuration update request");
         mConfig.loadFromJson(request->json);
 
         // publish new configuration

@@ -140,7 +140,6 @@ namespace IGVC
         {
             nlohmann::json j = nlohmann::json::parse(jsonStr);
             j.get_to(*this);
-            update();
         }
         
         GlobalConfig globalConfig;
