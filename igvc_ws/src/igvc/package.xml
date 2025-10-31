@@ -11,6 +11,9 @@
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
   <depend>igvc_messages</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+  <depend>OpenCV</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

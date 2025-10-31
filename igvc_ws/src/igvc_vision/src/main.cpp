@@ -1,40 +1,87 @@
+#include <chrono>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "std_msgs/msg/header.hpp"
-#include <chrono>
-// #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
 #include <opencv2/opencv.hpp>
+#include <cv_bridge/cv_bridge.hpp>
+#include "sensor_msgs/msg/compressed_image.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
+
+#include "igvc_vision/pipeline.hpp"
+#include "igvc/node.hpp"
 
 using namespace std::chrono_literals;
 
-class MinimalImagePublisher : public rclcpp::Node
+class StandardVisionNode : public IGVC::Node
 {
 public:
-    MinimalImagePublisher() : Node("opencv_image_publisher")
+    StandardVisionNode(std::string cameraId) 
+        : IGVC::Node("vision_node_" + cameraId), mCameraId(cameraId) {}
+
+    void init() override
     {
-        test_opencv();
+        mPipeline = IGVC::ImagePipeline()
+            // blurring
+            .addProcessor(std::make_shared<IGVC::GaussianBlurProcessor>(
+                mConfig.visionConfig.getGaussianBlurKernelSize(),
+                mConfig.visionConfig.getGaussianBlurSigma()
+            ))
+
+            // lane hsv thresholding
+            .addProcessor(std::make_shared<IGVC::HSVThresholdProcessor>(
+                mConfig.visionConfig.getLaneHsvLower(),
+                mConfig.visionConfig.getLaneHsvUpper()
+            ));
+
+
+        mImageSubscription = this->create_subscription<sensor_msgs::msg::CompressedImage>(
+            IGVC::Util::prepare(IGVC::Topics::CAMERA, mCameraId),
+            10,
+            std::bind(&StandardVisionNode::onImageReceived, this, std::placeholders::_1)
+        );
+
+        mProcessedImagePublisher = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
+            IGVC::Util::prepare(IGVC::Topics::PROCESSED_IMAGE, mCameraId),
+            10
+        );
     }
 
 private:
-    void test_opencv()
+    void onImageReceived(const sensor_msgs::msg::CompressedImage::SharedPtr msg)
     {
-        // create and show a test image
-        cv::Mat image = cv::Mat::zeros(480, 640, CV_8UC3);
-        cv::putText(image, "OpenCV Test Image", cv::Point(50, 240), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 255), 2);
-        cv::imshow("Test Image", image);
-        cv::waitKey(3000); // Display the window for 3 seconds
-        cv::destroyAllWindows();
+        // process using the pipeline
+        cv::Mat image = IGVC::Util::compressedImageMsgToMat(msg);
+        cv::Mat processedImage;
+        mPipeline.processImage(image, processedImage);
+
+        // resize processedImage to resolution
+        uint32_t res = mConfig.globalConfig.getMapResolution();
+        cv::resize(processedImage, processedImage, cv::Size(res, res));
+        processedImage /= 2;
+
+        // flatten to a 1d array
+        std::vector<int8_t> flatData;
+        flatData.assign(processedImage.datastart, processedImage.dataend);
+
+        // create and publish
+        nav_msgs::msg::OccupancyGrid occupancyGridMsg;
+        occupancyGridMsg.header = msg->header;
+        occupancyGridMsg.data = flatData;
+        mProcessedImagePublisher->publish(occupancyGridMsg);
     }
+
+private:
+    std::string mCameraId;
+    IGVC::ImagePipeline mPipeline;
+
+    // subscriptions and publishers
+    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr mImageSubscription;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr mProcessedImagePublisher;
 };
 
 int main(int argc, char *argv[])
 {
-    rclcpp::init(argc, argv);
-    
-    std::shared_ptr<MinimalImagePublisher> node = std::make_shared<MinimalImagePublisher>();
-    rclcpp::spin(node);
-
-    rclcpp::shutdown();
-    return 0;
+    IGVC::Node::create_and_run<StandardVisionNode>(argc, argv, "front");
 }

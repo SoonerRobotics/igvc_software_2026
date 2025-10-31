@@ -1,7 +1,9 @@
 #include "igvc/node.hpp"
 
 // messages
+#include "std_msgs/msg/string.hpp"
 #include "igvc_messages/msg/igvc_device_init.hpp"
+#include "igvc_messages/srv/update_configuration.hpp"
 
 class IGVCCommander : public IGVC::Node
 {
@@ -14,8 +16,15 @@ public:
             std::bind(&IGVCCommander::onTick, this)
         );
 
-        // publisher setup
-        mDeviceInitPublisher = this->create_publisher<igvc_messages::msg::IGVCDeviceInit>("/igvc/device_init", 10);
+        // publisher and subscribers
+        mDeviceInitPublisher = this->create_publisher<igvc_messages::msg::IGVCDeviceInit>(IGVC::Topics::DEVICE_INIT, 10);
+        mConfigUpdatePublisher = this->create_publisher<std_msgs::msg::String>(IGVC::Topics::CONFIGURATION, 10);
+
+        // services
+        mUpdateConfigService = this->create_service<igvc_messages::srv::UpdateConfiguration>(
+            IGVC::Services::UPDATE_CONFIGURATION,
+            std::bind(&IGVCCommander::onUpdateConfiguration, this, std::placeholders::_1, std::placeholders::_2)
+        );
     }
 
     void init() override
@@ -24,6 +33,22 @@ public:
     }
     
 private:
+    void onUpdateConfiguration(
+        const std::shared_ptr<igvc_messages::srv::UpdateConfiguration::Request> request,
+        std::shared_ptr<igvc_messages::srv::UpdateConfiguration::Response> response
+    )
+    {
+        RCLCPP_INFO(this->get_logger(), "Received configuration update request");
+        mConfig.loadFromJson(request->json);
+
+        // publish new configuration
+        std_msgs::msg::String msg;
+        msg.data = request->json;
+        mConfigUpdatePublisher->publish(msg);
+
+        response->ok = true;
+    }
+
     void onTick()
     {
         // get all nodes in the ros network
@@ -56,15 +81,14 @@ private:
     void onNodeDiscovered(const std::string &name)
     {
         // a list of ignored nodes
-        if (
-            name == this->get_name()
-        ) {
+        if (name == this->get_name()) {
             return;
         }
 
         IGVC::DeviceInitPayload payloadData {
             .system_state = getSystemState(),
             .device_state = IGVC::DeviceState::INITIALIZING,
+            .configuration = getConfigurationJson(),
         };
         nlohmann::json payload = payloadData;
 
@@ -85,6 +109,10 @@ private:
 
     // publishers
     rclcpp::Publisher<igvc_messages::msg::IGVCDeviceInit>::SharedPtr mDeviceInitPublisher;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mConfigUpdatePublisher;
+
+    // services
+    rclcpp::Service<igvc_messages::srv::UpdateConfiguration>::SharedPtr mUpdateConfigService;
 };
 
 int main(int argc, char *argv[])

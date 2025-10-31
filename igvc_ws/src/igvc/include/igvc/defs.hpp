@@ -23,7 +23,8 @@ namespace IGVC
     {
         SystemState system_state;
         DeviceState device_state;
+        std::string configuration;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, system_state, device_state)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, system_state, device_state, configuration)
     };
 }
