@@ -22,6 +22,7 @@ public:
 
     void init() override
     {
+        setDeviceState(IGVC::DeviceState::READY);
         initCan("can0");
 
         can_reader_thread_ = std::thread(&IGVCHardwareCanNode::canReaderThread, this);
@@ -53,6 +54,9 @@ public:
             RCLCPP_ERROR(this->get_logger(), "Error in socket bind for %s", device.c_str());
             return;
         }
+
+        setDeviceState(IGVC::DeviceState::OPERATING);
+        RCLCPP_INFO(this->get_logger(), "Successfully initialized CAN interface %s", device.c_str());
     }
 
     bool readFrame(struct can_frame &frame)

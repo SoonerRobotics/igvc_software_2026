@@ -50,6 +50,8 @@ public:
 
     void init() override
     {
+        setDeviceState(IGVC::DeviceState::OPERATING);
+
         // int
         startDisplay();
 

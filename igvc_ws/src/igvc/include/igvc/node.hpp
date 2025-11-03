@@ -14,7 +14,11 @@
 #include "igvc/config.hpp"
 #include "igvc/utilities.hpp"
 #include "igvc_messages/msg/igvc_device_init.hpp"
+#include "igvc_messages/msg/igvc_device_state.hpp"
+#include "igvc_messages/msg/igvc_system_state.hpp"
 #include "igvc_messages/srv/update_configuration.hpp"
+#include "igvc_messages/srv/update_device_state.hpp"
+#include "igvc_messages/srv/update_system_state.hpp"
 
 namespace IGVC
 {
@@ -27,6 +31,8 @@ namespace IGVC
     protected:
         SystemState getSystemState();
         DeviceState getDeviceState();
+        DeviceState getDeviceState(const std::string &deviceName);
+        std::map<std::string, DeviceState> getAllDeviceStates();
 
         void setDeviceState(const DeviceState state);
         void setSystemState(const SystemState state);
@@ -61,17 +67,27 @@ namespace IGVC
         void onDeviceInitialized(const igvc_messages::msg::IGVCDeviceInit::SharedPtr msg);
         void onConfigUpdated(const std_msgs::msg::String::SharedPtr msg);
         void onLocalConfigUpdated();
+        void onDeviceStateChanged(const igvc_messages::msg::IGVCDeviceState::SharedPtr msg);
+        void onSystemStateChanged(const igvc_messages::msg::IGVCSystemState::SharedPtr msg);
 
     protected:
-        Config &mConfig;
-
-    private:
+        // local node state
         bool mIsCommander;
+        Config &mConfig;
+        
+        // other stuff
+        std::map<std::string, DeviceState> mDeviceStates;
+        
+    private:
         SystemState mSystemState;
         DeviceState mDeviceState;
-
+                
         rclcpp::Subscription<igvc_messages::msg::IGVCDeviceInit>::SharedPtr mDeviceInitSubscription;
         rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mConfigUpdateSubscription;
+        rclcpp::Subscription<igvc_messages::msg::IGVCDeviceState>::SharedPtr mDeviceStateSubscription;
+        rclcpp::Subscription<igvc_messages::msg::IGVCSystemState>::SharedPtr mSystemStateSubscription;
         rclcpp::Client<igvc_messages::srv::UpdateConfiguration>::SharedPtr mConfigUpdateClient;
+        rclcpp::Client<igvc_messages::srv::UpdateDeviceState>::SharedPtr mDeviceStateUpdateClient;
+        rclcpp::Client<igvc_messages::srv::UpdateSystemState>::SharedPtr mSystemStateUpdateClient;
     };
 }

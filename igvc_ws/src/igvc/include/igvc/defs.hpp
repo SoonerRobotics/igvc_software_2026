@@ -16,7 +16,9 @@ namespace IGVC
         OFF = 0,
         INITIALIZING = 1,
         READY = 2,
-        OPERATING = 3
+        OPERATING = 3,
+        UNKNOWN = 4,
+        ERRORED = 5,
     };
 
     struct DeviceInitPayload
@@ -24,7 +26,8 @@ namespace IGVC
         SystemState system_state;
         DeviceState device_state;
         std::string configuration;
+        std::map<std::string, DeviceState> device_states;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, system_state, device_state, configuration)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, system_state, device_state, configuration, device_states)
     };
 }
