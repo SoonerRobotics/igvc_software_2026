@@ -16,7 +16,7 @@ public:
     {
         using namespace std::chrono_literals;
         mTimer = this->create_wall_timer(
-            500ms,
+            1000ms,
             std::bind(&IGVCCommander::onTick, this)
         );
 
@@ -100,6 +100,13 @@ private:
         // get all nodes in the ros network
         std::vector<std::string> ros_nodes = this->get_node_names();
 
+        // print all nodes
+        RCLCPP_DEBUG(this->get_logger(), "Discovered ROS Nodes:");
+        for (const std::string &name : ros_nodes)
+        {
+            RCLCPP_DEBUG(this->get_logger(), " - %s", name.c_str());
+        }
+
         // determine what nodes have died
         for (const std::string &name : mTrackedNodes)
         {
@@ -130,6 +137,8 @@ private:
         if (name == this->get_name()) {
             return;
         }
+
+        RCLCPP_INFO(this->get_logger(), "Node %s discovered, sending init payload", name.c_str());
 
         IGVC::DeviceInitPayload payloadData {
             .system_state = getSystemState(),

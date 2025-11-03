@@ -45,6 +45,8 @@ public:
             IGVC::Util::prepare(IGVC::Topics::PROCESSED_IMAGE, mCameraId),
             10
         );
+
+        setDeviceState(IGVC::DeviceState::OPERATING);
     }
 
 private:

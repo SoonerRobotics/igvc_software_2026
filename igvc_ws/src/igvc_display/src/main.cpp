@@ -7,12 +7,14 @@
 #define CLAY_IMPLEMENTATION
 #include "igvc_display/clay.h"
 #include "igvc_display/clayrib.h"
+#include "igvc/utilities.hpp"
 
 // helpful constants and helpers
 #define RAYLIB_VECTOR2_TO_CLAY_VECTOR2(vector) (Clay_Vector2) { .x = vector.x, .y = vector.y }
 #define COLOR_ORANGE (Clay_Color){225, 138, 50, 255}
 #define COLOR_BLUE (Clay_Color){111, 173, 162, 255}
 Clay_TextElementConfig headerTextConfig = {.textColor = {0, 0, 0, 255}, .fontId = 0, .fontSize = 24};
+Clay_TextElementConfig bodyTextConfig = {.textColor = {0, 0, 0, 255}, .fontId = 0, .fontSize = 18};
 
 struct DisplayState
 {
@@ -60,6 +62,15 @@ public:
     }
     
 private:
+    Clay_String fromStdString(const std::string str)
+    {
+        return (Clay_String) {
+            .isStaticallyAllocated = false,
+            .length = static_cast<int32_t>(str.length()),
+            .chars = str.c_str(),
+        };
+    }
+
     Clay_RenderCommandArray CreateLayout(void)
     {
         Clay_BeginLayout();
@@ -85,7 +96,14 @@ private:
             // main content area
             CLAY_AUTO_ID({.layout = {.sizing = {.width = CLAY_SIZING_GROW(), .height = CLAY_SIZING_GROW(1)}, .padding = {16, 16, 16, 16}}, .backgroundColor = {240, 240, 240, 255}})
             {
-                CLAY_TEXT(CLAY_STRING("Main Content Area"), CLAY_TEXT_CONFIG(headerTextConfig));
+                CLAY_TEXT(CLAY_STRING("--- Device States ---"), CLAY_TEXT_CONFIG(headerTextConfig));
+
+                auto states = getAllDeviceStates();
+                for (const auto& state : states)
+                {
+                    std::string stateStr = "Device " + state.first + ": " + IGVC::Util::deviceStateToString(static_cast<IGVC::DeviceState>(state.second));
+                    CLAY_TEXT(fromStdString(stateStr), CLAY_TEXT_CONFIG(bodyTextConfig));
+                }
             }
         }
 

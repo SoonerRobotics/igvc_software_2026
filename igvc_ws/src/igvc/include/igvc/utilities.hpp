@@ -38,5 +38,46 @@ namespace IGVC
             }
             return cv_ptr->image;
         }
+
+        /**
+         * @brief Converts a device state enum to a human-readable string.
+         */
+        std::string deviceStateToString(IGVC::DeviceState state)
+        {
+            switch (state)
+            {
+            case IGVC::DeviceState::OFF:
+                return "OFF";
+            case IGVC::DeviceState::INITIALIZING:
+                return "INITIALIZING";
+            case IGVC::DeviceState::READY:
+                return "READY";
+            case IGVC::DeviceState::OPERATING:
+                return "OPERATING";
+            case IGVC::DeviceState::UNKNOWN:
+                return "UNKNOWN";
+            case IGVC::DeviceState::ERRORED:
+                return "ERRORED";
+            default:
+                return "INVALID_STATE";
+            }
+        }
+
+        std::string systemStateToString(IGVC::SystemState state)
+        {
+            switch (state)
+            {
+            case IGVC::SystemState::DISABLED:
+                return "DISABLED";
+            case IGVC::SystemState::MANUAL:
+                return "MANUAL";
+            case IGVC::SystemState::AUTONOMOUS:
+                return "AUTONOMOUS";
+            case IGVC::SystemState::SHUTDOWN:
+                return "SHUTDOWN";
+            default:
+                return "UNKNOWN";
+            }
+        }
     }
 }
