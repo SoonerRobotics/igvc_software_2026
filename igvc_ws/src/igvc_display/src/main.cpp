@@ -2,6 +2,7 @@
 #include "igvc/utilities.hpp"
 #include "igvc/json.hpp"
 #include "igvc_display/packets.hpp"
+#include "igvc_display/limiter.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include <thread>
@@ -17,15 +18,16 @@ class IGVCDisplayAdapter : public IGVC::Node
 public:
     IGVCDisplayAdapter() : IGVC::Node("igvc_display_adapter")
     {
+        mLimiter.setLimit(IGVC::LimiterKey::MotorInput, 5.0)
+            .setLimit(IGVC::LimiterKey::MotorFeedback, 5.0)
+            .setLimit(IGVC::LimiterKey::GPSData, 1.0);
     }
 
     void init() override
     {
         setDeviceState(IGVC::DeviceState::READY);
 
-        mServerThread = std::thread([this]() {
-            createServer(9002);
-        });
+        mServerThread = std::thread([this]() { createServer(9002); });
     }
 
     void broadcastPacket(const nlohmann::json &packet)
@@ -61,7 +63,8 @@ public:
     {
         mServer = std::make_shared<websocketpp::server<websocketpp::config::asio>>();
 
-        mServer->set_open_handler([this](websocketpp::connection_hdl hdl) {
+        mServer->set_open_handler([this](websocketpp::connection_hdl hdl)
+                                  {
             {
                 std::lock_guard<std::mutex> lock(mConnectionsMutex);
                 mConnections.insert(hdl);
@@ -77,21 +80,19 @@ public:
             nlohmann::json json_packet = packet;
             mServer->send(hdl, json_packet.dump(), websocketpp::frame::opcode::text);
 
-            RCLCPP_INFO(this->get_logger(), "New WebSocket connection established.");
-        });
+            RCLCPP_INFO(this->get_logger(), "New WebSocket connection established."); });
 
-        mServer->set_close_handler([this](websocketpp::connection_hdl hdl) {
+        mServer->set_close_handler([this](websocketpp::connection_hdl hdl)
+                                   {
             {
                 std::lock_guard<std::mutex> lock(mConnectionsMutex);
                 mConnections.erase(hdl);
             }
 
-            RCLCPP_INFO(this->get_logger(), "WebSocket connection closed.");
-        });
+            RCLCPP_INFO(this->get_logger(), "WebSocket connection closed."); });
 
-        mServer->set_message_handler([this](websocketpp::connection_hdl hdl, websocketpp::server<websocketpp::config::asio>::message_ptr msg) {
-            onMessage(hdl, msg);
-        });
+        mServer->set_message_handler([this](websocketpp::connection_hdl hdl, websocketpp::server<websocketpp::config::asio>::message_ptr msg)
+                                     { onMessage(hdl, msg); });
 
         mServer->init_asio();
         mServer->listen(port);
@@ -110,6 +111,9 @@ private:
     // connections
     std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>> mConnections;
     std::mutex mConnectionsMutex;
+
+    // limiter
+    IGVC::Limiter mLimiter;
 };
 
 int main(int argc, char *argv[])
