@@ -3,8 +3,10 @@
 #include "igvc/json.hpp"
 #include "igvc_display/packets.hpp"
 
+#include "rclcpp/rclcpp.hpp"
 #include <thread>
 #include <vector>
+#include <cstdint>
 
 #include "igvc_display/websocketpp/config/asio_no_tls.hpp"
 #include "igvc_display/websocketpp/server.hpp"

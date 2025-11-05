@@ -14,7 +14,8 @@ namespace IGVC
         enum class PacketType : uint8_t
         {
             UpdateSystemStatePacket = 0,
-            ClientInitializationPacket = 1
+            ClientInitializationPacket = 1,
+            TestPacket = 2,
         };
 
         /**
@@ -51,6 +52,14 @@ namespace IGVC
             std::map<std::string, IGVC::DeviceState> deviceStates;
 
             NLOHMANN_DEFINE_TYPE_INTRUSIVE(ClientInitializationPacket, header, systemState, deviceStates)
+        };
+
+        struct TestPacket
+        {
+            PacketHeader header;
+            std::string time;
+
+            NLOHMANN_DEFINE_TYPE_INTRUSIVE(TestPacket, header, time)
         };
     }
 }
