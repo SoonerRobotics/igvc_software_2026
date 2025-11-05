@@ -1,9 +1,11 @@
 #pragma once
 #include "igvc/json.hpp"
 
+#include <cstdint>
+
 namespace IGVC
 {
-    enum SystemState
+    enum SystemState : uint8_t
     {
         DISABLED = 0,
         MANUAL = 1,
@@ -11,7 +13,7 @@ namespace IGVC
         SHUTDOWN = 3
     };
 
-    enum DeviceState
+    enum DeviceState : uint8_t
     {
         OFF = 0,
         INITIALIZING = 1,
