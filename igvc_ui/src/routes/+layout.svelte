@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
+    import MainLayout from '../components/main-layout.svelte';
 	
 	let { children } = $props();
 </script>
@@ -10,4 +11,6 @@
     <title>SCR IGVC</title>
 </svelte:head>
 
-{@render children()}
+<MainLayout>
+	{@render children()}
+</MainLayout>

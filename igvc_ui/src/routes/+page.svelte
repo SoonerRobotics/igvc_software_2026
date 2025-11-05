@@ -1,6 +1,6 @@
 <script>
     import { igvcSocket } from "$lib/igvc";
+    import Dashboard from "../components/pages/dashboard/dashboard.svelte";
 </script>
 
-<p>IGVC Socket Status: {$igvcSocket.status == "connected" ? 'Connected' : 'Disconnected'}</p>
-<p>IGVC Time: {$igvcSocket.status == "connected" ? $igvcSocket.time : 'N/A'}</p>
+<Dashboard />
