@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <opencv2/opencv.hpp>
 #include "igvc/json.hpp"
+#include "igvc/units.hpp"
 
 using UpdateFn = void (*)();
 namespace IGVC
@@ -109,6 +110,104 @@ namespace IGVC
         NLOHMANN_DEFINE_TYPE_INTRUSIVE(VisionConfig, mLaneHsvLower, mLaneHsvUpper, mGaussianBlurKernelSize, mGaussianBlurSigma)
     };
 
+    class ManualControlConfig
+    {
+    public:
+        ManualControlConfig(UpdateFn updateCallback = nullptr) : mUpdateCallback(updateCallback) {}
+        ~ManualControlConfig() = default;
+
+        IGVC::Units::LinearVelocity getForwardSpeed() const
+        {
+            return mForwardSpeed;
+        }
+
+        void setForwardSpeed(const IGVC::Units::LinearVelocity &speed)
+        {
+            mForwardSpeed = speed;
+            mUpdateCallback();
+        }
+
+        IGVC::Units::AngularVelocity getTurnSpeed() const
+        {
+            return mTurnSpeed;
+        }
+
+        void setTurnSpeed(const IGVC::Units::AngularVelocity &speed)
+        {
+            mTurnSpeed = speed;
+            mUpdateCallback();
+        }
+
+        void setSidewaysSpeed(const IGVC::Units::LinearVelocity &speed)
+        {
+            mSidewaysSpeed = speed;
+            mUpdateCallback();
+        }
+
+        IGVC::Units::LinearVelocity getSidewaysSpeed() const
+        {
+            return mSidewaysSpeed;
+        }
+
+    private:
+        IGVC::Units::LinearVelocity mForwardSpeed = IGVC::Units::MilesPerHour::from(4.0);
+        IGVC::Units::LinearVelocity mSidewaysSpeed = IGVC::Units::MilesPerHour::from(4.0);
+        IGVC::Units::AngularVelocity mTurnSpeed = IGVC::Units::DegreesPerSecond::from(45.0);
+
+        UpdateFn mUpdateCallback = nullptr;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(ManualControlConfig, mForwardSpeed, mTurnSpeed, mSidewaysSpeed)
+    };
+
+    class MotorControlConfig
+    {
+    public:
+        MotorControlConfig(UpdateFn updateCallback = nullptr) : mUpdateCallback(updateCallback) {}
+        ~MotorControlConfig() = default;
+
+        IGVC::Units::LinearVelocity getMaxForwardSpeed() const
+        {
+            return mMaxForwardSpeed;
+        }
+
+        void setMaxForwardSpeed(const IGVC::Units::LinearVelocity &speed)
+        {
+            mMaxForwardSpeed = speed;
+            mUpdateCallback();
+        }
+
+        IGVC::Units::LinearVelocity getMaxSidewaysSpeed() const
+        {
+            return mMaxSidewaysSpeed;
+        }
+
+        void setMaxSidewaysSpeed(const IGVC::Units::LinearVelocity &speed)
+        {
+            mMaxSidewaysSpeed = speed;
+            mUpdateCallback();
+        }
+
+        IGVC::Units::AngularVelocity getMaxTurnSpeed() const
+        {
+            return mMaxTurnSpeed;
+        }
+
+        void setMaxTurnSpeed(const IGVC::Units::AngularVelocity &speed)
+        {
+            mMaxTurnSpeed = speed;
+            mUpdateCallback();
+        }
+
+    private:
+        IGVC::Units::LinearVelocity mMaxForwardSpeed = IGVC::Units::MilesPerHour::from(5.5);
+        IGVC::Units::LinearVelocity mMaxSidewaysSpeed = IGVC::Units::MilesPerHour::from(5.5);
+        IGVC::Units::AngularVelocity mMaxTurnSpeed = IGVC::Units::DegreesPerSecond::from(120.0);
+
+        UpdateFn mUpdateCallback = nullptr;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(MotorControlConfig, mMaxForwardSpeed, mMaxSidewaysSpeed, mMaxTurnSpeed)
+    };
+
     class Config
     {
     public:
@@ -144,6 +243,8 @@ namespace IGVC
         
         GlobalConfig globalConfig;
         VisionConfig visionConfig;
+        MotorControlConfig motorControlConfig;
+        ManualControlConfig manualControlConfig;
     private:
         Config(std::function<void()> outerUpdateCallback = nullptr)
             : mUpdateCallback(outerUpdateCallback)
@@ -154,11 +255,13 @@ namespace IGVC
 
             globalConfig = GlobalConfig(updateCallback);
             visionConfig = VisionConfig(updateCallback);
+            motorControlConfig = MotorControlConfig(updateCallback);
+            manualControlConfig = ManualControlConfig(updateCallback);
         }
         ~Config() = default;
 
         std::function<void()> mUpdateCallback;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(Config, globalConfig, visionConfig)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(Config, globalConfig, visionConfig, motorControlConfig, manualControlConfig)
     };
 }

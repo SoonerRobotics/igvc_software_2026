@@ -8,6 +8,8 @@ namespace IGVC
         constexpr const char *GPS = "/igvc/gps";
         constexpr const char *CAMERA = "/igvc/camera/{dynamic}/raw";
         constexpr const char *PROCESSED_IMAGE = "/igvc/camera/{dynamic}/processed";
+        constexpr const char *MOTOR_INPUT = "/igvc/motor_input";
+        constexpr const char *MOTOR_FEEDBACK = "/igvc/motor_feedback";
 
         // framework things
         constexpr const char *DEVICE_INIT = "/igvc/device_init";
