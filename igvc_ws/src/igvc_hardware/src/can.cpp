@@ -1,11 +1,8 @@
 #include <chrono>
 
 #include "rclcpp/rclcpp.hpp"
-#include <image_transport/image_transport.hpp>
-#include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.hpp>
-#include "sensor_msgs/msg/compressed_image.hpp"
 #include "igvc/node.hpp"
+#include "igvc_hardware/can.hpp"
 
 #include "igvc_messages/msg/motor_input.hpp"
 #include "igvc_messages/msg/motor_feedback.hpp"
@@ -42,6 +39,19 @@ public:
 private:
     void onMotorInputReceived(const igvc_messages::msg::MotorInput::SharedPtr msg)
     {
+        // Our msg delivers the velocities as floats, but our CAN packet uses int16_t
+        // so we need to convert them by multiplying by 1000 and casting to int16_t
+        // this gives us a resolution of 0.001 m/s or rad/s
+
+        IGVC::CAN::Packets::MotorInput packet;
+        packet.forward_velocity = static_cast<int16_t>(msg->forward_velocity * 1000);
+        packet.sideways_velocity = static_cast<int16_t>(msg->sideways_velocity * 1000);
+        packet.angular_velocity = static_cast<int16_t>(msg->angular_velocity * 1000);
+        struct can_frame frame;
+        frame.can_id = IGVC::CAN::IDS::MOTOR_INPUT;
+        frame.can_dlc = sizeof(IGVC::CAN::Packets::MotorInput);
+        std::memcpy(frame.data, &packet, sizeof(IGVC::CAN::Packets::MotorInput));
+        can_send_queue_.push(frame);
     }
 
 private:
@@ -123,6 +133,43 @@ private:
 
     void onCanReceived(const struct can_frame &frame)
     {
+        switch (frame.can_id)
+        {
+        case IGVC::CAN::IDS::MOTOR_FEEDBACK:
+        {
+            IGVC::CAN::Packets::MotorFeedback packet;
+            std::memcpy(&packet, frame.data, sizeof(IGVC::CAN::Packets::MotorFeedback));
+
+            igvc_messages::msg::MotorFeedback msg;
+            msg.delta_x = static_cast<float>(packet.delta_x) / 1000.0f;
+            msg.delta_y = static_cast<float>(packet.delta_y) / 1000.0f;
+            msg.delta_theta = static_cast<float>(packet.delta_theta) / 1000.0f;
+            mMotorFeedbackPublisher->publish(msg);
+            break;
+        }
+        
+        case IGVC::CAN::IDS::ESTOP:
+        {
+            // TODO: Set estop
+            RCLCPP_WARN(this->get_logger(), "ESTOP Received");
+            break;
+        }
+
+        case IGVC::CAN::IDS::MOBILITY_START:
+        {
+            // TODO: Set mobility
+            RCLCPP_INFO(this->get_logger(), "Mobility Start Received");
+            break;
+        }
+
+        case IGVC::CAN::IDS::MOBILITY_STOP:
+        {
+            // TODO: Set mobility
+            RCLCPP_INFO(this->get_logger(), "Mobility Stop Received");
+            break;
+        }
+
+        }
     }
 
     void canReaderThread()

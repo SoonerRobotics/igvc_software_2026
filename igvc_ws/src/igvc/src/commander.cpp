@@ -4,10 +4,10 @@
 #include "std_msgs/msg/string.hpp"
 #include "igvc_messages/msg/igvc_device_init.hpp"
 #include "igvc_messages/msg/igvc_device_state.hpp"
-#include "igvc_messages/msg/igvc_system_state.hpp"
+#include "igvc_messages/msg/igvc_system_context.hpp"
 #include "igvc_messages/srv/update_configuration.hpp"
 #include "igvc_messages/srv/update_device_state.hpp"
-#include "igvc_messages/srv/update_system_state.hpp"
+#include "igvc_messages/srv/update_system_context.hpp"
 
 class IGVCCommander : public IGVC::Node
 {
@@ -23,7 +23,7 @@ public:
         // publisher and subscribers
         mDeviceInitPublisher = this->create_publisher<igvc_messages::msg::IGVCDeviceInit>(IGVC::Topics::DEVICE_INIT, 10);
         mConfigUpdatePublisher = this->create_publisher<std_msgs::msg::String>(IGVC::Topics::CONFIGURATION, 10);
-        mSystemStatePublisher = this->create_publisher<igvc_messages::msg::IGVCSystemState>(IGVC::Topics::SYSTEM_STATE, 10);
+        mSystemContextPublisher = this->create_publisher<igvc_messages::msg::IGVCSystemContext>(IGVC::Topics::SYSTEM_CONTEXT, 10);
         mDeviceStatePublisher = this->create_publisher<igvc_messages::msg::IGVCDeviceState>(IGVC::Topics::DEVICE_STATE, 10);
 
         // services
@@ -37,9 +37,9 @@ public:
             std::bind(&IGVCCommander::onUpdateDeviceState, this, std::placeholders::_1, std::placeholders::_2)
         );
 
-        mUpdateSystemStateService = this->create_service<igvc_messages::srv::UpdateSystemState>(
-            IGVC::Services::UPDATE_SYSTEM_STATE,
-            std::bind(&IGVCCommander::onUpdateSystemState, this, std::placeholders::_1, std::placeholders::_2)
+        mUpdateSystemContextService = this->create_service<igvc_messages::srv::UpdateSystemContext>(
+            IGVC::Services::UPDATE_SYSTEM_CONTEXT,
+            std::bind(&IGVCCommander::onUpdateSystemContext, this, std::placeholders::_1, std::placeholders::_2)
         );
     }
 
@@ -80,17 +80,22 @@ private:
         response->ok = true;
     }
 
-    void onUpdateSystemState(
-        const std::shared_ptr<igvc_messages::srv::UpdateSystemState::Request> request,
-        std::shared_ptr<igvc_messages::srv::UpdateSystemState::Response> response
+    void onUpdateSystemContext(
+        const std::shared_ptr<igvc_messages::srv::UpdateSystemContext::Request> request,
+        std::shared_ptr<igvc_messages::srv::UpdateSystemContext::Response> response
     )
     {
+        // update our local state
         setSystemState(static_cast<IGVC::SystemState>(request->state));
-
-        // publish that change
-        igvc_messages::msg::IGVCSystemState stateMsg;
+        setMobilityEnabled(request->mobility);
+        setEmergencyStopped(request->estop);
+        
+        // publish that change to everyone
+        igvc_messages::msg::IGVCSystemContext stateMsg;
         stateMsg.state = request->state;
-        mSystemStatePublisher->publish(stateMsg);
+        stateMsg.mobility = request->mobility;
+        stateMsg.estop = request->estop;
+        mSystemContextPublisher->publish(stateMsg);
 
         response->ok = true;
     }
@@ -141,7 +146,7 @@ private:
         RCLCPP_INFO(this->get_logger(), "Node %s discovered, sending init payload", name.c_str());
 
         IGVC::DeviceInitPayload payloadData {
-            .system_state = getSystemState(),
+            .context = getSystemContext(),
             .device_state = IGVC::DeviceState::INITIALIZING,
             .configuration = getConfigurationJson(),
             .device_states = getAllDeviceStates()
@@ -172,13 +177,13 @@ private:
     // publishers
     rclcpp::Publisher<igvc_messages::msg::IGVCDeviceInit>::SharedPtr mDeviceInitPublisher;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr mConfigUpdatePublisher;
-    rclcpp::Publisher<igvc_messages::msg::IGVCSystemState>::SharedPtr mSystemStatePublisher;
+    rclcpp::Publisher<igvc_messages::msg::IGVCSystemContext>::SharedPtr mSystemContextPublisher;
     rclcpp::Publisher<igvc_messages::msg::IGVCDeviceState>::SharedPtr mDeviceStatePublisher;
 
     // services
     rclcpp::Service<igvc_messages::srv::UpdateConfiguration>::SharedPtr mUpdateConfigService;
     rclcpp::Service<igvc_messages::srv::UpdateDeviceState>::SharedPtr mUpdateDeviceStateService;
-    rclcpp::Service<igvc_messages::srv::UpdateSystemState>::SharedPtr mUpdateSystemStateService;
+    rclcpp::Service<igvc_messages::srv::UpdateSystemContext>::SharedPtr mUpdateSystemContextService;
 };
 
 int main(int argc, char *argv[])

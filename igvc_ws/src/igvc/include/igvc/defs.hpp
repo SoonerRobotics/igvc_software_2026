@@ -23,13 +23,22 @@ namespace IGVC
         ERRORED = 5,
     };
 
+    struct SystemContext
+    {
+        SystemState state;
+        bool isEmergencyStopped;
+        bool isMobilityEnabled;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(SystemContext, state, isEmergencyStopped, isMobilityEnabled)
+    };
+
     struct DeviceInitPayload
     {
-        SystemState system_state;
+        SystemContext context;
         DeviceState device_state;
         std::string configuration;
         std::map<std::string, DeviceState> device_states;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, system_state, device_state, configuration, device_states)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(DeviceInitPayload, context, device_state, configuration, device_states)
     };
 }

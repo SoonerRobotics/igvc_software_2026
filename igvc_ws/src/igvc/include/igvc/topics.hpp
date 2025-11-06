@@ -14,7 +14,7 @@ namespace IGVC
         // framework things
         constexpr const char *DEVICE_INIT = "/igvc/device_init";
         constexpr const char *CONFIGURATION = "/igvc/configuration";
-        constexpr const char *SYSTEM_STATE = "/igvc/system_state";
+        constexpr const char *SYSTEM_CONTEXT = "/igvc/system_context";
         constexpr const char *DEVICE_STATE = "/igvc/device_state";
     }
 
@@ -22,6 +22,6 @@ namespace IGVC
     {
         constexpr const char *UPDATE_CONFIGURATION = "/igvc/update_configuration";
         constexpr const char *UPDATE_DEVICE_STATE = "/igvc/update_device_state";
-        constexpr const char *UPDATE_SYSTEM_STATE = "/igvc/update_system_state";
+        constexpr const char *UPDATE_SYSTEM_CONTEXT = "/igvc/update_system_context";
     }
 }

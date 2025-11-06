@@ -30,10 +30,10 @@ namespace IGVC
             std::bind(&IGVC::Node::onDeviceStateChanged, this, _1)
         );
 
-        mSystemStateSubscription = this->create_subscription<igvc_messages::msg::IGVCSystemState>(
-            IGVC::Topics::SYSTEM_STATE,
+        mSystemContextSubscription = this->create_subscription<igvc_messages::msg::IGVCSystemContext>(
+            IGVC::Topics::SYSTEM_CONTEXT,
             10,
-            std::bind(&IGVC::Node::onSystemStateChanged, this, _1)
+            std::bind(&IGVC::Node::onSystemContextChanged, this, _1)
         );
 
         // services
@@ -45,8 +45,8 @@ namespace IGVC
             IGVC::Services::UPDATE_DEVICE_STATE
         );
 
-        mSystemStateUpdateClient = this->create_client<igvc_messages::srv::UpdateSystemState>(
-            IGVC::Services::UPDATE_SYSTEM_STATE
+        mSystemContextUpdateClient = this->create_client<igvc_messages::srv::UpdateSystemContext>(
+            IGVC::Services::UPDATE_SYSTEM_CONTEXT
         );
     }
 
@@ -56,7 +56,22 @@ namespace IGVC
 
     SystemState Node::getSystemState()
     {
-        return mSystemState;
+        return mSystemContext.state;
+    }
+
+    SystemContext Node::getSystemContext()
+    {
+        return mSystemContext;
+    }
+
+    bool Node::isMobilityEnabled()
+    {
+        return mSystemContext.isMobilityEnabled;
+    }
+
+    bool Node::isEmergencyStopped()
+    {
+        return mSystemContext.isEmergencyStopped;
     }
 
     DeviceState Node::getDeviceState()
@@ -86,23 +101,20 @@ namespace IGVC
 
     void Node::setSystemState(const SystemState state)
     {
-        if (mIsCommander)
-        {
-            mSystemState = state;
-            return;
-        }
+        mSystemContext.state = state;
+        setSystemContext(mSystemContext);
+    }
 
-        if (!mSystemStateUpdateClient->wait_for_service(std::chrono::seconds(1)))
-        {
-            RCLCPP_WARN(this->get_logger(), "System state update service not available");
-            return;
-        }
-        
-        igvc_messages::srv::UpdateSystemState::Request request;
-        request.state = static_cast<int>(state);
-        auto future = mSystemStateUpdateClient->async_send_request(
-            std::make_shared<igvc_messages::srv::UpdateSystemState::Request>(request)
-        );
+    void Node::setMobilityEnabled(const bool enabled)
+    {
+        mSystemContext.isMobilityEnabled = enabled;
+        setSystemContext(mSystemContext);
+    }
+
+    void Node::setEmergencyStopped(const bool estop)
+    {
+        mSystemContext.isEmergencyStopped = estop;
+        setSystemContext(mSystemContext);
     }
 
     void Node::setDeviceState(const DeviceState state)
@@ -127,6 +139,29 @@ namespace IGVC
         );
     }
 
+    void Node::setSystemContext(const SystemContext &context)
+    {
+        if (mIsCommander)
+        {
+            mSystemContext = context;
+            return;
+        }
+
+        if (!mSystemContextUpdateClient->wait_for_service(std::chrono::seconds(1)))
+        {
+            RCLCPP_WARN(this->get_logger(), "System state update service not available");
+            return;
+        }
+        
+        igvc_messages::srv::UpdateSystemContext::Request request;
+        request.state = static_cast<int>(context.state);
+        request.estop = context.isEmergencyStopped;
+        request.mobility = context.isMobilityEnabled;
+        auto future = mSystemContextUpdateClient->async_send_request(
+            std::make_shared<igvc_messages::srv::UpdateSystemContext::Request>(request)
+        );
+    }
+
     void Node::onDeviceInitialized(const igvc_messages::msg::IGVCDeviceInit::SharedPtr msg)
     {
         // ignore messages for anything that is not us
@@ -136,7 +171,7 @@ namespace IGVC
         }
 
         nlohmann::json j = nlohmann::json::parse(msg->json);
-        mSystemState = static_cast<SystemState>(j["system_state"].get<int>());
+        mSystemContext = j["context"].get<SystemContext>();
         mDeviceState = static_cast<DeviceState>(j["device_state"].get<int>());
         mConfig.loadFromJson(j["configuration"].get<std::string>());
 
@@ -188,8 +223,10 @@ namespace IGVC
         }
     }
 
-    void Node::onSystemStateChanged(const igvc_messages::msg::IGVCSystemState::SharedPtr msg)
+    void Node::onSystemContextChanged(const igvc_messages::msg::IGVCSystemContext::SharedPtr msg)
     {
-        mSystemState = static_cast<SystemState>(msg->state);
+        mSystemContext.isEmergencyStopped = msg->estop;
+        mSystemContext.isMobilityEnabled = msg->mobility;
+        mSystemContext.state = static_cast<SystemState>(msg->state);
     }
 }

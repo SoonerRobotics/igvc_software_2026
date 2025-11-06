@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace IGVC
 {
     namespace CAN
@@ -7,10 +9,38 @@ namespace IGVC
         namespace IDS
         {
             // To CAN
-            constexpr int MOTOR_INPUT = 0x01;
+            constexpr int MOTOR_INPUT = 10;
 
             // From CAN
-            constexpr int MOTOR_FEEDBACK = 0x02;
+            constexpr int MOTOR_FEEDBACK = 14;
+            constexpr int ESTOP = 0;
+            constexpr int MOBILITY_STOP = 1;
+            constexpr int MOBILITY_START = 9;
+        }
+
+        namespace Packets
+        {
+            /**
+             * A MotorInput packet to control the robot.
+             * Three signed shorts (forward velocity, sideways velocity, angular velocity)
+             */
+            struct MotorInput
+            {
+                int16_t forward_velocity;
+                int16_t sideways_velocity;
+                int16_t angular_velocity;
+            };
+
+            /**
+             * A MotorFeedback packet
+             * Three signed shorts (delta_x, delta_y, delta_theta)
+             */
+            struct MotorFeedback
+            {
+                int16_t delta_x;
+                int16_t delta_y;
+                int16_t delta_theta;
+            };
         }
     }
 }
