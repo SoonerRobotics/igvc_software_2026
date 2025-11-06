@@ -7,6 +7,16 @@
 namespace IGVC
 {
     /**
+     * @enum LimiterKey
+     */
+    enum LimiterKey : uint8_t
+    {
+        MotorInput,
+        MotorFeedback,
+        GPSData,
+    };
+
+    /**
      * @brief Class representing a limiter for broadcast values.
      */
     class Limiter
@@ -32,11 +42,14 @@ namespace IGVC
          */
         bool willExceed(LimiterKey key) const
         {
-            auto it = mLimits.find(key);
-            if (it != mLimits.end())
+            auto limitIt = mLimits.find(key);
+            if (limitIt != mLimits.end())
             {
-                return std::abs(mCurrentValues.at(key)) > it->second;
+                auto currentIt = mCurrentValues.find(key);
+                int32_t currentValue = (currentIt != mCurrentValues.end()) ? currentIt->second : 0;
+                return (currentValue + 1) > std::ceil(limitIt->second);
             }
+
             return false;
         }
 
@@ -54,9 +67,9 @@ namespace IGVC
          */
         void tick()
         {
-            for (auto &pair : mCurrentValues)
+            for (auto &pair : mLimits)
             {
-                pair.second = 0;
+                mCurrentValues[pair.first] = 0;
             }
         }
     
@@ -66,15 +79,5 @@ namespace IGVC
 
         // Map to hold the current values for different keys
         std::map<LimiterKey, int32_t> mCurrentValues;
-    };
-
-    /**
-     * @enum LimiterKey
-     */
-    enum LimiterKey : uint8_t
-    {
-        MotorInput,
-        MotorFeedback,
-        GPSData,
     };
 }

@@ -2,3 +2,10 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 @plugin 'daisyui';
+
+@theme {
+    --color-status-ready: oklch(0.5 0.2 140);
+    --color-status-error: oklch(0.55 0.25 30);
+    --color-status-warning: oklch(0.6 0.22 50);
+    --color-status-offline: oklch(0.55 0 0);
+}

@@ -13,10 +13,10 @@
 #include "igvc_display/websocketpp/server.hpp"
 #include <iostream>
 
-class IGVCDisplayAdapter : public IGVC::Node
+class IGVCDataAdapter : public IGVC::Node
 {
 public:
-    IGVCDisplayAdapter() : IGVC::Node("igvc_display_adapter")
+    IGVCDataAdapter() : IGVC::Node("igvc_data_adapter")
     {
         mLimiter.setLimit(IGVC::LimiterKey::MotorInput, 5.0)
             .setLimit(IGVC::LimiterKey::MotorFeedback, 5.0)
@@ -118,5 +118,5 @@ private:
 
 int main(int argc, char *argv[])
 {
-    IGVC::Node::create_and_run<IGVCDisplayAdapter>(argc, argv);
+    IGVC::Node::create_and_run<IGVCDataAdapter>(argc, argv);
 }

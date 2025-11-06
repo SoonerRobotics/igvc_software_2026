@@ -20,17 +20,23 @@ if(BUILD_TESTING)
 endif()
 
 # creating executables
-add_executable(display_test src/main.cpp)
+add_executable(camera_adapter src/camera_adapter.cpp)
+ament_target_dependencies(camera_adapter rclcpp std_msgs sensor_msgs igvc)
 
-ament_target_dependencies(display_test rclcpp std_msgs sensor_msgs igvc)
+target_include_directories(camera_adapter PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
 
-target_include_directories(display_test PUBLIC
+add_executable(data_adapter src/data_adapter.cpp)
+ament_target_dependencies(data_adapter rclcpp std_msgs sensor_msgs igvc)
+
+target_include_directories(data_adapter PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
 # installing executables
 install(TARGETS
-   display_test
+   camera_adapter data_adapter
    DESTINATION lib/${PROJECT_NAME}
 )
 
