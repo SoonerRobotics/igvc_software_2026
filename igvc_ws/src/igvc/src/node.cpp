@@ -36,6 +36,11 @@ namespace IGVC
             std::bind(&IGVC::Node::onSystemContextChanged, this, _1)
         );
 
+        mSafetyLightsPublisher = this->create_publisher<igvc_messages::msg::SafetyLights>(
+            IGVC::Topics::SAFETY_LIGHTS,
+            10
+        );
+
         // services
         mConfigUpdateClient = this->create_client<igvc_messages::srv::UpdateConfiguration>(
             IGVC::Services::UPDATE_CONFIGURATION
@@ -139,6 +144,17 @@ namespace IGVC
         );
     }
 
+    void Node::setSafetyLights(const IGVC::Units::Color &color, const IGVC::SafetyLightsMode mode, const uint32_t blinkRateMs)
+    {
+        igvc_messages::msg::SafetyLights msg;
+        msg.red = color.r();
+        msg.green = color.g();
+        msg.blue = color.b();
+        msg.mode = static_cast<uint8_t>(mode);
+        msg.blink_rate = blinkRateMs;
+        mSafetyLightsPublisher->publish(msg);
+    }
+
     void Node::setSystemContext(const SystemContext &context)
     {
         if (mIsCommander)
@@ -188,6 +204,7 @@ namespace IGVC
     void Node::onConfigUpdated(const std_msgs::msg::String::SharedPtr msg)
     {
         mConfig.loadFromJson(msg->data);
+        onConfigurationUpdated(mConfig);
     }
 
     void Node::onLocalConfigUpdated()
@@ -225,8 +242,25 @@ namespace IGVC
 
     void Node::onSystemContextChanged(const igvc_messages::msg::IGVCSystemContext::SharedPtr msg)
     {
+        SystemContext oldContext = mSystemContext;
+
         mSystemContext.isEmergencyStopped = msg->estop;
         mSystemContext.isMobilityEnabled = msg->mobility;
         mSystemContext.state = static_cast<SystemState>(msg->state);
+
+        if (oldContext.state != mSystemContext.state)
+        {
+            onSystemStateUpdated(oldContext.state, mSystemContext.state);
+        }
+
+        if (oldContext.isMobilityEnabled != mSystemContext.isMobilityEnabled)
+        {
+            onMobilityUpdated(oldContext.isMobilityEnabled, mSystemContext.isMobilityEnabled);
+        }
+
+        if (oldContext.isEmergencyStopped != mSystemContext.isEmergencyStopped)
+        {
+            onEmergencyStoppedUpdated(oldContext.isEmergencyStopped, mSystemContext.isEmergencyStopped);
+        }
     }
 }

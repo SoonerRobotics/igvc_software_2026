@@ -509,5 +509,47 @@ namespace IGVC
                 return RadiansPerSecond(radians);
             }
         };
+
+        // Color
+        class Color
+        {
+        public:
+            /**
+             * Constructor
+             * @param r Red component (0-255)
+             * @param g Green component (0-255)
+             * @param b Blue component (0-255)
+             */
+            Color(uint8_t r, uint8_t g, uint8_t b) : mR(r), mG(g), mB(b) {}
+            uint8_t r() const { return mR; }
+            uint8_t g() const { return mG; }
+            uint8_t b() const { return mB; }
+
+        public:
+            static Color Red()
+            {
+                return Color(255, 0, 0);
+            }
+
+            static Color Green()
+            {
+                return Color(0, 255, 0);
+            }
+
+            static Color Blue()
+            {
+                return Color(0, 0, 255);
+            }
+
+            static Color White()
+            {
+                return Color(255, 255, 255);
+            }
+
+        private:
+            uint8_t mR;
+            uint8_t mG;
+            uint8_t mB;
+        };
     }
 }

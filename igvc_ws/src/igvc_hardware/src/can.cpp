@@ -6,6 +6,7 @@
 
 #include "igvc_messages/msg/motor_input.hpp"
 #include "igvc_messages/msg/motor_feedback.hpp"
+#include "igvc_messages/msg/safety_lights.hpp"
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
@@ -25,6 +26,10 @@ public:
         mMotorInputSubscription = this->create_subscription<igvc_messages::msg::MotorInput>(
             IGVC::Topics::MOTOR_INPUT, 10,
             std::bind(&IGVCHardwareCanNode::onMotorInputReceived, this, std::placeholders::_1));
+
+        mSafetyLightsSubscription = this->create_subscription<igvc_messages::msg::SafetyLights>(
+            IGVC::Topics::SAFETY_LIGHTS, 10,
+            std::bind(&IGVCHardwareCanNode::onSafetyLightsReceived, this, std::placeholders::_1));
 
         mMotorFeedbackPublisher = this->create_publisher<igvc_messages::msg::MotorFeedback>(
             IGVC::Topics::MOTOR_FEEDBACK, 10);
@@ -51,6 +56,21 @@ private:
         frame.can_id = IGVC::CAN::IDS::MOTOR_INPUT;
         frame.can_dlc = sizeof(IGVC::CAN::Packets::MotorInput);
         std::memcpy(frame.data, &packet, sizeof(IGVC::CAN::Packets::MotorInput));
+        can_send_queue_.push(frame);
+    }
+
+    void onSafetyLightsReceived(const igvc_messages::msg::SafetyLights::SharedPtr msg)
+    {
+        IGVC::CAN::Packets::SafetyLights packet;
+        packet.r = static_cast<uint8_t>(msg->red);
+        packet.g = static_cast<uint8_t>(msg->green);
+        packet.b = static_cast<uint8_t>(msg->blue);
+        packet.mode = static_cast<uint8_t>(msg->mode);
+        packet.blink_rate_ms = static_cast<uint16_t>(msg->blink_rate);
+        struct can_frame frame;
+        frame.can_id = IGVC::CAN::IDS::SAFETY_LIGHTS;
+        frame.can_dlc = sizeof(IGVC::CAN::Packets::SafetyLights);
+        std::memcpy(frame.data, &packet, sizeof(IGVC::CAN::Packets::SafetyLights));
         can_send_queue_.push(frame);
     }
 
@@ -217,6 +237,7 @@ private:
 
     // Subscribers and Publishers
     rclcpp::Subscription<igvc_messages::msg::MotorInput>::SharedPtr mMotorInputSubscription;
+    rclcpp::Subscription<igvc_messages::msg::SafetyLights>::SharedPtr mSafetyLightsSubscription;
     rclcpp::Publisher<igvc_messages::msg::MotorFeedback>::SharedPtr mMotorFeedbackPublisher;
 };
 

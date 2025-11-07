@@ -10,6 +10,7 @@ namespace IGVC
         constexpr const char *PROCESSED_IMAGE = "/igvc/camera/{dynamic}/processed";
         constexpr const char *MOTOR_INPUT = "/igvc/motor_input";
         constexpr const char *MOTOR_FEEDBACK = "/igvc/motor_feedback";
+        constexpr const char *SAFETY_LIGHTS = "/igvc/safety_lights";
 
         // framework things
         constexpr const char *DEVICE_INIT = "/igvc/device_init";

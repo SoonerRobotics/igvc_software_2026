@@ -23,6 +23,13 @@ namespace IGVC
         ERRORED = 5,
     };
 
+    enum SafetyLightsMode : uint8_t
+    {
+        SOLID = 0,
+        BLINKING = 1,
+        BOOTING = 2,
+    };
+
     struct SystemContext
     {
         SystemState state;

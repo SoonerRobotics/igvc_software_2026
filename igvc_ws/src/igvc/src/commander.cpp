@@ -47,7 +47,15 @@ public:
     {
         setDeviceState(IGVC::DeviceState::OPERATING);
     }
-    
+
+    void onEmergencyStoppedUpdated(bool oldEstop, bool newEstop) override
+    {
+        if (getSystemState() != IGVC::SystemState::DISABLED && newEstop == true)
+        {
+            RCLCPP_WARN(this->get_logger(), "Emergency stop detected, disabling system");
+            setSystemState(IGVC::SystemState::DISABLED);
+        }
+    }
 private:
     void onUpdateConfiguration(
         const std::shared_ptr<igvc_messages::srv::UpdateConfiguration::Request> request,

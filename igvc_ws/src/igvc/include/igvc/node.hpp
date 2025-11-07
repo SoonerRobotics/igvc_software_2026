@@ -13,9 +13,11 @@
 #include "igvc/topics.hpp"
 #include "igvc/config.hpp"
 #include "igvc/utilities.hpp"
+#include "igvc/units.hpp"
 #include "igvc_messages/msg/igvc_device_init.hpp"
 #include "igvc_messages/msg/igvc_device_state.hpp"
 #include "igvc_messages/msg/igvc_system_context.hpp"
+#include "igvc_messages/msg/safety_lights.hpp"
 #include "igvc_messages/srv/update_configuration.hpp"
 #include "igvc_messages/srv/update_device_state.hpp"
 #include "igvc_messages/srv/update_system_context.hpp"
@@ -41,12 +43,14 @@ namespace IGVC
         void setSystemState(const SystemState state);
         void setMobilityEnabled(const bool enabled);
         void setEmergencyStopped(const bool estop);
+        void setSafetyLights(const IGVC::Units::Color &color, const IGVC::SafetyLightsMode mode, const uint32_t blinkRateMs = 750);
         std::string getConfigurationJson();
 
         virtual void init() = 0;
         virtual void onSystemStateUpdated(SystemState oldState, SystemState newState) {}
         virtual void onMobilityUpdated(bool oldMobility, bool newMobility) {}
         virtual void onEmergencyStoppedUpdated(bool oldEstop, bool newEstop) {}
+        virtual void onConfigurationUpdated(const Config &config) {}
 
     public:
         template <typename TNODE, typename... TARGS>
@@ -95,6 +99,9 @@ namespace IGVC
         rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mConfigUpdateSubscription;
         rclcpp::Subscription<igvc_messages::msg::IGVCDeviceState>::SharedPtr mDeviceStateSubscription;
         rclcpp::Subscription<igvc_messages::msg::IGVCSystemContext>::SharedPtr mSystemContextSubscription;
+
+        rclcpp::Publisher<igvc_messages::msg::SafetyLights>::SharedPtr mSafetyLightsPublisher;
+
         rclcpp::Client<igvc_messages::srv::UpdateConfiguration>::SharedPtr mConfigUpdateClient;
         rclcpp::Client<igvc_messages::srv::UpdateDeviceState>::SharedPtr mDeviceStateUpdateClient;
         rclcpp::Client<igvc_messages::srv::UpdateSystemContext>::SharedPtr mSystemContextUpdateClient;
