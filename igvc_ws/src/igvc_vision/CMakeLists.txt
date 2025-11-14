@@ -19,6 +19,8 @@ find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS} /usr/include/opencv4)
 
+set(ONNX_RUNTIME_PATH "/opt/onnxruntime")
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
@@ -34,9 +36,16 @@ add_executable(vision_test src/main.cpp src/pipeline.cpp)
 ament_target_dependencies(vision_test igvc rclcpp std_msgs nav_msgs sensor_msgs cv_bridge image_transport OpenCV)
 target_link_libraries(vision_test ${OpenCV_LIBS} opencv_core opencv_imgproc opencv_highgui)
 
+add_executable(yolo_node src/yolo.cpp)
+ament_target_dependencies(yolo_node igvc rclcpp std_msgs nav_msgs sensor_msgs cv_bridge image_transport OpenCV)
+target_link_directories(yolo_node PRIVATE ${ONNX_RUNTIME_PATH}/lib)
+target_include_directories(yolo_node PRIVATE ${ONNX_RUNTIME_PATH}/include)
+target_link_libraries(yolo_node ${OpenCV_LIBS} opencv_core opencv_imgproc opencv_highgui onnxruntime)
+
 # installing executables
 install(TARGETS
    vision_test
+    yolo_node
    DESTINATION lib/${PROJECT_NAME}
  )
 

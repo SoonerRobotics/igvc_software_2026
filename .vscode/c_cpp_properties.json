@@ -9,7 +9,10 @@
                 "/opt/ros/jazzy/include/**",
 
                 // OpenCV includes
-                "/usr/include/opencv4/**"
+                "/usr/include/opencv4/**",
+
+                // ONNX includes
+                "/opt/onnxruntime/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

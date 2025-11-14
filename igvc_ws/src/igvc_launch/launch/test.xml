@@ -1,5 +1,6 @@
 <launch>
   <node pkg="igvc" exec="commander" output="screen" emulate_tty="true"/>
-  <node pkg="igvc_display" exec="display_test" output="screen" emulate_tty="true"/>
-  <node pkg="igvc_vision" exec="vision_test" output="screen" emulate_tty="true"/>
+  <!-- <node pkg="igvc_display" exec="display_test" output="screen" emulate_tty="true"/> -->
+  <!-- <node pkg="igvc_vision" exec="vision_test" output="screen" emulate_tty="true"/> -->
+  <node pkg="igvc_vision" exec="yolo_node" output="screen" emulate_tty="true"/>
 </launch>
