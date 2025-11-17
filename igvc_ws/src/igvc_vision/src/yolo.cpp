@@ -37,7 +37,7 @@ public:
         // load the model
         mOrtSession = std::make_unique<Ort::Session>(mOrtEnv, "yolo11n.onnx", mOrtSessionOptions);
 
-        auto [input_tensor_values, input_tensor_shape, image] = read_image("bus.jpg", 640);
+        auto [input_tensor_values, input_tensor_shape, image] = read_image("igvc_f13.png", 640);
         auto [output_tensor_values, output_tensor_shape] = process_image(*mOrtSession, input_tensor_values, input_tensor_shape);
         display_image(image, output_tensor_values, output_tensor_shape);
     }
