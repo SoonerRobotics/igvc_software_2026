@@ -6,6 +6,7 @@ namespace IGVC
     {
         // real robot stuff
         constexpr const char *GPS = "/igvc/gps";
+        constexpr const char *IMU = "/igvc/imu";
         constexpr const char *CAMERA = "/igvc/camera/{dynamic}/raw";
         constexpr const char *PROCESSED_IMAGE = "/igvc/camera/{dynamic}/processed";
         constexpr const char *MOTOR_INPUT = "/igvc/motor_input";

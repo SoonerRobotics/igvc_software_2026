@@ -23,6 +23,13 @@ endif()
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS} /usr/include/opencv4)
 
+# Vectornav
+set(VN_DIR "/usr/local/vectornav/cpp")
+
+file(GLOB VN_SOURCES "${VN_DIR}/src/**/*.cpp")
+add_library(vectornav SHARED ${VN_SOURCES})
+target_include_directories(vectornav PUBLIC "${VN_DIR}/include")
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   set(ament_cmake_copyright_FOUND TRUE)
@@ -33,14 +40,20 @@ endif()
 # local package include directories
 include_directories(include)
 
-# creating executables
+# create executable (can)
 add_executable(igvc_hardware_can src/can.cpp)
 ament_target_dependencies(igvc_hardware_can igvc rclcpp std_msgs nav_msgs sensor_msgs cv_bridge image_transport OpenCV)
 target_link_libraries(igvc_hardware_can ${OpenCV_LIBS} ${SOCKETCAN_LIB} opencv_core opencv_imgproc opencv_highgui)
 
+# create executable (vn)
+add_executable(igvc_hardware_vn src/vn.cpp)
+ament_target_dependencies(igvc_hardware_vn igvc rclcpp std_msgs nav_msgs sensor_msgs)
+target_link_libraries(igvc_hardware_vn vectornav)
+
 # installing executables
 install(TARGETS
    igvc_hardware_can
+   igvc_hardware_vn
    DESTINATION lib/${PROJECT_NAME}
  )
 

@@ -12,7 +12,10 @@
                 "/usr/include/opencv4/**",
 
                 // ONNX includes
-                "/opt/onnxruntime/include/**"
+                "/opt/onnxruntime/include/**",
+                
+                // VectorNav includes
+                "/usr/local/vectornav/cpp/include/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
