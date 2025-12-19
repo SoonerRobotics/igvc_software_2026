@@ -1,3 +1,0 @@
-float32 forward_velocity 0
-float32 sideways_velocity 0
-float32 angular_velocity 0

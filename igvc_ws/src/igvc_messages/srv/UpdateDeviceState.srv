@@ -1,4 +1,0 @@
-string device
-int32 state
----
-bool ok
