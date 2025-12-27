@@ -33,6 +33,8 @@ public class ReadThread implements Runnable {
                 }
             } catch (Exception e) {
                 logger.error("Error while reading message from simulator", e);
+                SimulatorLink.INSTANCE.setConnected(false);
+                m_Running = false;
             }
         }
     }

@@ -2,7 +2,8 @@ package com.soonerrobotics.sus.simulator.messages;
 
 public enum MessageType {
     CONNECT(1),
-    UNUSED(999);
+    UNUSED(999),
+    MOTORINPUT_2026(20260);
 
     private final int value;
 

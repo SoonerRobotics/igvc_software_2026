@@ -28,10 +28,14 @@ public class WriteThread implements Runnable {
                 Message<?> message = m_MessageQueue.take();
                 message.write(m_OutputStream);
                 m_OutputStream.flush();
+
+                logger.debug("Sent message: " + message.getClass().getSimpleName());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (IOException e) {
                 logger.error("Error while writing message to simulator", e);
+                m_Running = false;
+                SimulatorLink.INSTANCE.setConnected(false);
             }
         }
     }
