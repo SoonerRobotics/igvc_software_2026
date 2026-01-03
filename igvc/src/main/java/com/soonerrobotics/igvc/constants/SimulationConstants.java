@@ -1,4 +1,4 @@
-package com.soonerrobotics.constants;
+package com.soonerrobotics.igvc.constants;
 
 public class SimulationConstants {
     public static final boolean IS_SIMULATION = true;

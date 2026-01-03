@@ -1,11 +1,14 @@
 package com.soonerrobotics.sus.simulator;
 
 import java.io.DataInputStream;
+import java.io.IOException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.soonerrobotics.sus.simulator.messages.MessageType;
+import com.soonerrobotics.sus.simulator.packets.ImagePacket;
+import com.soonerrobotics.sus.simulator.packets.MotorFeedbackPacket;
+import com.soonerrobotics.sus.simulator.packets.PacketType;
 
 public class ReadThread implements Runnable {
     private static final Logger logger = LogManager.getLogger(ReadThread.class);
@@ -21,18 +24,21 @@ public class ReadThread implements Runnable {
     public void run() {
         while (m_Running) {
             try {
-                MessageType messageType = MessageType.fromInt(m_InputStream.readInt());
+                PacketType packetType = PacketType.fromInt(m_InputStream.readInt());
 
-                switch (messageType) {
-                    case CONNECT -> {
-                        SimulatorLink.INSTANCE.setConnected(m_Running);
+                switch (packetType) {
+                    case R_MOTORFEEDBACK_2026 -> {
+                        SimulatorLink.INSTANCE.handlePacket(new MotorFeedbackPacket().read(m_InputStream));
+                    }
+                    case R_CAMERAFRAME_2026 -> {
+                        SimulatorLink.INSTANCE.handlePacket(new ImagePacket().read(m_InputStream));
                     }
                     default -> {
-                        logger.warn("Received unknown or unhandled message type: " + messageType);
+                        logger.warn("Received unknown or unhandled packet type: " + packetType);
                     }
                 }
-            } catch (Exception e) {
-                logger.error("Error while reading message from simulator", e);
+            } catch (IOException e) {
+                logger.error("Error while reading packet from simulator", e);
                 SimulatorLink.INSTANCE.setConnected(false);
                 m_Running = false;
             }

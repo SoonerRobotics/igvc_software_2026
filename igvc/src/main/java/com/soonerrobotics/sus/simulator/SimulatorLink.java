@@ -10,7 +10,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.soonerrobotics.sus.simulator.messages.Message;
+import com.soonerrobotics.sus.simulator.packets.Packet;
 
 public abstract class SimulatorLink {
     private static final Logger logger = LogManager.getLogger(SimulatorLink.class);
@@ -21,18 +21,19 @@ public abstract class SimulatorLink {
     private static int m_Port;
 
     protected boolean m_Connected = false;
-    
+
     // Socket and stream for communication
     private Socket m_Socket;
-    private final BlockingQueue<Message<?>> m_SendQueue = new LinkedBlockingDeque<>();
+    private final BlockingQueue<Packet<?>> m_SendQueue = new LinkedBlockingDeque<>();
     private DataOutputStream m_OutputStream;
     private DataInputStream m_InputStream;
 
-    // Threading 
+    // Threading
     private WriteThread m_Writer;
     private ReadThread m_Reader;
     private Thread m_ReadThread;
     private Thread m_WriteThread;
+    private Thread m_ConnectThread;
 
     public SimulatorLink(String address, int port) {
         m_Address = address;
@@ -43,6 +44,21 @@ public abstract class SimulatorLink {
 
     public void setConnected(boolean connected) {
         this.m_Connected = connected;
+    }
+
+    public void start() {
+        m_ConnectThread = new Thread(() -> {
+            while (!m_Connected) {
+                try {
+                    connect();
+                    Thread.sleep(5000); // Wait before retrying
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    // logger.error("Connection thread interrupted", e);
+                }
+            }
+        });
+        m_ConnectThread.start();
     }
 
     public void connect() {
@@ -62,7 +78,7 @@ public abstract class SimulatorLink {
 
             logger.info("Connected to simulator at {}:{}", m_Address, m_Port);
         } catch (IOException e) {
-            logger.error("Failed to connect to simulator at {}:{}", m_Address, m_Port, e);
+            // logger.error("Failed to connect to simulator at {}:{}", m_Address, m_Port, e);
         }
     }
 
@@ -77,14 +93,14 @@ public abstract class SimulatorLink {
         }
     }
 
-    public void sendMessage(Message<?> message) {
+    public void sendPacket(Packet<?> packet) {
         try {
-            m_SendQueue.put(message);
+            m_SendQueue.put(packet);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while sending message to simulator", e);
+            logger.error("Interrupted while sending packet to simulator", e);
         }
     }
 
-    public abstract void handleMessage(Message<?> message);
+    public abstract void handlePacket(Packet<?> packet);
 }

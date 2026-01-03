@@ -1,4 +1,4 @@
-package com.soonerrobotics;
+package com.soonerrobotics.igvc;
 
 import com.soonerrobotics.sus.BaseRobot;
 

@@ -1,4 +1,4 @@
-package com.soonerrobotics;
+package com.soonerrobotics.igvc;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

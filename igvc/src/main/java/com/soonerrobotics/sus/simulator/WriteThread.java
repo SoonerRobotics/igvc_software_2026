@@ -7,16 +7,16 @@ import java.util.concurrent.BlockingQueue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.soonerrobotics.sus.simulator.messages.Message;
+import com.soonerrobotics.sus.simulator.packets.Packet;
 
 public class WriteThread implements Runnable {
     private static final Logger logger = LogManager.getLogger(WriteThread.class);
 
     private final DataOutputStream m_OutputStream;
-    private final BlockingQueue<Message<?>> m_MessageQueue;
+    private final BlockingQueue<Packet<?>> m_MessageQueue;
     private volatile boolean m_Running = true;
 
-    public WriteThread(DataOutputStream outputStream, BlockingQueue<Message<?>> messageQueue) {
+    public WriteThread(DataOutputStream outputStream, BlockingQueue<Packet<?>> messageQueue) {
         this.m_OutputStream = outputStream;
         this.m_MessageQueue = messageQueue;
     }
@@ -25,7 +25,7 @@ public class WriteThread implements Runnable {
     public void run() {
         while (m_Running) {
             try {
-                Message<?> message = m_MessageQueue.take();
+                Packet<?> message = m_MessageQueue.take();
                 message.write(m_OutputStream);
                 m_OutputStream.flush();
 

@@ -12,11 +12,11 @@ export const igvcSocket = readable<IGVCSocketData>({ socket: null, status: "disc
     function connect() {
         console.log("Connecting to IGVC WebSocket...");
 
-        socket = new WebSocket("ws://localhost:9002/igvc");
+        socket = new WebSocket("ws://localhost:8080/");
 
         socket.onopen = () => {
             console.log("IGVC WebSocket connected");
-            set({ socket, status: "connected", time: "" });
+            // set({ socket, status: "connected", time: "" });
         };
 
         socket.onclose = (event) => {
@@ -27,8 +27,9 @@ export const igvcSocket = readable<IGVCSocketData>({ socket: null, status: "disc
         };
 
         socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            set({ socket, status: "connected", time: data.time });
+            console.log("IGVC WebSocket message received:", event.data);
+            // const data = JSON.parse(event.data);
+            // set({ socket, status: "connected", time: data.time });
         };
 
         socket.onerror = (error) => {
@@ -36,6 +37,8 @@ export const igvcSocket = readable<IGVCSocketData>({ socket: null, status: "disc
             socket.close();
         };
     }
+
+    console.log("Starting IGVC WebSocket connection...");
 
     connect();
 
