@@ -1,0 +1,34 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+struct Location {
+    latitude: double;
+    longitude: double;
+}
+
+struct Orientation {
+    pitch: float;
+    roll: float;
+    yaw: float;
+}
+
+table VectornavReport {
+    // The timestamp of the image frame in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the image frame
+    sequence_number: uint;
+
+    // The GPS location data
+    location: Location;
+
+    // The orientation data
+    orientation: Orientation;
+
+    // The number of satellites used in the GPS fix
+    num_satellites: ushort;
+
+    // The quality of the GPS fix (0 = no fix, 1 = 2D fix, 2 = 3D fix)
+    fix_quality: byte;
+}
+
+root_type VectornavReport;

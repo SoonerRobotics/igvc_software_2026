@@ -2,6 +2,4 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
-export { Location } from './flatbuffers/location.js';
-export { Orientation } from './flatbuffers/orientation.js';
-export { VectornavReport } from './flatbuffers/vectornav-report.js';
+export * as flatbuffers from './flatbuffers.js';
