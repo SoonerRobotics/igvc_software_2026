@@ -1,0 +1,3 @@
+dotnet add package OpenCvSharp4
+dotnet add package OpenCvSharp4.Extensions
+dotnet add package OpenCvSharp4.official.runtime.linux-x64 --version 4.11.0.20250507
