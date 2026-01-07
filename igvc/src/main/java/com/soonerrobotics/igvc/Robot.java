@@ -4,12 +4,10 @@ import java.util.ArrayList;
 
 import org.greenrobot.eventbus.EventBus;
 
-import com.soonerrobotics.arc.ArcService;
-import com.soonerrobotics.igvc.constants.ArcConstants;
-import com.soonerrobotics.igvc.constants.GeneralConstants;
-import com.soonerrobotics.igvc.constants.SimulationConstants;
+import com.soonerrobotics.Constants;
 import com.soonerrobotics.igvc.nodes.ImageFilteringNode;
 import com.soonerrobotics.igvc.nodes.Node;
+import com.soonerrobotics.igvc.services.ArcService;
 import com.soonerrobotics.igvc.services.RobotSimulatorService;
 import com.soonerrobotics.sus.BaseRobot;
 
@@ -21,7 +19,7 @@ public class Robot extends BaseRobot {
     private final ArrayList<Node> _mNodes = new ArrayList<>();
 
     public Robot() {
-        super(GeneralConstants.ROBOT_IDENTIFIER, SimulationConstants.IS_SIMULATION, ArcConstants.ENABLED);
+        super(Constants.ROBOT_IDENTIFIER, Constants.SimulationConstants.IS_SIMULATION, Constants.ArcConstants.ENABLED);
     }
 
     @Override
@@ -35,8 +33,8 @@ public class Robot extends BaseRobot {
 
         // If we are in simulation, set up the simulator link
         if (isSimulation()) {
-            _mSimulatorLink = new RobotSimulatorService(SimulationConstants.SIMULATION_ADDRESS,
-                    SimulationConstants.SIMULATION_PORT);
+            _mSimulatorLink = new RobotSimulatorService(Constants.SimulationConstants.SIMULATION_ADDRESS,
+                    Constants.SimulationConstants.SIMULATION_PORT);
             _mSimulatorLink.start();
         }
 
@@ -44,6 +42,7 @@ public class Robot extends BaseRobot {
         if (supportsWebsocket()) {
             _mArcService = ArcService.getOrCreateInstance();
             _mArcService.start();
+            System.out.println("ArcService started");
 
             // Add it to the event bus
             EventBus.getDefault().register(_mArcService);
@@ -65,8 +64,8 @@ public class Robot extends BaseRobot {
 
         // Shutdown the arc service
         if (_mArcService != null) {
-            EventBus.getDefault().unregister(_mArcService);
             _mArcService.stop();
+            EventBus.getDefault().unregister(_mArcService);
         }
     }
 }

@@ -9,3 +9,7 @@
     --color-status-warning: oklch(0.6 0.22 50);
     --color-status-offline: oklch(0.55 0 0);
 }
+
+canvas {
+    image-rendering: crisp-edges;
+}

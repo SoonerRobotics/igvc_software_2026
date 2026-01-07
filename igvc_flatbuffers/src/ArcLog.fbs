@@ -1,0 +1,20 @@
+namespace {NAMESPACE_PLACEHOLDER}.arc;
+
+table ArcLog {
+    // The timestamp of the image frame in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the image frame
+    sequence_number: uint;
+
+    // The method caller of the log
+    method_caller: string;
+
+    // The log level (e.g., "INFO", "WARN", "ERROR")
+    log_level: string;
+    
+    // The log message
+    message: string;
+}
+
+root_type ArcLog;

@@ -1,106 +1,167 @@
 package com.soonerrobotics.sus.simulator;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.soonerrobotics.sus.simulator.packets.Packet;
+import com.soonerrobotics.igvc.Robot;
+import com.soonerrobotics.sus.utils.FlatBufferUtils;
 
 public abstract class SimulatorLink {
+
     private static final Logger logger = LogManager.getLogger(SimulatorLink.class);
 
-    public static SimulatorLink INSTANCE;
+    private final String address;
+    private final int port;
 
-    private static String m_Address;
-    private static int m_Port;
+    private final BlockingQueue<byte[]> sendQueue = new LinkedBlockingQueue<>();
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean connected = new AtomicBoolean(false);
 
-    protected boolean m_Connected = false;
+    private Socket socket;
+    private DataInputStream in;
+    private DataOutputStream out;
 
-    // Socket and stream for communication
-    private Socket m_Socket;
-    private final BlockingQueue<Packet<?>> m_SendQueue = new LinkedBlockingDeque<>();
-    private DataOutputStream m_OutputStream;
-    private DataInputStream m_InputStream;
+    private Thread readerThread;
+    private Thread writerThread;
+    private Thread connectThread;
 
-    // Threading
-    private WriteThread m_Writer;
-    private ReadThread m_Reader;
-    private Thread m_ReadThread;
-    private Thread m_WriteThread;
-    private Thread m_ConnectThread;
-
-    public SimulatorLink(String address, int port) {
-        m_Address = address;
-        m_Port = port;
-
-        INSTANCE = this;
+    protected SimulatorLink(String address, int port) {
+        this.address = address;
+        this.port = port;
     }
 
-    public void setConnected(boolean connected) {
-        this.m_Connected = connected;
+    public boolean isConnected() {
+        return connected.get();
     }
 
     public void start() {
-        m_ConnectThread = new Thread(() -> {
-            while (!m_Connected) {
+        running.set(true);
+
+        connectThread = new Thread(this::connectionLoop, "SimulatorConnectThread");
+        connectThread.start();
+    }
+
+    private void connectionLoop() {
+        while (running.get() && !Robot.isShuttingDown.get()) {
+            if (!connected.get()) {
                 try {
                     connect();
-                    Thread.sleep(5000); // Wait before retrying
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    // logger.error("Connection thread interrupted", e);
+                } catch (IOException e) {
+                    logger.warn("Failed to connect, retrying...", e);
+                    sleep(1000);
                 }
             }
-        });
-        m_ConnectThread.start();
-    }
 
-    public void connect() {
-        try {
-            m_Socket = new Socket(m_Address, m_Port);
-            m_OutputStream = new DataOutputStream(m_Socket.getOutputStream());
-            m_InputStream = new DataInputStream(m_Socket.getInputStream());
-
-            m_Writer = new WriteThread(m_OutputStream, m_SendQueue);
-            m_Reader = new ReadThread(m_InputStream);
-
-            m_WriteThread = new Thread(m_Writer, "SimulatorWriteThread");
-            m_ReadThread = new Thread(m_Reader, "SimulatorReadThread");
-
-            m_WriteThread.start();
-            m_ReadThread.start();
-
-            logger.info("Connected to simulator at {}:{}", m_Address, m_Port);
-        } catch (IOException e) {
-            // logger.error("Failed to connect to simulator at {}:{}", m_Address, m_Port, e);
+            sleep(500);
         }
     }
 
-    public void disconnect() {
+    private synchronized void connect() throws IOException {
+        socket = new Socket(address, port);
+        socket.setTcpNoDelay(true);
+
+        in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+        out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+
+        connected.set(true);
+
+        readerThread = new Thread(new ReadWorker(), "SimulatorReadThread");
+        writerThread = new Thread(new WriteWorker(), "SimulatorWriteThread");
+
+        readerThread.start();
+        writerThread.start();
+
+        logger.info("Connected to simulator at {}:{}", address, port);
+    }
+
+    public synchronized void disconnect() {
+        if (!connected.getAndSet(false)) {
+            return;
+        }
+
+        logger.info("Disconnecting from simulator");
+
+        closeQuietly(socket);
+        closeQuietly(in);
+        closeQuietly(out);
+    }
+
+    public void shutdown() {
+        running.set(false);
+        disconnect();
+    }
+
+    public void sendPacket(FlatBufferUtils.FlatBufferWrapper packet) {
+        if (!connected.get()) {
+            return;
+        }
+
+        sendQueue.offer(packet.toByteArray());
+    }
+
+    protected abstract void handlePacket(FlatBufferUtils.FlatBufferWrapper packet);
+
+    private static void sleep(long millis) {
         try {
-            if (m_Socket != null && !m_Socket.isClosed()) {
-                m_Socket.close();
+            Thread.sleep(millis);
+        } catch (InterruptedException ignored) {
+        }
+    }
+
+    private static void closeQuietly(Closeable c) {
+        try {
+            if (c != null)
+                c.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    private class WriteWorker implements Runnable {
+        @Override
+        public void run() {
+            try {
+                while (connected.get()) {
+                    byte[] msg = sendQueue.take();
+                    out.write(msg);
+                    out.flush();
+                }
+            } catch (InterruptedException ignored) {
+            } catch (IOException e) {
+                logger.error("Writer error", e);
+            } finally {
+                disconnect();
             }
-            logger.info("Disconnected from simulator at {}:{}", m_Address, m_Port);
-        } catch (IOException e) {
-            logger.error("Error while disconnecting from simulator at {}:{}", m_Address, m_Port, e);
         }
     }
 
-    public void sendPacket(Packet<?> packet) {
-        try {
-            m_SendQueue.put(packet);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted while sending packet to simulator", e);
+    private class ReadWorker implements Runnable {
+        @Override
+        public void run() {
+            try {
+                while (connected.get()) {
+                    int frameLength = in.readInt();
+                    byte[] frameData = in.readNBytes(frameLength);
+                    var packet = FlatBufferUtils.FlatBufferWrapper
+                            .fromByteArray(frameData)
+                            .getOrThrow();
+                    handlePacket(packet);
+                }
+            } catch (Exception e) {
+                logger.error("Reader error", e);
+            } finally {
+                disconnect();
+            }
         }
     }
-
-    public abstract void handlePacket(Packet<?> packet);
 }

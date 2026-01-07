@@ -1,0 +1,67 @@
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (MTJ)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine error dumps, etc.
+hs_err_pid*
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.next
+pom.xml.bak
+pom.xml.versions
+pom.xml.releaseBackup
+# Maven temporary files
+release.properties
+dependency-reduced-pom.xml
+builddirectory/
+# Maven eclipse files
+.classpath
+.project
+.settings/
+
+# Gradle
+.gradle/
+build/
+
+# Eclipse
+.metadata/
+bin/
+tmp/
+# Eclipse project files (if not using Maven/Gradle to generate)
+# .project
+# .classpath
+
+# IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# NetBeans
+nbproject/
+*.form
+*.ser
+
+# macOS system files
+.DS_Store
+# Windows system files
+Thumbs.db

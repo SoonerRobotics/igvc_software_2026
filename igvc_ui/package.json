@@ -26,6 +26,8 @@
 		"vite": "^7.1.10"
 	},
 	"dependencies": {
-		"lucide-svelte": "^0.552.0"
+		"flatbuffers": "^25.9.23",
+		"lucide-svelte": "^0.552.0",
+		"svelte-command-palette": "^2.0.2"
 	}
 }

@@ -1,4 +1,5 @@
 <script>
+    import { clearCache } from "$lib/utilities";
     import { Camera } from "lucide-svelte";
 
     let currentView = $state("front");
@@ -10,18 +11,37 @@
 <div
     class="flex flex-col h-full bg-white rounded-lg border border-neutral overflow-hidden"
 >
-    <div
-        class="flex-1 bg-black flex items-center justify-center min-h-0 relative"
-    >
-        <div class="text-gray-600 text-center">
-            <Camera class="w-16 h-16 mx-auto mb-2 opacity-50" />
-            <p class="text-sm">Camera Placeholder</p>
+    <div class="flex flex-1 min-h-0">
+        <div
+            class="flex-1 bg-black flex items-center justify-center min-h-0 relative"
+        >
+            <canvas
+                id={`${currentView}_camera`}
+                class="w-full h-full object-cover"
+                style="width: 640px; height: 480px;"
+            ></canvas>
+
+            <div
+                class="absolute top-3 bright-3 bg-black/70 px-2 py-1 rounded text-xs font-mono text-white"
+            >
+                {currentView.toLocaleUpperCase()} ({currentFilter.toLocaleUpperCase()})
+            </div>
         </div>
 
         <div
-            class="absolute top-3 bright-3 bg-black/70 px-2 py-1 rounded text-xs font-mono text-white"
+            class="flex-1 bg-black flex items-center justify-center min-h-0 relative"
         >
-            {currentView.toLocaleUpperCase()} ({currentFilter.toLocaleUpperCase()})
+            <canvas
+                id={`${currentView}_camera`}
+                class="w-full h-full object-cover"
+                style="width: 640px; height: 480px;"
+            ></canvas>
+
+            <div
+                class="absolute top-3 bright-3 bg-black/70 px-2 py-1 rounded text-xs font-mono text-white"
+            >
+                {currentView.toLocaleUpperCase()} ({currentFilter.toLocaleUpperCase()})
+            </div>
         </div>
     </div>
 
@@ -33,10 +53,18 @@
                 <summary class="btn btn-ghost border border-neutral m-1">
                     View: {currentView}
                 </summary>
-                <ul class="menu dropdown-content bg-white rounded-box z-1 w-52 p-2 shadow-sm">
+                <ul
+                    class="menu dropdown-content bg-white rounded-box z-1 w-52 p-2 shadow-sm"
+                >
                     {#each views as view}
                         <li>
-                            <a href="#" onclick={() => (currentView = view)}>{view}</a>
+                            <a
+                                href="#"
+                                onclick={() => {
+                                    currentView = view;
+                                    clearCache();
+                                }}>{view}</a
+                            >
                         </li>
                     {/each}
                 </ul>
@@ -47,10 +75,18 @@
                 <summary class="btn btn-ghost border border-neutral m-1">
                     Filter: {currentFilter}
                 </summary>
-                <ul class="menu dropdown-content bg-white rounded-box z-1 w-52 p-2 shadow-sm">
+                <ul
+                    class="menu dropdown-content bg-white rounded-box z-1 w-52 p-2 shadow-sm"
+                >
                     {#each filters as filter}
                         <li>
-                            <a href="#" onclick={() => (currentFilter = filter)}>{filter}</a>
+                            <a
+                                href="#"
+                                onclick={() => {
+                                    currentFilter = filter;
+                                    clearCache();
+                                }}>{filter}</a
+                            >
                         </li>
                     {/each}
                 </ul>

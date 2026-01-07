@@ -1,11 +1,13 @@
 <script lang="ts">
     import Navbar from "./navbar.svelte";
     import Sidebar from "./sidebar.svelte";
+    import Palette from "./palette.svelte";
 
 	let { children } = $props();
 </script>
 
 <div class="flex h-screen bg-background">
+    <Palette />
     <Sidebar />
     <div class="flex-1 flex flex-col overflow-hidden">
         <Navbar />
