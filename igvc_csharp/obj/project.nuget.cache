@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "dgSpecHash": "QgeFezMwGSI=",
+  "success": true,
+  "projectFilePath": "/home/dylan/igvc_software_2026/igvc_csharp/igvc_csharp.csproj",
+  "expectedPackageFiles": [
+    "/home/dylan/.nuget/packages/microsoft.extensions.configuration/10.0.1/microsoft.extensions.configuration.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.configuration.abstractions/10.0.1/microsoft.extensions.configuration.abstractions.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.configuration.binder/10.0.1/microsoft.extensions.configuration.binder.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.dependencyinjection/10.0.1/microsoft.extensions.dependencyinjection.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/10.0.1/microsoft.extensions.dependencyinjection.abstractions.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.logging/10.0.1/microsoft.extensions.logging.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.logging.abstractions/10.0.1/microsoft.extensions.logging.abstractions.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.logging.configuration/10.0.1/microsoft.extensions.logging.configuration.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.logging.console/10.0.1/microsoft.extensions.logging.console.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.options/10.0.1/microsoft.extensions.options.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.options.configurationextensions/10.0.1/microsoft.extensions.options.configurationextensions.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/microsoft.extensions.primitives/10.0.1/microsoft.extensions.primitives.10.0.1.nupkg.sha512",
+    "/home/dylan/.nuget/packages/opencvsharp4/4.11.0.20250507/opencvsharp4.4.11.0.20250507.nupkg.sha512",
+    "/home/dylan/.nuget/packages/opencvsharp4.official.runtime.linux-x64/4.11.0.20250507/opencvsharp4.official.runtime.linux-x64.4.11.0.20250507.nupkg.sha512",
+    "/home/dylan/.nuget/packages/opencvsharp4.runtime.win/4.11.0.20250507/opencvsharp4.runtime.win.4.11.0.20250507.nupkg.sha512",
+    "/home/dylan/.nuget/packages/opencvsharp4.windows/4.11.0.20250507/opencvsharp4.windows.4.11.0.20250507.nupkg.sha512"
+  ],
+  "logs": []
+}
