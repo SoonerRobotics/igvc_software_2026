@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace igvc_csharp.Core;
 
 using System;
@@ -7,23 +9,81 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Subsystems;
+using Messages;
 public abstract class BaseRobot : IDisposable
 {
     private static readonly ILogger Logger = Logging.From<BaseRobot>();
-
-    private readonly List<ISubsystem> _subsystems = [];
+    
+    // Subsystem stuff
+    private readonly List<SubsystemBase> _subsystems = [];
+    private readonly Dictionary<Type, SubsystemBase> _subsystemsByType = new();
+    
     private bool _initialized;
     private bool _disposed;
 
-    private IEnumerable<Type> GetEnabledSubsystemTypes()
+    private static List<Type> DiscoverSubsystems()
     {
         return Assembly.GetExecutingAssembly()
             .GetTypes()
             .Where(t =>
                 !t.IsAbstract &&
-                typeof(ISubsystem).IsAssignableFrom(t) &&
-                t.GetCustomAttribute<SubsystemAttribute>() is { Disabled: false });
+                typeof(SubsystemBase).IsAssignableFrom(t) &&
+                t.GetCustomAttribute<SubsystemAttribute>() is { Disabled: false }
+            ).ToList();
+    }
+
+    private static List<Type> ResolveDependencies(List<Type> types)
+    {
+        var remaining = new HashSet<Type>(types);
+        var resolved = new List<Type>();
+
+        var depMap = types.ToDictionary(
+            t => t,
+            t => t.GetCustomAttribute<SubsystemAttribute>()!.DependsOn
+        );
+        bool progressed;
+
+        do
+        {
+            progressed = false;
+
+            foreach (var type in remaining.ToArray())
+            {
+                var deps = depMap[type];
+                if (!deps.All(d => resolved.Contains(d)))
+                {
+                    continue;
+                }
+                
+                resolved.Add(type);
+                remaining.Remove(type);
+                progressed = true;
+            }
+        } while (progressed);
+
+        if (remaining.Count > 0)
+        {
+            foreach (var type in remaining)
+            {
+                var attr = type.GetCustomAttribute<SubsystemAttribute>();
+                if (attr == null)
+                {
+                    // This should never happen due to all of the previous checks
+                    continue;
+                }
+                
+                var missing = attr.DependsOn.Where(d => !resolved.Contains(d)).Select(d => d.Name);
+                Logger.LogError("Subsystem {Subsystem} not created due to missing dependencies: {Dependencies}", type.Name, string.Join(", ", missing));
+            }
+        }
+
+        return resolved;
+    }
+
+    protected T? GetSubsystem<T>() where T : SubsystemBase
+    {
+        _subsystemsByType.TryGetValue(typeof(T), out var subsystem);
+        return subsystem as T;
     }
 
     public virtual async Task Init(CancellationToken token)
@@ -34,17 +94,20 @@ public abstract class BaseRobot : IDisposable
         }
 
         Logger.LogInformation("Discovering subsystems");
-        foreach (var type in GetEnabledSubsystemTypes())
+        var subsystemTypes = DiscoverSubsystems();
+        var orderedTypes = ResolveDependencies(subsystemTypes);
+        foreach (var type in orderedTypes)
         {
             try
             {
-                if (Activator.CreateInstance(type) is not ISubsystem subsystem)
+                var subsystem = CreateSubsystem(type);
+                if (subsystem == null)
                 {
-                    Logger.LogWarning("Failed to create subsystem {Subsystem}", type.Name);
                     continue;
                 }
-
+                
                 _subsystems.Add(subsystem);
+                _subsystemsByType.Add(type, subsystem);
                 Logger.LogInformation("Created subsystem {Subsystem}", type.Name);
             }
             catch (Exception ex)
@@ -69,6 +132,42 @@ public abstract class BaseRobot : IDisposable
         _initialized = true;
     }
 
+    private SubsystemBase? CreateSubsystem(Type type)
+    {
+        var ctor = type.GetConstructors()
+            .OrderByDescending(c => c.GetParameters().Length)
+            .FirstOrDefault();
+
+        // For those that do not have a constructor, just create them generically and call it a day
+        if (ctor == null)
+        {
+            var instance = Activator.CreateInstance(type);
+            return instance as SubsystemBase;
+        }
+
+        var args = new List<object?>();
+        foreach (var param in ctor.GetParameters())
+        {
+            if (!typeof(SubsystemBase).IsAssignableFrom(param.ParameterType))
+            {
+                Logger.LogError("Unsupported constructor parameter {Param}", param.Name);
+                return null;
+            }
+            
+            _subsystemsByType.TryGetValue(param.ParameterType, out var dep);
+            var attribute = param.GetCustomAttribute<SubsystemDependencyAttribute>();
+            if (dep == null && attribute is { Required: true })
+            {
+                Logger.LogError("Missing required dependency {Dep}", param.ParameterType.Name);
+                return null;
+            }
+
+            args.Add(dep);
+        }
+
+        return ctor.Invoke(args.ToArray()) as SubsystemBase;
+    }
+
     public virtual async Task Periodic(CancellationToken token)
     {
         foreach (var subsystem in _subsystems)
@@ -88,7 +187,7 @@ public abstract class BaseRobot : IDisposable
     {
         Logger.LogInformation("Shutting down subsystems");
 
-        for (int i = _subsystems.Count - 1; i >= 0; i--)
+        for (var i = _subsystems.Count - 1; i >= 0; i--)
         {
             var subsystem = _subsystems[i];
             try

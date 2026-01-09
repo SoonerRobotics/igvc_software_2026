@@ -6,5 +6,7 @@ public enum SubsystemState : byte
     Ready = 1,
     Operating = 2,
     Errored = 3,
-    Fatal = 4
+    Fatal = 4,
+    Shutdown = 5,
+    ShuttingDown = 6,
 }

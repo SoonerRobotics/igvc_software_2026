@@ -10,79 +10,45 @@ public class RobotManager
     private static CancellationTokenSource? _gCts;
     private static Task? _periodicTask;
     private static bool _shuttingDown;
-    private static bool _initialized;
-
     private static Robot? _robot;
-    public static async Task InitAsync()
+
+    public static async Task Run()
     {
-        if (_initialized)
-        {
-            throw new InvalidOperationException("RobotManager is already initialized");
-        }
-
-        _initialized = true;
-
-        // Setup shutdown hooks and token
+        // Create token and hook shutdowns
         _gCts = new CancellationTokenSource();
         CreateShutdownHooks(_gCts);
-        
-        // Create the robot
+
+        // Create robot
         _robot = new Robot();
         Robot.Instance = _robot;
         await _robot.Init(_gCts.Token);
-        
-        // Loop
+
+        // Create periodoic task
         _periodicTask = CreatePeriodicLoop(_robot, _gCts.Token);
-    }
 
-    public static async Task DisposeAsync()
-    {
-        if (!_initialized)
+        // Wait for program to shut down
+        try
         {
-            return;
+            await Task.Delay(Timeout.Infinite, _gCts.Token);
         }
-        
-        // Cancel the context
-        if (_gCts != null)
+        catch (OperationCanceledException)
         {
-            await _gCts.CancelAsync();
+            // ignore
         }
 
-        if (_periodicTask != null)
+        // Kill it all
+        try
         {
-            try
-            {
-                await _periodicTask;
-            }
-            catch (Exception e)
-            {
-                // ignored
-            }
+            await _periodicTask;
+        }
+        catch (OperationCanceledException)
+        {
         }
 
-        if (_robot != null)
-        {
-            try
-            {
-                await _robot.Shutdown();
-            }
-            catch (Exception e)
-            {
-                // ignored
-            }
-
-            _robot.Dispose();
-            _robot = null;
-        }
-
-        if (_gCts != null)
-        {
-            _gCts.Dispose();
-            _gCts = null;
-        }
-        
+        await _robot.Shutdown();
+        _robot.Dispose();
+        _gCts.Dispose();
         Logging.Shutdown();
-        _initialized = false;
     }
 
     private static async Task CreatePeriodicLoop(Robot robot, CancellationToken ct)
@@ -114,8 +80,9 @@ public class RobotManager
             {
                 return;
             }
+
             _shuttingDown = true;
-            
+
             Logger.LogWarning("Ctrl + C received, shutting down");
             e.Cancel = true;
             cts.Cancel();
@@ -127,8 +94,9 @@ public class RobotManager
             {
                 return;
             }
+
             _shuttingDown = true;
-            
+
             Logger.LogWarning("Process exit signal received");
             cts.Cancel();
         };

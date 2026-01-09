@@ -1,4 +1,8 @@
 using igvc_csharp;
+using igvc_csharp.Utilities;
 
-await RobotManager.InitAsync();
-await RobotManager.DisposeAsync();
+// Prereqs
+FlatBufferRegistry.Scan();
+
+// Run the robot
+await RobotManager.Run();

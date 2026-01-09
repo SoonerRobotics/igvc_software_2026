@@ -1,4 +1,4 @@
-namespace igvc_csharp.Subsystems;
+namespace igvc_csharp.Messages;
 
 using System.Threading;
 using System.Threading.Tasks;

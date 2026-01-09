@@ -26,7 +26,6 @@ public static class Logging
     }
     
     /// <summary>
-    /// 
     /// Creates a logger for a given class
     /// <code>
     /// private static readonly ILogger Logger = Logging.From&lt;MyClass&gt;();
@@ -36,6 +35,13 @@ public static class Logging
     /// <typeparam name="T">The <c>Class</c> that will do the logging.</typeparam>
     /// <returns>An ILogger instance.</returns>
     public static ILogger From<T>() => Factory.CreateLogger<T>();
+    
+    /// <summary>
+    /// Creates a logger for a given type
+    /// </summary>
+    /// <param name="type"></param>
+    /// <returns></returns>
+    public static ILogger From(Type type) => Factory.CreateLogger(type);
 
     /// <summary>
     ///  Shuts down and disposes the ILoggerFactory
