@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
+using igvc_csharp.Events;
 using igvc_csharp.Messages;
 using igvc_csharp.MessageUtils;
+using Messages;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Core;
@@ -30,7 +32,7 @@ public class SubsystemBase : ISubsystem
     /// The Lifetime CancellationToken assigned on initialization. Use this for any new tokens.
     /// </summary>
     protected CancellationToken LifetimeToken { get; private set; }
-    
+
     protected SubsystemBase()
     {
         Name = GetSubsystemName(GetType());
@@ -121,6 +123,7 @@ public class SubsystemBase : ISubsystem
             }
         }, token);
     }
+
     protected void SubscribeMessage<T>(
         MessageType type,
         Func<T, CancellationToken, Task> handler,
@@ -130,6 +133,19 @@ public class SubsystemBase : ISubsystem
         Subscribe<MessageWrapperEvent, T>(
             filter: evt => evt.Wrapper.Type == type,
             transform: evt => evt.Wrapper.As<T>(),
+            handler: handler,
+            token: token);
+    }
+
+    protected void SubscribeImage(
+        string identifier,
+        Func<ImageFrame, CancellationToken, Task> handler,
+        CancellationToken token)
+    {
+        Subscribe<MessageWrapperEvent, ImageFrame>(
+            filter: evt =>
+                evt.Wrapper.Type == MessageType.ImageFrame && evt.Wrapper.As<ImageFrame>().Identifier == identifier,
+            transform: evt => evt.Wrapper.As<ImageFrame>(),
             handler: handler,
             token: token);
     }
@@ -153,7 +169,7 @@ public class SubsystemBase : ISubsystem
     {
         return Task.CompletedTask;
     }
-    
+
     public virtual Task Shutdown()
     {
         return Task.CompletedTask;

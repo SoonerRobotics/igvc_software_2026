@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using igvc_csharp.Core;
+using igvc_csharp.Events;
 using igvc_csharp.MessageUtils;
 using Microsoft.Extensions.Logging;
 

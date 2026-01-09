@@ -21,4 +21,9 @@ public sealed class EventBus
             })
         );
     }
+
+    public static bool Write<TChannel>(TChannel item) where TChannel : IRobotEvent
+    {
+        return Instance.GetChannel<TChannel>().Writer.TryWrite(item);
+    }
 }

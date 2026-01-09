@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Net.Sockets;
+using igvc_csharp.Events;
 using igvc_csharp.MessageUtils;
 using Messages;
 using Messages.Arc;
