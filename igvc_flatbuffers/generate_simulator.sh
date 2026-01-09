@@ -1,49 +1,84 @@
 #!/bin/bash
 set -e
 
-# Namespace for C# flatbuffers
-CS_NAMESPACE="SUS.FlatBuffers"
+# Output directories
+CSHARP_DIR="/mnt/c/Users/dylan/Desktop/scr_simulator/Assets/Scripts"
 
-# Get all .fbs files in the ./src directory
+# Namespaces
+CSHARP_NAMESPACE="Messages"
+
+# FlatBuffer schema files
 FBS_FILES=(./src/*.fbs)
 
-if [ ${#FBS_FILES[@]} -eq 0 ]; then
-    echo "No .fbs files found in ./src"
-    exit 1
-fi
+# Create output directories
+mkdir -p "$CSHARP_DIR"
 
-# Ask user where to place generated C# files
-echo "Specify the output directory for generated C# FlatBuffer files."
-echo "For WSL users, this may look like: /mnt/c/Users/{user}/Desktop/scr_simulator/Assets/Scripts"
-read -rp "Directory: " CS_DIR
-
-if [ -z "$CS_DIR" ]; then
-    echo "Output directory cannot be empty"
-    exit 1
-fi
-
-# Create the output directory if it does not exist
-mkdir -p "$CS_DIR"
-
-# Create a tmp directory for intermediate files
+# Temporary directory
 TMP_DIR="./src/tmp_flatbuffers"
 mkdir -p "$TMP_DIR"
 
-# Loop through each .fbs file and generate C# code
+# Convert first letter to uppercase
+pascal() { echo "${1^}"; }
+
+# Generate code for each schema
 for FBS_FILE in "${FBS_FILES[@]}"; do
-    # Load the file and replace {NAMESPACE_PLACEHOLDER}
     FBS_CONTENT=$(<"$FBS_FILE")
-    CS_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CS_NAMESPACE}
 
-    # Write modified schema to temp file
-    CS_TMP_FILE="$TMP_DIR/$(basename "${FBS_FILE%.fbs}")_cs.fbs"
-    echo "$CS_FBS_CONTENT" > "$CS_TMP_FILE"
+    CSHARP_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CSHARP_NAMESPACE}
 
-    # Generate C# code
-    flatc --csharp -o "$CS_DIR" "$CS_TMP_FILE"
+    BASE="$(basename "${FBS_FILE%.fbs}")"
+
+    CSHARP_TMP="$TMP_DIR/${BASE}_csharp.fbs"
+
+    echo "$CSHARP_FBS_CONTENT" > "$CSHARP_TMP"
+
+    flatc --csharp -o "$CSHARP_DIR" "$CSHARP_TMP"
 done
 
-# Clean up temporary files
-rm -rf "$TMP_DIR"
+# Root of generated C# files
+CSHARP_ROOT="$CSHARP_DIR/$CSHARP_NAMESPACE"
 
-echo "C# FlatBuffer files generated in: $CS_DIR"
+# Normalize folder casing and merge case-insensitive duplicates
+find "$CSHARP_ROOT" -depth -type d | while read -r DIR; do
+    PARENT="$(dirname "$DIR")"
+    BASE="$(basename "$DIR")"
+    CANON="$(pascal "$BASE")"
+    TARGET="$PARENT/$CANON"
+
+    if [[ "$DIR" != "$TARGET" ]]; then
+        if [[ -d "$TARGET" ]]; then
+            mv "$DIR"/* "$TARGET"/ 2>/dev/null || true
+            rmdir "$DIR" 2>/dev/null || true
+        else
+            mv "$DIR" "$TARGET"
+        fi
+    fi
+done
+
+# Rewrite C# namespace declarations to match folders
+find "$CSHARP_ROOT" -type f -name "*.cs" | while read -r FILE; do
+    DIR_PATH="$(dirname "$FILE")"
+    REL_PATH="${DIR_PATH#$CSHARP_DIR/}"
+
+    IFS='/' read -ra PARTS <<< "$REL_PATH"
+    CANON_PARTS=()
+
+    for PART in "${PARTS[@]}"; do
+        CANON_PARTS+=("$(pascal "$PART")")
+    done
+
+    NEW_NAMESPACE="$(IFS=.; echo "${CANON_PARTS[*]}")"
+
+    sed -i.bak -E "s/^namespace[[:space:]]+.*/namespace $NEW_NAMESPACE/" "$FILE"
+    rm "$FILE.bak"
+done
+
+# Fix lingering lowercase namespace references
+find "$CSHARP_ROOT" -type f -name "*.cs" -exec \
+    sed -i.bak 's/\bMessages\.arc\b/Messages.Arc/g' {} +
+
+# Remove sed backup files
+find "$CSHARP_ROOT" -type f -name "*.bak" -delete
+
+# Remove temporary files
+rm -rf "$TMP_DIR"

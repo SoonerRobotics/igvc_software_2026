@@ -2,7 +2,7 @@
 using Google.FlatBuffers;
 using igvc_csharp.Utilities;
 
-namespace igvc_csharp.Messages;
+namespace igvc_csharp.MessageUtils;
 
 public class MessageWrapper
 {

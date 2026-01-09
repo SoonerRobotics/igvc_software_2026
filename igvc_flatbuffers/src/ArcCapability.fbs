@@ -1,0 +1,19 @@
+namespace {NAMESPACE_PLACEHOLDER}.arc;
+
+table ArcCapability {
+    // The timestamp of the image frame in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the image frame
+    sequence_number: uint;
+
+    // The purpose of this arc capability, 0 = request and 1 = acknowledgment
+    purpose: uint;
+
+    // The capabilities
+    vision_capabilities: uint;
+    telemetry_capabilities: uint;
+    misc_capabilities: uint;
+}
+
+root_type ArcCapability;

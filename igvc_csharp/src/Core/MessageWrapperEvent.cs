@@ -1,4 +1,4 @@
-﻿using igvc_csharp.Messages;
+﻿using igvc_csharp.MessageUtils;
 
 namespace igvc_csharp.Core;
 

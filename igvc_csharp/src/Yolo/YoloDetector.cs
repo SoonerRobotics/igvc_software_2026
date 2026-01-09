@@ -13,24 +13,12 @@ public sealed class YoloDetector : IDisposable
         _predictor = new YoloPredictor(modelPath);
     }
 
-    public IReadOnlyList<Detection> Detect(Mat image)
+    public IReadOnlyList<Detection> Detect(byte[] image)
     {
-        var results = _predictor.Predict(image);
+        var results = _predictor.Detect(image);
 
         var detections = new List<Detection>(results.Count);
-
-        foreach (var r in results)
-        {
-            detections.Add(new Detection(
-                r.Label.Name,
-                r.Confidence,
-                new Rect(
-                    (int)r.BoundingBox.X,
-                    (int)r.BoundingBox.Y,
-                    (int)r.BoundingBox.Width,
-                    (int)r.BoundingBox.Height)
-            ));
-        }
+        detections.AddRange(results.Select(r => new Detection(r.Name.Name, r.Confidence, new Rect((int)r.Bounds.X, (int)r.Bounds.Y, (int)r.Bounds.Width, (int)r.Bounds.Height))));
 
         return detections;
     }

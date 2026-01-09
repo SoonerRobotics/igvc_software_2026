@@ -2,7 +2,7 @@
 using System.IO.Hashing;
 using igvc_csharp.Core;
 
-namespace igvc_csharp.Messages;
+namespace igvc_csharp.MessageUtils;
 
 public class MessageWriter
 {

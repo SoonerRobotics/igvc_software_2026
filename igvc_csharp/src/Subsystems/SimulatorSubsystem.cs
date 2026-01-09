@@ -1,6 +1,6 @@
 ﻿using System.Net.Sockets;
 using igvc_csharp.Core;
-using igvc_csharp.Messages;
+using igvc_csharp.MessageUtils;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
@@ -108,7 +108,7 @@ public class SimulatorSubsystem : SubsystemBase
 
     private void ProcessMessage(MessageWrapper wrapper)
     {
-        Logger.LogDebug("Received message of type {Type}", wrapper.Type);
+        EventBus.Instance.GetChannel<MessageWrapperEvent>().Writer.TryWrite(new MessageWrapperEvent(wrapper));
     }
 
     private async Task ReceiveLoop(TcpClient client, CancellationToken token)
@@ -131,7 +131,6 @@ public class SimulatorSubsystem : SubsystemBase
                     break;
                 }
 
-                Logger.LogDebug("Received Bytes: {length}", bytesRead);
                 accumulator.Append(buffer.AsSpan(0, bytesRead));
             }
         }

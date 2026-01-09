@@ -1,53 +1,62 @@
 #!/bin/bash
 set -e
 
-# Directories for the Java flatbuffer objects and the Typescript flatbuffer objects
-JAVA_DIR="../igvc/src/main/java"
-TS_DIR="../igvc_ui/src/lib/flatbuffers"
-CPP_DIR="../igvc_vectornav/include/igvc/flatbuffers"
+TS_DIR="../igvc_ui/src/lib/messages"
+CSHARP_DIR="../igvc_csharp/src"
 
-# Namespaces for each language
-JAVA_NAMESPACE="com.soonerrobotics.flatbuffers"
-TS_NAMESPACE="flatbuffers"
-CPP_NAMESPACE="igvc"
+TS_NAMESPACE="messages"
+CSHARP_NAMESPACE="Messages"
 
-# Get all .fbs files in the ./src directory
 FBS_FILES=(./src/*.fbs)
 
-# Create the output directories if they do not exist
-mkdir -p "$JAVA_DIR"
-mkdir -p "$TS_DIR"
-mkdir -p "$CPP_DIR"
+mkdir -p "$TS_DIR" "$CSHARP_DIR"
 
-# Create a tmp directory for intermediate files
 TMP_DIR="./src/tmp_flatbuffers"
 mkdir -p "$TMP_DIR"
 
-# Loop through each .fbs file and generate Java and Typescript code
+# Convert dot.separated.identifiers to PascalCase.Segments
+pascal_dot_namespace() {
+    awk '
+    /^namespace[[:space:]]+/ {
+        ns=$2
+        sub(/;$/, "", ns)
+
+        n=split(ns, parts, ".")
+        for (i=1; i<=n; i++) {
+            part=tolower(parts[i])
+            parts[i]=toupper(substr(part,1,1)) substr(part,2)
+        }
+
+        printf "namespace "
+        for (i=1; i<=n; i++) {
+            printf "%s%s", parts[i], (i<n?".":"")
+        }
+        print ";"
+        next
+    }
+    { print }
+    '
+}
+
 for FBS_FILE in "${FBS_FILES[@]}"; do
-    # Load the file into a variable and replace {NAMESPACE_PLACEHOLDER} with the per language
     FBS_CONTENT=$(<"$FBS_FILE")
-    JAVA_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$JAVA_NAMESPACE}
+
     TS_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$TS_NAMESPACE}
-    CPP_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CPP_NAMESPACE}
+    CSHARP_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CSHARP_NAMESPACE}
 
-    # Write the modified content to temporary files
-    JAVA_TMP_FILE="$TMP_DIR/$(basename "${FBS_FILE%.fbs}")_java.fbs"
-    TS_TMP_FILE="$TMP_DIR/$(basename "${FBS_FILE%.fbs}")_ts.fbs"
-    CPP_TMP_FILE="$TMP_DIR/$(basename "${FBS_FILE%.fbs}")_cpp.fbs"
-    echo "$JAVA_FBS_CONTENT" > "$JAVA_TMP_FILE"
-    echo "$TS_FBS_CONTENT" > "$TS_TMP_FILE"
-    echo "$CPP_FBS_CONTENT" > "$CPP_TMP_FILE"
+    # 🔹 PascalCase C# namespace segments
+    CSHARP_FBS_CONTENT=$(echo "$CSHARP_FBS_CONTENT" | pascal_dot_namespace)
 
-    # Generate Java code
-    flatc --java -o "$JAVA_DIR" "$JAVA_TMP_FILE"
+    BASE="$(basename "${FBS_FILE%.fbs}")"
 
-    # Generate Typescript code
-    flatc --ts -o "$TS_DIR" "$TS_TMP_FILE"
+    TS_TMP="$TMP_DIR/${BASE}_ts.fbs"
+    CSHARP_TMP="$TMP_DIR/${BASE}_csharp.fbs"
 
-    # Generate C++ code
-    flatc --cpp -o "$CPP_DIR" "$CPP_TMP_FILE"
+    echo "$TS_FBS_CONTENT" > "$TS_TMP"
+    echo "$CSHARP_FBS_CONTENT" > "$CSHARP_TMP"
+
+    flatc --ts     -o "$TS_DIR"     "$TS_TMP"
+    flatc --csharp -o "$CSHARP_DIR" "$CSHARP_TMP"
 done
 
-# Clean up temporary files
 rm -rf "$TMP_DIR"

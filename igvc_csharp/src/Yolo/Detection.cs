@@ -1,6 +1,5 @@
-﻿namespace igvc_csharp.Yolo;
+﻿using OpenCvSharp;
 
-public class Detection
-{
-    
-}
+namespace igvc_csharp.Yolo;
+
+public sealed record Detection (string Label, float Confidence, Rect Bounding);

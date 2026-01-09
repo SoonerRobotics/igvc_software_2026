@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
-using Google.FlatBuffers;
 using igvc_csharp.Messages;
+using igvc_csharp.MessageUtils;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Core;
@@ -37,7 +37,7 @@ public class SubsystemBase : ISubsystem
         Logger = Logging.From(GetType());
     }
 
-    protected Task Subscribe<TEvent>(
+    protected void Subscribe<TEvent>(
         Func<TEvent, CancellationToken, Task> handler,
         CancellationToken token)
         where TEvent : IRobotEvent
@@ -46,7 +46,7 @@ public class SubsystemBase : ISubsystem
             .GetChannel<TEvent>()
             .Reader;
 
-        return Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
@@ -69,7 +69,7 @@ public class SubsystemBase : ISubsystem
         }, token);
     }
 
-    protected Task Subscribe<TIn, TOut>(
+    protected void Subscribe<TIn, TOut>(
         Func<TIn, bool> filter,
         Func<TIn, TOut> transform,
         Func<TOut, CancellationToken, Task> handler,
@@ -80,14 +80,16 @@ public class SubsystemBase : ISubsystem
             .GetChannel<TIn>()
             .Reader;
 
-        return Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
                 await foreach (var evt in reader.ReadAllAsync(token))
                 {
                     if (!filter(evt))
+                    {
                         continue;
+                    }
 
                     TOut value;
                     try
@@ -119,13 +121,13 @@ public class SubsystemBase : ISubsystem
             }
         }, token);
     }
-    protected Task SubscribeMessage<T>(
+    protected void SubscribeMessage<T>(
         MessageType type,
         Func<T, CancellationToken, Task> handler,
         CancellationToken token)
         where T : struct
     {
-        return Subscribe<MessageWrapperEvent, T>(
+        Subscribe<MessageWrapperEvent, T>(
             filter: evt => evt.Wrapper.Type == type,
             transform: evt => evt.Wrapper.As<T>(),
             handler: handler,

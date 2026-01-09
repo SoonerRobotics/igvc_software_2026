@@ -33,7 +33,7 @@ public static class Constants
         /// <summary>
         /// Whether or not the Arc system should be enabled.
         /// </summary>
-        public const bool Enabled = false;
+        public const bool Enabled = true;
         
         /// <summary>
         /// The host that the ArcServer will bind to
@@ -43,12 +43,12 @@ public static class Constants
         /// <summary>
         /// The port the ArcServer (WebsocketServer) will listen on
         /// </summary>
-        public const int Port = 7000;
+        public const int Port = 8080;
         
         /// <summary>
         /// The path the ArcServer will listen on
         /// </summary>
-        public const string Path = "";
+        public const string Path = "/";
         
         /// <summary>
         /// The maximum number of clients that can be connected to the ArcServer
