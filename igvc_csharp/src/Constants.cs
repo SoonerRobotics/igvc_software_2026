@@ -1,5 +1,6 @@
 using System.Net;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -27,29 +28,39 @@ public static class Constants
         /// <summary>
         /// The minimum log level at which the logger will log.
         /// </summary>
+        [Config("logging.level")]
         public const LogLevel Level = LogLevel.Trace;
     }
 
+    public static class Configuration
+    {
+        public const string PresetsDirectory = "~/.igvc/config";
+        public const string DefaultPresetName = "default";
+    }
+    
     public static class ArcSubsystem
     {
         /// <summary>
         /// Whether or not the Arc system should be enabled.
         /// </summary>
+        [Config("arc.enabled")]
         public const bool Enabled = true;
 
         /// <summary>
         /// The host that the ArcServer will bind to
         /// </summary>
-        public static readonly IPAddress Host = IPAddress.Loopback;
+        public static readonly IPAddress Host = IPAddress.Any;
 
         /// <summary>
         /// The port the ArcServer (WebsocketServer) will listen on
         /// </summary>
+        [Config("arc.port")]
         public const int Port = 8080;
 
         /// <summary>
         /// The path the ArcServer will listen on
         /// </summary>
+        [Config("arc.path")]
         public const string Path = "/";
 
         /// <summary>
@@ -73,11 +84,13 @@ public static class Constants
         /// <summary>
         /// The Host of the simulator, typically 127.0.0.1.
         /// </summary>
+        [Config("simulator.host")]
         public const string Host = "127.0.0.1";
 
         /// <summary>
         /// The Port of the simulator, typically 8080.
         /// </summary>
+        [Config("simulator.port")]
         public const int Port = 4001;
 
         /// <summary>
@@ -102,6 +115,7 @@ public static class Constants
         /// <summary>
         /// The range of color we are accepting as the "ground"
         /// </summary>
+        [Config("vision.ground_threshold")]
         public static readonly ColorUtilities.ColorRange GroundThreshold = ColorUtilities.ColorRange.From(
             ColorUtilities.Color.FromHsv(0, 0, 0),
             ColorUtilities.Color.FromHsv(255, 255, 255)
@@ -110,11 +124,13 @@ public static class Constants
         /// <summary>
         /// The radius of blurring we apply
         /// </summary>
+        [Config("vision.blur_radius")]
         public const int BlurRadius = 5;
         
         /// <summary>
         /// The strength of blurring we apply
         /// </summary>
+        [Config("vision.blur_strength")]
         public const int BlurStrength = 3;
     }
 }

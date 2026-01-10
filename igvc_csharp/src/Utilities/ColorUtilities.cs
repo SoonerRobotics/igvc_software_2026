@@ -1,15 +1,29 @@
 ﻿using System.Globalization;
+using System.Text.Json;
+using igvc_csharp.Core.Config;
 
 namespace igvc_csharp.Utilities;
 
-public class ColorUtilities
+public static class ColorUtilities
 {
-    public sealed class Color
+    public sealed class Color : IConfigSerializable
     {
-        public double R { get; }
-        public double G { get; }
-        public double B { get; }
-        public double A { get; }
+        public double R { private set; get; }
+        public double G { private set; get; }
+        public double B { private set; get; }
+        public double A { private set; get; }
+
+        // Config stuff
+
+        public object Serialize() => new { r = R, g = G, b = B, a = A };
+        public void Deserialize(object value)
+        {
+            var obj = (JsonElement)value;
+            R = obj.GetProperty("r").GetDouble();
+            G = obj.GetProperty("g").GetDouble();
+            B =  obj.GetProperty("b").GetDouble();
+            A =  obj.GetProperty("a").GetDouble();
+        }
 
         private Color(double r, double g, double b, double a = 1.0)
         {
@@ -18,7 +32,7 @@ public class ColorUtilities
             B = Clamp01(b);
             A = Clamp01(a);
         }
-
+        
         public static Color FromRgb(double r, double g, double b, double a = 1.0)
             => new Color(r, g, b, a);
 
