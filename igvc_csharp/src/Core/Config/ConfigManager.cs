@@ -49,7 +49,7 @@ public sealed class ConfigManager
             return false;
         }
 
-        EventBus.Write(new ConfigChangedEvent(path, value));
+        EventBus.Instance.Publish(new ConfigChangedEvent(path, value));
         return true;
     }
 }

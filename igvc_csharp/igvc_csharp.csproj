@@ -24,4 +24,8 @@
       <PackageReference Include="YoloSharp" Version="6.0.7" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="src\Chronos\" />
+    </ItemGroup>
+
 </Project>

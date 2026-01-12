@@ -1,4 +1,5 @@
-﻿using Messages;
+﻿using System.Runtime.InteropServices;
+using Messages;
 using OpenCvSharp;
 
 namespace igvc_csharp.Utilities;
@@ -17,6 +18,20 @@ public static class CvUtils
         return buf;
     }
 
+    public static byte[] ToBgrBytes(Mat mat)
+    {
+        if (!mat.IsContinuous())
+        {
+            mat = mat.Clone();
+        }
+
+        var byteCount = mat.Rows * mat.Cols * mat.ElemSize();
+        var buffer = new byte[byteCount];
+
+        Marshal.Copy(mat.Data, buffer, 0, byteCount);
+        return buffer;
+    }
+    
     public static Point2f[] GetCheckerboardCorners(
         Mat image,
         int rows,

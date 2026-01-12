@@ -3,10 +3,14 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Net.Sockets;
+using System.Threading.Channels;
+using Google.FlatBuffers;
 using igvc_csharp.Events;
 using igvc_csharp.MessageUtils;
+using igvc_csharp.Subsystems.Arc.Streaming;
 using Messages;
 using Messages.Arc;
+using Messages.Performance;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +27,17 @@ public class ArcSubsystem : SubsystemBase
     private readonly ConcurrentDictionary<Guid, (uint, uint, uint)> _clientCapabilities = new();
     private CancellationTokenSource? _internalCts;
     private IHost? _host;
+    private JpegServer? _server;
+
+    private readonly Channel<MessageWrapper> _outgoingData = Channel.CreateBounded<MessageWrapper>(
+        new BoundedChannelOptions(64)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+
+    private Task? _outgoingSendTask;
 
     public override async Task Init(CancellationToken token)
     {
@@ -52,9 +67,20 @@ public class ArcSubsystem : SubsystemBase
             })
             .Build();
 
-        // Subscribe to event
+        _outgoingSendTask = Task.Run(() => ArcSendLoop(_internalCts.Token), _internalCts.Token);
+
+        _server = new JpegServer($"http://localhost:{Constants.ArcSubsystem.Port + 1}/");
+        _ = _server.StartAsync(token);
+
+        // Subscribe to MessageWrapperEvent
         Subscribe<MessageWrapperEvent>(
             OnMessageEvent,
+            token
+        );
+
+        // Subscribe to PerformanceSampleEvent
+        Subscribe<PerformanceSampleEvent>(
+            OnPerformanceSampleEvent,
             token
         );
 
@@ -63,19 +89,74 @@ public class ArcSubsystem : SubsystemBase
         SetState(SubsystemState.Operating);
     }
 
-    private async Task OnMessageEvent(MessageWrapperEvent e, CancellationToken token)
+    private Task OnPerformanceSampleEvent(PerformanceSampleEvent e, CancellationToken token)
     {
-        await Broadcast(e.Wrapper, token);
+        var sample = e.Sample;
+        var builder = new FlatBufferBuilder(1024);
+        var subsystemOffset = builder.CreateString(sample.Subsystem);
+        var groupOffset = builder.CreateString(sample.Group);
+        var nameOffset = builder.CreateString(sample.Name);
+        var unitOffset = builder.CreateString(sample.Unit);
+        var sampleOffset = MetricSample.CreateMetricSample(
+            builder,
+            subsystemOffset,
+            groupOffset,
+            nameOffset,
+            unitOffset,
+            (MetricAggregate)sample.Aggregate,
+            (ulong)((DateTimeOffset)sample.Timestamp).ToUnixTimeMilliseconds(),
+            sample.Value
+        );
+        builder.Finish(sampleOffset.Value);
+
+        Broadcast(MessageWrapper.From(MessageType.Metric, builder.SizedByteArray()), token);
+        return Task.CompletedTask;
     }
 
-    public async Task Broadcast(MessageWrapper wrapper, CancellationToken token)
+    private async Task ArcSendLoop(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                var wrapper = await _outgoingData.Reader.ReadAsync(token);
+
+                if (wrapper.Type == MessageType.ImageFrame)
+                {
+                    var frame = wrapper.As<ImageFrame>();
+                    var bytes = frame.GetImageDataArray();
+                    if (bytes != null)
+                        JpegStreamRegistry.Publish(frame.Identifier, bytes);
+
+                    continue;
+                }
+
+                Broadcast(wrapper, token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Arc send loop crashed");
+        }
+    }
+
+    private Task OnMessageEvent(MessageWrapperEvent e, CancellationToken token)
+    {
+        _outgoingData.Writer.TryWrite(e.Wrapper);
+        return Task.CompletedTask;
+    }
+
+    public void Broadcast(MessageWrapper wrapper, CancellationToken token)
     {
         var payload = MessageWriter.Write(
             wrapper.Type,
             wrapper.Data,
             Constants.ArcSubsystem.Endianness
         );
-        
+
         foreach (var (id, socket) in _clients)
         {
             if (socket.State != WebSocketState.Open)
@@ -84,16 +165,15 @@ public class ArcSubsystem : SubsystemBase
                 continue;
             }
 
-            // Check if they have the capabilities
-            if (!HasWrapperCapability(id, wrapper))
-            {
-                continue;
-            }
-            
-            await SendToClient(id, payload, token);
+            // if (!HasWrapperCapability(id, wrapper))
+            // {
+            //     continue;
+            // }
+
+            _ = SendToClient(id, payload, token);
         }
     }
-    
+
     private bool HasWrapperCapability(Guid guid, MessageWrapper wrapper)
     {
         return wrapper.Type switch
@@ -205,9 +285,11 @@ public class ArcSubsystem : SubsystemBase
 
     public async Task SendToClient(Guid guid, byte[] message, CancellationToken token = default)
     {
-        var segment = new ArraySegment<byte>(message);
+        if (!_clients.TryGetValue(guid, out var socket))
+        {
+            return;
+        }
 
-        var socket = _clients[guid];
         if (socket.State != WebSocketState.Open)
         {
             _clients.TryRemove(guid, out _);
@@ -217,19 +299,25 @@ public class ArcSubsystem : SubsystemBase
         try
         {
             await socket.SendAsync(
-                segment,
+                message,
                 WebSocketMessageType.Binary,
-                endOfMessage: true,
-                cancellationToken: token
+                true,
+                token
             );
         }
-        catch (Exception ex)
+        catch
         {
-            Logger.LogWarning(ex, "Failed to send message to client {ClientId}", guid);
             _clients.TryRemove(guid, out _);
+            try
+            {
+                socket.Dispose();
+            }
+            catch
+            {
+            }
         }
     }
-    
+
     public async Task BroadcastAsync(byte[] message, CancellationToken token = default)
     {
         foreach (var (id, socket) in _clients)
@@ -291,7 +379,7 @@ public class ArcSubsystem : SubsystemBase
         var vision = (Capabilities.Vision)visionRaw;
         return vision.HasFlag(needs);
     }
-    
+
     private bool HasCapability(Guid guid, Capabilities.Telemetry needs)
     {
         if (!_clientCapabilities.TryGetValue(guid, out var capability)) return false;
@@ -300,7 +388,7 @@ public class ArcSubsystem : SubsystemBase
         var telemetry = (Capabilities.Telemetry)telemetryRaw;
         return telemetry.HasFlag(needs);
     }
-    
+
     private bool HasCapability(Guid guid, Capabilities.Misc needs)
     {
         if (!_clientCapabilities.TryGetValue(guid, out var capability)) return false;
@@ -309,7 +397,7 @@ public class ArcSubsystem : SubsystemBase
         var misc = (Capabilities.Misc)miscRaw;
         return misc.HasFlag(needs);
     }
-    
+
     private async Task HandleCapabilityRequest(Guid guid, ArcCapability request, CancellationToken token)
     {
         _clientCapabilities[guid] = (

@@ -10,14 +10,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Messages;
+
 public abstract class BaseRobot : IDisposable
 {
     private static readonly ILogger Logger = Logging.From<BaseRobot>();
-    
+
     // Subsystem stuff
     private readonly List<SubsystemBase> _subsystems = [];
     private readonly Dictionary<Type, SubsystemBase> _subsystemsByType = new();
-    
+
     private bool _initialized;
     private bool _disposed;
 
@@ -54,7 +55,7 @@ public abstract class BaseRobot : IDisposable
                 {
                     continue;
                 }
-                
+
                 resolved.Add(type);
                 remaining.Remove(type);
                 progressed = true;
@@ -71,9 +72,10 @@ public abstract class BaseRobot : IDisposable
                     // This should never happen due to all of the previous checks
                     continue;
                 }
-                
+
                 var missing = attr.DependsOn.Where(d => !resolved.Contains(d)).Select(d => d.Name);
-                Logger.LogError("Subsystem {Subsystem} not created due to missing dependencies: {Dependencies}", type.Name, string.Join(", ", missing));
+                Logger.LogError("Subsystem {Subsystem} not created due to missing dependencies: {Dependencies}",
+                    type.Name, string.Join(", ", missing));
             }
         }
 
@@ -105,7 +107,7 @@ public abstract class BaseRobot : IDisposable
                 {
                     continue;
                 }
-                
+
                 _subsystems.Add(subsystem);
                 _subsystemsByType.Add(type, subsystem);
                 Logger.LogInformation("Created subsystem {Subsystem}", type.Name);
@@ -153,7 +155,7 @@ public abstract class BaseRobot : IDisposable
                 Logger.LogError("Unsupported constructor parameter {Param}", param.Name);
                 return null;
             }
-            
+
             _subsystemsByType.TryGetValue(param.ParameterType, out var dep);
             var attribute = param.GetCustomAttribute<SubsystemDependencyAttribute>();
             if (dep == null && attribute is { Required: true })

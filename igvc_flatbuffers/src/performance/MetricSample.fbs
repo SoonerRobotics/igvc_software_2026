@@ -1,0 +1,21 @@
+namespace {NAMESPACE_PLACEHOLDER}.performance;
+
+enum MetricAggregate : byte {
+  Last = 0,
+  Average = 1,
+  Min = 2,
+  Max = 3
+}
+
+table MetricSample {
+  subsystem: string;
+  group: string;
+  name: string;
+  unit: string;
+  aggregate: MetricAggregate;
+
+  timestamp_unix_ms: ulong;
+  value: double;
+}
+
+root_type MetricSample;

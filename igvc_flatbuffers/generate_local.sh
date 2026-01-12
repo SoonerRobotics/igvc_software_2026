@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
 
-TS_DIR="../igvc_ui/src/lib/messages"
+TS_DIR="../igvc_gui/src/lib/arc/messages"
 CSHARP_DIR="../igvc_csharp/src"
 
 TS_NAMESPACE="messages"
 CSHARP_NAMESPACE="Messages"
 
-FBS_FILES=(./src/*.fbs)
+FBS_FILES=(./src/**/*.fbs)
 
 mkdir -p "$TS_DIR" "$CSHARP_DIR"
 

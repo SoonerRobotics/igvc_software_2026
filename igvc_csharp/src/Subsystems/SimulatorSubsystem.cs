@@ -109,7 +109,7 @@ public class SimulatorSubsystem : SubsystemBase
 
     private void ProcessMessage(MessageWrapper wrapper)
     {
-        EventBus.Instance.GetChannel<MessageWrapperEvent>().Writer.TryWrite(new MessageWrapperEvent(wrapper));
+        EventBus.Instance.Publish(new MessageWrapperEvent(wrapper));
     }
 
     private async Task ReceiveLoop(TcpClient client, CancellationToken token)

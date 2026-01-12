@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
 using igvc_csharp.Messages;
 using igvc_csharp.MessageUtils;
@@ -37,6 +38,9 @@ public class SubsystemBase : ISubsystem
     {
         Name = GetSubsystemName(GetType());
         Logger = Logging.From(GetType());
+
+        // Register any metrics we have
+        RegisterMetrics();
     }
 
     protected void Subscribe<TEvent>(
@@ -44,9 +48,7 @@ public class SubsystemBase : ISubsystem
         CancellationToken token)
         where TEvent : IRobotEvent
     {
-        var reader = EventBus.Instance
-            .GetChannel<TEvent>()
-            .Reader;
+        var reader = EventBus.Instance.Subscribe<TEvent>();
 
         Task.Run(async () =>
         {
@@ -63,13 +65,46 @@ public class SubsystemBase : ISubsystem
             }
             catch (Exception ex)
             {
-                Logger.LogError(
-                    ex,
-                    "Event subscription failed for {Event}",
-                    typeof(TEvent).Name);
+                Logger.LogError(ex, "Event subscription failed for {Event}", typeof(TEvent).Name);
             }
         }, token);
     }
+
+    protected void RegisterMetrics()
+    {
+        var type = GetType();
+        var subsystem = type.Name;
+
+        foreach (var field in type.GetFields(
+                     BindingFlags.Instance |
+                     BindingFlags.NonPublic |
+                     BindingFlags.Public))
+        {
+            var attr = field.GetCustomAttribute<MetricAttribute>();
+            if (attr == null)
+                continue;
+            
+            var definition = new MetricDefinition(
+                subsystem,
+                attr.Group,
+                attr.Name,
+                attr.Unit,
+                attr.Aggregate);
+
+            var metric = Activator.CreateInstance(
+                field.FieldType,
+                definition,
+                attr.MaxSamples,
+                attr.MaxAgeSeconds > 0
+                    ? TimeSpan.FromSeconds(attr.MaxAgeSeconds)
+                    : null,
+                attr.EmitEveryMs)!;
+
+            field.SetValue(this, metric);
+            PerformanceRegistry.Instance.Register((IPerformanceMetric)metric);
+        }
+    }
+
 
     protected void Subscribe<TIn, TOut>(
         Func<TIn, bool> filter,
@@ -78,9 +113,7 @@ public class SubsystemBase : ISubsystem
         CancellationToken token)
         where TIn : IRobotEvent
     {
-        var reader = EventBus.Instance
-            .GetChannel<TIn>()
-            .Reader;
+        var reader = EventBus.Instance.Subscribe<TIn>();
 
         Task.Run(async () =>
         {
@@ -142,12 +175,19 @@ public class SubsystemBase : ISubsystem
         Func<ImageFrame, CancellationToken, Task> handler,
         CancellationToken token)
     {
-        Subscribe<MessageWrapperEvent, ImageFrame>(
-            filter: evt =>
-                evt.Wrapper.Type == MessageType.ImageFrame && evt.Wrapper.As<ImageFrame>().Identifier == identifier,
-            transform: evt => evt.Wrapper.As<ImageFrame>(),
-            handler: handler,
-            token: token);
+        Subscribe<MessageWrapperEvent>(
+            async (evt, ct) =>
+            {
+                if (evt.Wrapper.Type != MessageType.ImageFrame)
+                    return;
+
+                var frame = evt.Wrapper.As<ImageFrame>();
+                if (frame.Identifier != identifier)
+                    return;
+
+                await handler(frame, ct);
+            },
+            token);
     }
 
     public virtual Task Init(CancellationToken token)

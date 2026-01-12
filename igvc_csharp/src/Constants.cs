@@ -1,6 +1,7 @@
 using System.Net;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -132,5 +133,20 @@ public static class Constants
         /// </summary>
         [Config("vision.blur_strength")]
         public const int BlurStrength = 3;
+    }
+
+    public static class DriveSubsystem
+    {
+        /// <summary>
+        /// The max speed of the robot<br/>
+        /// <b>NOTE:</b> This defaults to 5mph as per competition rules
+        /// </summary>
+        public static readonly LinearVelocity MaxSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+
+        /// <summary>
+        /// The max angular speed of the robot<br/>
+        /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
+        /// </summary>
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
     }
 }

@@ -6,6 +6,8 @@ public enum MessageType : ushort
     ImageFrame = 0x01,
     ArcLog = 0x02,
     Gps = 0x03,
+    Metric = 0x04,
+    MetricHistory = 0x05,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
