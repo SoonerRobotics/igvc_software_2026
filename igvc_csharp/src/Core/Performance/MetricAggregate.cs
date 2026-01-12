@@ -5,5 +5,6 @@ public enum MetricAggregate
     Last,
     Average,
     Min,
-    Max
+    Max,
+    Sum
 }

@@ -23,6 +23,8 @@ public static class Constants
     /// A magic header for all networking nonsense
     /// </summary>
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
+    
+    // Core Constants
 
     public static class Logging
     {
@@ -35,9 +37,33 @@ public static class Constants
 
     public static class Configuration
     {
+        /// <summary>
+        /// The directory that all presets will be placed in.
+        /// <b>NOTE:</b> This will be created if it does not exist.
+        /// </summary>
         public const string PresetsDirectory = "~/.igvc/config";
+        
+        /// <summary>
+        /// The default preset name.
+        /// <b>NOTE:</b> This will be created if it does not exist.
+        /// </summary>
         public const string DefaultPresetName = "default";
     }
+
+    public static class Hardware
+    {
+        /// <summary>
+        /// The name of the interface where the Canbus is connected to.
+        /// </summary>
+        public const string CanbusInterface = "vcan0";
+        
+        /// <summary>
+        /// How often to retry our connection to the Canbus.
+        /// </summary>
+        public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
+    }
+    
+    // Subsystem Constants
     
     public static class ArcSubsystem
     {
@@ -148,5 +174,44 @@ public static class Constants
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+    }
+    
+    // Competition Constants
+
+    public static class IGVC
+    {
+        /// <summary>
+        /// The minimum distance from the bottom of the stop sign to the ground<br/>
+        /// <b>NOTE:</b> This defaults to 5ft per the rules (page 21)
+        /// </summary>
+        public static readonly Distance StopSignHeight = DistanceUnit.Feet.Of(5);
+
+        /// <summary>
+        /// The average diameter of a barrel on the course.<br/>
+        /// <b>NOTE:</b> This defaults to 23.5in per the rules (page 21). Although, this may be different for AutoNav.
+        /// </summary>
+        public static readonly Distance BarrelDiameter = DistanceUnit.Inches.Of(23.5);
+    }
+
+    public static class SelfDrive
+    {
+        /// <summary>
+        /// The maximum distance to be from the barrel at the end of a test.<br/>
+        /// <b>NOTE:</b> As far as I can tell, this is the same for every test.
+        /// </summary>
+        public static readonly Distance BarrelStopDistance = DistanceUnit.Feet.Of(3);
+
+        /// <summary>
+        /// The distance range at which the robot must change lanes, distance is to the barrel in the same lane.<br/>
+        /// <b>NOTE:</b> Defaults of 10ft - 13ft are derived from the rules (page 39).
+        /// </summary>
+        public static readonly (Distance, Distance) LaneChangeDistance = (DistanceUnit.Feet.Of(10), DistanceUnit.Feet.Of(13));
+        
+        /// <summary>
+        /// The desired speed to travel during a test or run.<br/>
+        /// <b>NOTE:</b> The default of 4mph is derived from the middle of the minimum and maximum speed
+        /// as noted by the rules (3mph and 5mph respectively).
+        /// </summary>
+        public static readonly LinearVelocity TargetSpeed = LinearVelocityUnit.MilesPerHour.Of(4);
     }
 }

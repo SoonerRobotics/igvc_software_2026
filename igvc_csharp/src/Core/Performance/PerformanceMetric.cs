@@ -81,6 +81,7 @@ public sealed class PerformanceMetric<T>(
                 MetricAggregate.Average => _samples.Average(s => s.value),
                 MetricAggregate.Min => _samples.Min(s => s.value),
                 MetricAggregate.Max => _samples.Max(s => s.value),
+                MetricAggregate.Sum => _samples.Sum(s => s.value),
                 _ => _samples.Last!.Value.value
             };
             return new PerformanceSample(

@@ -13,8 +13,11 @@ public struct LinearVelocity : IEquatable<LinearVelocity>, IComparable<LinearVel
         MetersPerSecond = metersPerSecond;
     }
     
-    public double To(LinearVelocityUnit unit) => unit.FromMetersPerSecond(MetersPerSecond);
+    public readonly double To(LinearVelocityUnit unit) => unit.FromMetersPerSecond(MetersPerSecond);
 
+    public readonly double ToMetersPerSecond() => MetersPerSecond;
+    public readonly double ToMilesPerHour() => To(LinearVelocityUnit.MilesPerHour);
+    
     public string ToString(LinearVelocityUnit unit, string? format = null, IFormatProvider? provider = null)
     {
         provider ??= CultureInfo.InvariantCulture;
