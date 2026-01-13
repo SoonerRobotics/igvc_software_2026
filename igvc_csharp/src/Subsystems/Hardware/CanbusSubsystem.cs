@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection.Metadata;
+using igvc_csharp.CanSpec;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
 using Microsoft.Extensions.Logging;
@@ -50,6 +51,13 @@ public class CanbusSubsystem : SubsystemBase
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default
         );
+        
+        // List all interfaces
+        var interfaces = CanNetworkInterface.GetAllInterfaces(true);
+        foreach (var inf in interfaces)
+        {
+            Logger.LogDebug("Found CAN Interface at {Path}", inf.Name);
+        }
 
         return Task.CompletedTask;
     }
@@ -126,6 +134,7 @@ public class CanbusSubsystem : SubsystemBase
                 
                 _bits.AddSample(bytesWritten * 8);
                 _bytesWritten.AddSample(bytesWritten);
+                Logger.LogDebug("Writing can with frame id: {FrameId}", frame.CanId);
             }
             catch (ObjectDisposedException ex)
             {
@@ -162,6 +171,13 @@ public class CanbusSubsystem : SubsystemBase
                 
                 _bits.AddSample(bytesRead * 8);
                 _bytesRead.AddSample(bytesRead);
+
+                if (frame.CanId == (short)CanId.MotorOdometry)
+                {
+                    var odo = MotorOdometryMessage.Read(frame.Data);
+                    Logger.LogDebug("Motor Odometry: {DeltaX}, {DeltaY}, {DeltaTheta}", odo.DeltaX, odo.DeltaY, odo.DeltaTheta);
+                    continue;
+                }
                 
                 // TODO: Event bus
                 Logger.LogTrace("Can Packet: {CanId}", frame.CanId);

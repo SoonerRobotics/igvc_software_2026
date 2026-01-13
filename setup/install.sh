@@ -4,8 +4,12 @@
 sudo apt update
 
 # Dependencies
-sudo apt install git -y
-sudo apt install unzip -y
-sudo apt install curl -y
-sudo apt install cmake -y
-sudo apt install build-essential -y
+sudo apt install git unzip curl cmake build-essential -y
+
+# Bluetooth
+sudo apt install --reinstall \
+  bluez \
+  bluez-tools \
+  linux-firmware \
+  xboxdrv \
+  steam-devices
