@@ -9,26 +9,17 @@ OPENCV_VERSION='4.10.0'       # Version to be installed
 OPENCV_CONTRIB='YES'          # Install OpenCV's extra modules (YES/NO)
 # -------------------------------------------------------------------- |
 
-# |          THIS SCRIPT IS TESTED CORRECTLY ON          |
-# |------------------------------------------------------|
-# | OS               | OpenCV       | Test | Last test   |
-# |------------------|--------------|------|-------------|
-# | Ubuntu 20.04 LTS | OpenCV 4.5.1 | OK   | 27 Mar 2021 |
-# |----------------------------------------------------- |
-# | Ubuntu 20.04 LTS | OpenCV 4.2.0 | OK   | 25 Apr 2020 |
-# |----------------------------------------------------- |
-# | Debian 10.2      | OpenCV 4.2.0 | OK   | 26 Dec 2019 |
-# |----------------------------------------------------- |
-# | Debian 10.1      | OpenCV 4.1.1 | OK   | 28 Sep 2019 |
 
+# Check if its installed already
+if [ -d "/opt/opencv-${OPENCV_VERSION}" ]; then
+  echo "OpenCV ${OPENCV_VERSION} is already installed in /opt/opencv-${OPENCV_VERSION}"
+  echo "Remove this folder if you want to reinstall it."
+  exit 0
+fi
 
 # 1. KEEP UBUNTU OR DEBIAN UP TO DATE
 
 sudo apt-get -y update
-# sudo apt-get -y upgrade       # Uncomment to install new versions of packages currently installed
-# sudo apt-get -y dist-upgrade  # Uncomment to handle changing dependencies with new vers. of pack.
-# sudo apt-get -y autoremove    # Uncomment to remove packages that are now no longer needed
-
 
 # 2. INSTALL THE DEPENDENCIES
 
@@ -91,7 +82,7 @@ make -j8
 sudo make install
 sudo ldconfig
 
-
-# 4. EXECUTE SOME OPENCV EXAMPLES AND COMPILE A DEMONSTRATION
-
-# To complete this step, please visit 'http://milq.github.io/install-opencv-ubuntu-debian'.
+# Move OpenCV to /opt
+cd ../..
+sudo mv OpenCV /opt/opencv-${OPENCV_VERSION}
+sudo ln -sf /opt/opencv-${OPENCV_VERSION} /opt/opencv

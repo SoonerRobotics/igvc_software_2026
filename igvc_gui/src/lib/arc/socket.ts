@@ -1,9 +1,9 @@
 // src/lib/ws.ts
 import { writable } from 'svelte/store';
-import { MessageAccumulator } from './protocol/message_accumulator';
-import { Endianness, makeMessageWrapperBB, MessageType, type MessageWrapper } from './protocol/types';
-import { MessageWriter } from './protocol/message_writer';
 import { constructCommandRequest } from './protocol/constructors';
+import { MessageAccumulator } from './protocol/message_accumulator';
+import { MessageWriter } from './protocol/message_writer';
+import { Endianness, makeMessageWrapperBB, MessageType, type MessageWrapper } from './protocol/types';
 
 export const connectionStatus = writable<'connecting' | 'open' | 'closed' | 'error'>('closed');
 
@@ -35,14 +35,43 @@ export function subscribe<T>(
     return listener;
 }
 
-export function callCommand(type: number, payload?: Uint8Array) {
+export async function callCommand(type: number, payload?: Uint8Array): Promise<any> {
     const request = constructCommandRequest(type, payload);
     if (request.bb == null) {
         console.error("Failed to construct command request");
-        return;
+        return Promise.reject(new Error("Failed to construct command request"));
+    }
+
+    // Check if we are connected
+    if (socket == null || socket.readyState !== WebSocket.OPEN) {
+        console.error("WebSocket is not connected");
+        return Promise.reject(new Error("WebSocket is not connected"));
     }
 
     sendMessage(makeMessageWrapperBB(MessageType.CommandReq, request.bb));
+
+    // TODO: Add some sort of requestId just in case multiple commands of the same type are sent simultaneously
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            unsubscribe(listener);
+            reject(new Error("Command response timeout"));
+        }, 20_000); // 20 second timeout
+
+        const listener = subscribe(
+            MessageType.CommandAck,
+            (msg) => {
+                if (msg.type === MessageType.CommandAck && msg.type === type) {
+                    return msg;
+                }
+                return null;
+            },
+            (msg) => {
+                clearTimeout(timeout);
+                unsubscribe(listener);
+                resolve(msg);
+            }
+        );
+    });
 }
 
 export function unsubscribe(listener: Listener<any>) {

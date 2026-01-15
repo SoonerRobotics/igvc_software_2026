@@ -30,7 +30,9 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^0.562.0",
 		"flatbuffers": "^25.9.23",
+		"svelte-sonner": "^1.0.7",
 		"uplot": "^1.6.32",
 		"ws": "^8.19.0"
 	}

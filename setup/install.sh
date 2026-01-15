@@ -1,15 +1,24 @@
 #!/bin/bash
 
-# General
-sudo apt update
+SCRIPTS=(
+    "./install_dependencies.sh"
+    "./install_dotnet.sh"
+    "./install_opencv.sh"
+    "./install_vn.sh"
+)
 
-# Dependencies
-sudo apt install git unzip curl cmake build-essential -y
+for script in "${SCRIPTS[@]}"; do
+    if [ -f "$script" ]; then
+        echo "Running $script..."
+        bash "$script"
+        if [ $? -ne 0 ]; then
+            echo "Error: $script failed"
+            exit 1
+        fi
+    else
+        echo "Error: $script not found"
+        exit 1
+    fi
+done
 
-# Bluetooth
-sudo apt install --reinstall \
-  bluez \
-  bluez-tools \
-  linux-firmware \
-  xboxdrv \
-  steam-devices
+echo "All scripts completed successfully"

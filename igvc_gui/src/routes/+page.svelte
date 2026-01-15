@@ -3,12 +3,38 @@
     import decoders from "$lib/arc/protocol/decoders";
     import { MessageType } from "$lib/arc/protocol/types";
     import { callCommand, connectionStatus, subscribe } from "$lib/arc/socket";
+    import { toast } from "svelte-sonner";
+    import ImageView from "../components/image-view.svelte";
 
     subscribe<ImageFrame>(
         MessageType.ImageFrame,
         decoders.image_frame,
         (frame) => {},
     );
+
+    $effect(() => {
+        const toastid = toast.promise(
+            () => {
+                return new Promise<void>((resolve) => {
+                    const unsubscribe = connectionStatus.subscribe((status) => {
+                        if (status === "open") {
+                            resolve();
+                            unsubscribe();
+                        }
+                    });
+                });
+            },
+            {
+                loading: "Connecting to robot...",
+                success: "Connected to robot!",
+                error: "Failed to connect to robot.",
+            },
+        );
+
+        return () => {
+            toast.dismiss(toastid);
+        };
+    });
 </script>
 
 <div class="p-4 space-y-4">
@@ -20,39 +46,58 @@
         <div class="flex flex-row gap-2">
             <button
                 class="bg-red-500 text-white px-4 py-2 rounded"
-                on:click={() =>
-                    callCommand(0x01)
-                }
+                onclick={() => {
+                    toast.promise(
+                        callCommand(0x01),
+                        {
+                            loading: "Starting calibration...",
+                            success: "Calibration started!",
+                            error: (err) => `Failed to start calibration: ${err}`,
+                        }
+                    );
+                }}
             >
                 Start Calibration
             </button>
 
             <button
                 class="bg-red-500 text-white px-4 py-2 rounded"
-                on:click={() =>
-                    callCommand(0x02)
-                }
+                onclick={() => {
+                    toast.promise(
+                        callCommand(0x02),
+                        {
+                            loading: "Stopping calibration...",
+                            success: "Calibration stopped!",
+                            error: (err) => `Failed to stop calibration: ${err}`,
+                        }
+                    );
+                }}
             >
                 Stop Calibration
             </button>
 
             <button
                 class="bg-red-500 text-white px-4 py-2 rounded"
-                on:click={() =>
-                    callCommand(0x03)
-                }
+                onclick={() => {
+                    toast.promise(
+                        callCommand(0x03),
+                        {
+                            loading: "Saving calibration...",
+                            success: "Calibration saved!",
+                            error: (err) => `Failed to save calibration: ${err}`,
+                        }
+                    );
+                }}
             >
                 Save Calibration
             </button>
         </div>
 
-        {#if $connectionStatus == "open"}
-            <div class="w-full max-h-160 grid grid-cols-2 gap-4 overflow-auto">
-                <img src="http://localhost:8081/front_view" alt="front view" />
-                <img src="http://localhost:8081/hsv_view" alt="hsv view" />
-                <img src="http://localhost:8081/yolo_view" alt="yolo view" />
-                <img src="http://localhost:8081/calibration_chessboard" alt="calibration chessboard" />
-            </div>
-        {/if}
+        <div class="w-full h-full flex flex-row gap-4 mt-4 flex-wrap">
+            <ImageView id="front_view" alt="front view" />
+            <ImageView id="calibration_view" alt="calibraiton_view" />
+            <ImageView id="calibration_view" alt="calibraiton_view" />
+            <ImageView id="calibration_view" alt="calibraiton_view" />
+        </div>
     </div>
 </div>
