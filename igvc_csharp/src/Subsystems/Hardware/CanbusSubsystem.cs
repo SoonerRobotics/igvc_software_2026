@@ -33,7 +33,7 @@ public class CanbusSubsystem : SubsystemBase
     private PerformanceMetric<double> _bytesRead;
 
     // Emits the frame size every 50ms if applicable (only runs when reading). Useful to see
-    // if we are not writing fast enough. This shouldn't happen, but its good to log and check
+    // if we are not writing fast enough. This shouldn't happen, but it is good to log and check
     [Metric("Frame Queue Size", "length", Group = "Hardware", EmitEveryMs = 50)]
     private PerformanceMetric<double> _queueSize;
     
@@ -64,9 +64,12 @@ public class CanbusSubsystem : SubsystemBase
 
     private static CanNetworkInterface? FindNetwork()
     {
+        var inter = Constants.Experiments.SimulatorUsesVCan
+            ? Constants.Experiments.SimulatorVCanInterface
+            : Constants.Hardware.CanbusInterface;
         return CanNetworkInterface
             .GetAllInterfaces(true)
-            .First(ifc => ifc.Name.Equals(Constants.Hardware.CanbusInterface));
+            .First(ifc => ifc.Name.Equals(inter));
     }
     
     private void ConnectSocket()

@@ -82,10 +82,16 @@ public abstract class BaseRobot : IDisposable
         return resolved;
     }
 
-    protected T? GetSubsystem<T>() where T : SubsystemBase
+    public T? GetSubsystem<T>() where T : SubsystemBase
     {
         _subsystemsByType.TryGetValue(typeof(T), out var subsystem);
         return subsystem as T;
+    }
+    
+    public object GetSubsystem(Type type)
+    {
+        _subsystemsByType.TryGetValue(type, out var subsystem);
+        return subsystem!;
     }
 
     public virtual async Task Init(CancellationToken token)

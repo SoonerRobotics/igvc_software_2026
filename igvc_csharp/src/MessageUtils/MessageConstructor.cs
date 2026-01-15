@@ -1,5 +1,6 @@
 ﻿using Google.FlatBuffers;
 using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Utilities;
 using Messages;
 using Messages.Arc;
 
@@ -17,7 +18,7 @@ public static class MessageConstructor
         var jpegOffset = ImageFrame.CreateImageDataVector(builder, data);
         var imageOffset = ImageFrame.CreateImageFrame(
             builder,
-            (ulong)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            TimeUtilities.Now(),
             0,
             width,
             height,
@@ -34,23 +35,26 @@ public static class MessageConstructor
     {
         return CreateImageFrame(frame.Width, frame.Height, identifier == "" ? frame.Identifier : identifier, data);
     }
-    
-    // ArcCapability
 
-    public static ArcCapability CreateArcCapabilityAck(ArcCapability capability)
+    public static ArcCommand CreateResponse(ArcCommand? command, byte[]? data = null)
     {
-        var builder = new FlatBufferBuilder(1024);
-        var capabilityOffset = ArcCapability.CreateArcCapability(
-            builder,
-            (ulong)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            0,
-            (uint)Capabilities.Purpose.Ack,
-            capability.VisionCapabilities,
-            capability.TelemetryCapabilities,
-            capability.MiscCapabilities
-        );
-        builder.Finish(capabilityOffset.Value);
+        if (command == null)
+        {
+            throw new ArgumentNullException(nameof(command), "Command cannot be null when creating a response.");
+        }
         
-        return ArcCapability.GetRootAsArcCapability(new ByteBuffer(builder.SizedByteArray()));
+        var builder = new FlatBufferBuilder(1024);
+        var dataOffset = data != null ? ArcCommand.CreateDataVector(builder, data) : default(VectorOffset);
+        var commandOffset = ArcCommand.CreateArcCommand(
+            builder,
+            TimeUtilities.Now(),
+            0,
+            1,
+            command?.CommandId ?? 0,
+            dataOffset
+        );
+        builder.Finish(commandOffset.Value);
+        
+        return ArcCommand.GetRootAsArcCommand(new ByteBuffer(builder.SizedByteArray()));
     }
 }

@@ -1,11 +1,15 @@
 ﻿using System.Runtime.InteropServices;
+using igvc_csharp.MessageUtils;
 using Messages;
+using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
 namespace igvc_csharp.Utilities;
 
-public static class CvUtils
+public class CvUtils
 {
+    private static ILogger Logger = Logging.From<CvUtils>();
+    
     public static Mat AsMat(ImageFrame frame)
     {
         var byts = frame.GetImageDataArray();
@@ -17,71 +21,31 @@ public static class CvUtils
         Cv2.ImEncode(".jpg", mat, out var buf);
         return buf;
     }
-
-    public static byte[] ToBgrBytes(Mat mat)
-    {
-        if (!mat.IsContinuous())
-        {
-            mat = mat.Clone();
-        }
-
-        var byteCount = mat.Rows * mat.Cols * mat.ElemSize();
-        var buffer = new byte[byteCount];
-
-        Marshal.Copy(mat.Data, buffer, 0, byteCount);
-        return buffer;
-    }
     
-    public static Point2f[] GetCheckerboardCorners(
-        Mat image,
-        int rows,
-        int cols)
+    public static Mat CloneMat(ImageFrame frame)
     {
-        if (image.Empty())
-        {
-            throw new ArgumentException("Image is empty", nameof(image));
-        }
+        var mat = AsMat(frame);
+        return mat.Clone();
+    }
 
-        if (rows <= 0 || cols <= 0)
-        {
-            throw new ArgumentOutOfRangeException("Rows and columns must be positive");
-        }
+    public static Mat CloneMat(Mat mat)
+    {
+        return mat.Clone();
+    }
 
-        using var gray = new Mat();
-
-        if (image.Channels() == 1)
-        {
-            image.CopyTo(gray);
-        }
-        else
-        {
-            Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-        }
-
-        var patternSize = new Size(cols, rows);
-        var found = Cv2.FindChessboardCorners(
-            gray,
-            patternSize,
-            out var corners
+    public static MessageWrapper BuildWrapper(uint width, uint height, string id, byte[] frame)
+    {
+        var newFrame = MessageConstructor.CreateImageFrame(
+            width,
+            height,
+            id,
+            frame
         );
 
-        if (!found)
-        {
-            throw new InvalidOperationException("Checkerboard pattern not found");
-        }
-
-        // A little spice to clean things up
-        Cv2.CornerSubPix(
-            gray,
-            corners,
-            new Size(11, 11),
-            new Size(-1, -1),
-            new TermCriteria(
-                CriteriaTypes.Eps | CriteriaTypes.MaxIter,
-                30,
-                0.001)
+        var wrappedFrame = MessageWrapper.From(
+            MessageType.ImageFrame,
+            newFrame.ByteBuffer.ToFullArray()
         );
-
-        return corners;
+        return wrappedFrame;
     }
 }

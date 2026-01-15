@@ -1,10 +1,9 @@
 // src/lib/ws.ts
 import { writable } from 'svelte/store';
 import { MessageAccumulator } from './protocol/message_accumulator';
-import { Endianness, MessageType, type MessageWrapper } from './protocol/types';
-import type { _ } from '$env/static/private';
-import { CircularBuffer } from './buffer';
+import { Endianness, makeMessageWrapperBB, MessageType, type MessageWrapper } from './protocol/types';
 import { MessageWriter } from './protocol/message_writer';
+import { constructCommandRequest } from './protocol/constructors';
 
 export const connectionStatus = writable<'connecting' | 'open' | 'closed' | 'error'>('closed');
 
@@ -34,6 +33,16 @@ export function subscribe<T>(
     listeners.push(listener);
 
     return listener;
+}
+
+export function callCommand(type: number, payload?: Uint8Array) {
+    const request = constructCommandRequest(type, payload);
+    if (request.bb == null) {
+        console.error("Failed to construct command request");
+        return;
+    }
+
+    sendMessage(makeMessageWrapperBB(MessageType.CommandReq, request.bb));
 }
 
 export function unsubscribe(listener: Listener<any>) {

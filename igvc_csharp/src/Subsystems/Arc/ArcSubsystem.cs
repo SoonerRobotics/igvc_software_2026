@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading.Channels;
 using Google.FlatBuffers;
 using igvc_csharp.Events;
@@ -37,6 +38,9 @@ public class ArcSubsystem : SubsystemBase
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
+    private Dictionary<Command, List<MethodInfo>> _commandMethods = new();
+    
+
     private Task? _outgoingSendTask;
 
     public override async Task Init(CancellationToken token)
@@ -46,6 +50,28 @@ public class ArcSubsystem : SubsystemBase
         // Wait for port to become available
         await WaitForPortAsync(Constants.ArcSubsystem.Port, token);
 
+        // Load all ArcCommandAttribute users
+        var allMethods = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(x => x.GetTypes())
+            .Where(x => x.IsClass)
+            .SelectMany(x => x.GetMethods());
+        foreach (var method in allMethods)
+        {
+            var attrib = method.GetCustomAttribute<ArcCommandAttribute>();
+            if (attrib == null)
+            {
+                continue;
+            }
+            
+            if (!_commandMethods.TryGetValue(attrib.Command, out var value))
+            {
+                value = [];
+                _commandMethods[attrib.Command] = value;
+            }
+
+            value.Add(method);
+        }
+        
         _host = new HostBuilder()
             .ConfigureWebHost(builder =>
             {
@@ -165,35 +191,8 @@ public class ArcSubsystem : SubsystemBase
                 continue;
             }
 
-            // if (!HasWrapperCapability(id, wrapper))
-            // {
-            //     continue;
-            // }
-
             _ = SendToClient(id, payload, token);
         }
-    }
-
-    private bool HasWrapperCapability(Guid guid, MessageWrapper wrapper)
-    {
-        return wrapper.Type switch
-        {
-            MessageType.ImageFrame => HasVisionCapability(guid, wrapper),
-            MessageType.Gps => HasCapability(guid, Capabilities.Telemetry.Gps),
-            _ => false
-        };
-    }
-
-    private bool HasVisionCapability(Guid guid, MessageWrapper wrapper)
-    {
-        var frame = wrapper.As<ImageFrame>();
-        return frame.Identifier switch
-        {
-            "front_view" => HasCapability(guid, Capabilities.Vision.FrontCamera),
-            "hsv_view" => HasCapability(guid, Capabilities.Vision.HsvView),
-            "yolo_view" => HasCapability(guid, Capabilities.Vision.YoloView),
-            _ => false
-        };
     }
 
     private static async Task WaitForPortAsync(int port, CancellationToken token)
@@ -360,65 +359,47 @@ public class ArcSubsystem : SubsystemBase
     private async Task ProcessMessage(Guid guid, MessageWrapper wrapper, CancellationToken token)
     {
         Logger.LogInformation("Processing message {Guid} with type {Type}", guid, wrapper.Type);
-        if (wrapper.Type == MessageType.CapabilityReq)
-        {
-            await HandleCapabilityRequest(guid, wrapper.As<ArcCapability>(), token);
-        }
-
         if (wrapper.Type == MessageType.CommandReq)
         {
             await HandleCommandRequest(guid, wrapper.As<ArcCommand>(), token);
         }
     }
 
-    private bool HasCapability(Guid guid, Capabilities.Vision needs)
-    {
-        if (!_clientCapabilities.TryGetValue(guid, out var capability)) return false;
-        var (visionRaw, _, _) = capability;
-
-        var vision = (Capabilities.Vision)visionRaw;
-        return vision.HasFlag(needs);
-    }
-
-    private bool HasCapability(Guid guid, Capabilities.Telemetry needs)
-    {
-        if (!_clientCapabilities.TryGetValue(guid, out var capability)) return false;
-        var (_, telemetryRaw, _) = capability;
-
-        var telemetry = (Capabilities.Telemetry)telemetryRaw;
-        return telemetry.HasFlag(needs);
-    }
-
-    private bool HasCapability(Guid guid, Capabilities.Misc needs)
-    {
-        if (!_clientCapabilities.TryGetValue(guid, out var capability)) return false;
-        var (_, _, miscRaw) = capability;
-
-        var misc = (Capabilities.Misc)miscRaw;
-        return misc.HasFlag(needs);
-    }
-
-    private async Task HandleCapabilityRequest(Guid guid, ArcCapability request, CancellationToken token)
-    {
-        _clientCapabilities[guid] = (
-            request.VisionCapabilities,
-            request.TelemetryCapabilities,
-            request.MiscCapabilities
-        );
-
-        var response = MessageConstructor.CreateArcCapabilityAck(request);
-        var wrappedFrame = MessageWrapper.From(MessageType.CapabilityAck, response.ByteBuffer.ToFullArray());
-        var payload = MessageWriter.Write(
-            wrappedFrame.Type,
-            wrappedFrame.Data,
-            Constants.ArcSubsystem.Endianness
-        );
-        await SendToClient(guid, payload, token);
-    }
-
     private Task HandleCommandRequest(Guid guid, ArcCommand commandRaw, CancellationToken token)
     {
         var command = (Command)commandRaw.CommandId;
+        
+        if (_commandMethods.TryGetValue(command, out var methods))
+        {
+            foreach (var method in methods)
+            {
+                var clazz = method.DeclaringType;
+                if (clazz == null)
+                {
+                    continue;
+                }
+
+                var instance = Robot.Instance.GetSubsystem(clazz);
+                var parameters = method.GetParameters();
+                switch (parameters.Length)
+                {
+                    case 0:
+                        method.Invoke(instance, null);
+                        break;
+                    case 1:
+                        method.Invoke(instance, [commandRaw]);
+                        break;
+                    default:
+                        Logger.LogWarning("Method {Method} has invalid number of parameters for ArcCommand", method.Name);
+                        break;
+                }
+            }
+        }
+        else
+        {
+            Logger.LogWarning("No handlers found for command {Command}", command);
+        }
+        
         return Task.CompletedTask;
     }
 

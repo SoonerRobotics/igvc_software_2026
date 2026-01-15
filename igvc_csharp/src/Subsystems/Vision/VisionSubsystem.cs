@@ -15,7 +15,6 @@ namespace igvc_csharp.Subsystems.Vision;
 public class VisionSubsystem : SubsystemBase
 {
     private readonly List<IFilter> _filters = [];
-    private Task? _processTask;
 
     private readonly Channel<ImageFrame> _frameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
@@ -39,7 +38,7 @@ public class VisionSubsystem : SubsystemBase
             token
         );
 
-        _processTask = Task.Factory.StartNew(
+        _ = Task.Factory.StartNew(
             () => ImageProcessingTask(token),
             token,
             TaskCreationOptions.LongRunning,
@@ -55,7 +54,10 @@ public class VisionSubsystem : SubsystemBase
         _filters.Add(new BlurFilter(5, 3, BlurFilter.BlurMethod.BoxBlur));
 
         // Ground hsv filter
-        _filters.Add(new HsvFilter(Constants.VisionSubsystem.GroundThreshold));
+        // _filters.Add(new HsvFilter(Constants.VisionSubsystem.GroundThreshold));
+        
+        // Top down transformation
+        // _filters.Add(new TopDownFilter());
     }
 
     private async Task ImageProcessingTask(CancellationToken token)
@@ -68,11 +70,8 @@ public class VisionSubsystem : SubsystemBase
                 var frame = await _frameChannel.Reader.ReadAsync(token);
                 watch.Start();
 
-                using var mat = CvUtils.AsMat(frame);
-                foreach (var filter in _filters)
-                {
-                    filter.Apply(mat);
-                }
+                var mat = CvUtils.AsMat(frame);
+                mat = _filters.Aggregate(mat, (current, filter) => filter.Apply(current));
 
                 var frameBytes = CvUtils.FromMat(mat);
                 var newFrame = MessageConstructor.CreateImageFrame(
@@ -92,6 +91,8 @@ public class VisionSubsystem : SubsystemBase
                 watch.Stop();
                 _processingTime.AddSample(watch.ElapsedMilliseconds);
                 watch.Reset();
+                
+                mat.Dispose();
             }
         }
         catch (OperationCanceledException)
@@ -107,11 +108,6 @@ public class VisionSubsystem : SubsystemBase
     private Task OnImageReceived(ImageFrame frame, CancellationToken token)
     {
         _frameChannel.Writer.TryWrite(frame);
-        return Task.CompletedTask;
-    }
-
-    public override Task Shutdown()
-    {
         return Task.CompletedTask;
     }
 }

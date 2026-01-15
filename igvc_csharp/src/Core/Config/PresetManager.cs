@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using igvc_csharp.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Core.Config;
@@ -9,9 +10,9 @@ public class PresetManager
 
     public static void Initialize()
     {
-        Directory.CreateDirectory(Constants.Configuration.PresetsDirectory);
-        var defaultPath = Path.Combine(Constants.Configuration.PresetsDirectory,
-            Constants.Configuration.DefaultPresetName);
+        var basePath = FileUtiltiies.BuildFromHome(Constants.Configuration.PresetsDirectory);
+        Directory.CreateDirectory(basePath);
+        var defaultPath = Path.Combine(basePath, Constants.Configuration.DefaultPresetName);
         if (!File.Exists(defaultPath))
         {
             WritePreset(defaultPath);
@@ -30,7 +31,7 @@ public class PresetManager
         {
             ConfigManager.Set(prop.Name, prop.Value);
         }
-        
+
         Logger.LogInformation("Loaded preset {Path}", path);
     }
 

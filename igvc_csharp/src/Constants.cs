@@ -1,9 +1,11 @@
 using System.Net;
+using System.Runtime.InteropServices;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
 using igvc_csharp.Core.Units;
 using igvc_csharp.Utilities;
-using Microsoft.Extensions.Logging;
+using OpenCvSharp;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace igvc_csharp;
 
@@ -17,7 +19,7 @@ public static class Constants
     /// <summary>
     /// Determines if the robot will use the simulator.
     /// </summary>
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -50,8 +52,26 @@ public static class Constants
         public const string DefaultPresetName = "default";
     }
 
+    public static class Experiments
+    {
+        /// <summary>
+        /// Determines if the simulator will use virtual can.<br/>
+        /// <b>NOTE:</b> You must be on linux for this experiment to work.
+        /// </summary>
+        [Config("experiments.simulator.vcan.enabled")]
+        public static readonly bool SimulatorUsesVCan = false && Hardware.IsLinux;
+
+        /// <summary>
+        /// If the simulator is using virtual can, what interface?
+        /// </summary>
+        [Config("experiments.simulator.vcan.interface")]
+        public const string SimulatorVCanInterface = "vcan0";
+    }
+
     public static class Hardware
     {
+        public static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+        
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
@@ -174,6 +194,29 @@ public static class Constants
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+    }
+
+    public static class CalibrationSubsystem
+    {
+        /// <summary>
+        /// How long to keep the opencv calibration tool active before timing out
+        /// </summary>
+        public const ulong OpenCvCalibrationTimeoutMs = 60_000;
+        
+        /// <summary>
+        /// The width of the OpenCV calibration pattern (number of inner corners)
+        /// </summary>
+        public const int OpenCvCalibrationPatternWidth = 7;
+        
+        /// <summary>
+        /// The height of the OpenCV calibration pattern (number of inner corners)
+        /// </summary>
+        public const int OpenCvCalibrationPatternHeight = 7;
+        
+        /// <summary>
+        /// The size of each square in the OpenCV calibration pattern, in meters.
+        /// </summary>
+        public const double OpenCvCalibrationSquareSizeMeters = 0.024;
     }
     
     // Competition Constants

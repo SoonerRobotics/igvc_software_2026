@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Google.FlatBuffers;
+using igvc_csharp.Events;
 using igvc_csharp.Utilities;
 
 namespace igvc_csharp.MessageUtils;
@@ -25,6 +26,11 @@ public class MessageWrapper
     {
         _buffer ??= GetByteBuffer();
         return FlatBufferRegistry.Resolve<T>(_buffer);
+    }
+
+    public MessageWrapperEvent Event()
+    {
+        return new MessageWrapperEvent(this);
     }
     
     public static MessageWrapper From(MessageType type, byte[] data)
