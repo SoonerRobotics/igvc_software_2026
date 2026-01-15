@@ -1,0 +1,4 @@
+Archive member included to satisfy reference by file (symbol)
+
+C:/ST/STM32CubeIDE_2.0.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.100.202509120712/tools/bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/lib/thumb/v7-m/nofp\libstdc++_nano.a(guard.o)
+                              ./Core/Src/main.o (__cxa_guard_acquire)

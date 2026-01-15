@@ -1,0 +1,7 @@
+../Core/Src/main.cpp:274:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	48	static
+../Core/Src/main.cpp:23:14:SwerveDrive* InitSwerveDrive()	32	static
+../Core/Src/main.cpp:158:6:void serial_debug(SwerveModule&)	80	static
+../Core/Src/main.cpp:166:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	56	static
+../Core/Src/main.cpp:316:6:void SystemClock_Config()	128	static,ignoring_inline_asm
+../Core/Src/main.cpp:74:5:int main()	128	static,ignoring_inline_asm
+../Core/Src/main.cpp:371:6:void Error_Handler()	0	static,ignoring_inline_asm
