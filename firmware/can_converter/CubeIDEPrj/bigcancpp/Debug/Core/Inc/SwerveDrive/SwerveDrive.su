@@ -1,6 +1,0 @@
-../Core/Inc/SwerveDrive/SwerveModule.h:35:12:double SwerveModule::getXPos() const	16	static
-../Core/Inc/SwerveDrive/SwerveModule.h:36:12:double SwerveModule::getYPos() const	16	static
-../Core/Inc/SwerveDrive/SwerveModule.h:37:12:double SwerveModule::getCurrentAngleRad() const	16	static
-../Core/Inc/SwerveDrive/SwerveDrive.cpp:23:22:SwerveDrive::SwerveDrive(SwerveDriveConfig&)::<lambda(int, const SwerveModule&)>	32	static
-../Core/Inc/SwerveDrive/SwerveDrive.cpp:10:1:SwerveDrive::SwerveDrive(SwerveDriveConfig&)	224	static
-../Core/Inc/SwerveDrive/SwerveDrive.cpp:79:18:SwerveDriveState SwerveDrive::updateState(SwerveDriveState&)	200	static
