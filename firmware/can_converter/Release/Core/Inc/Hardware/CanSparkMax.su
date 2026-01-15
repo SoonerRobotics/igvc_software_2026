@@ -1,0 +1,10 @@
+../Core/Inc/Hardware/CanSparkMax.cpp:37:6:bool CanSparkMax::sendSparkMsg(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t*)	56	static
+../Core/Inc/Hardware/CanSparkMax.cpp:16:1:CanSparkMax::CanSparkMax(uint8_t, bool)	32	static
+../Core/Inc/Hardware/CanSparkMax.cpp:54:6:bool CanSparkMax::sendHeartbeat()	16	static
+../Core/Inc/Hardware/CanSparkMax.cpp:58:6:bool CanSparkMax::setPosition(float)	24	static
+../Core/Inc/Hardware/CanSparkMax.cpp:63:6:bool CanSparkMax::setVelocity(float)	24	static
+../Core/Inc/Hardware/CanSparkMax.cpp:69:6:void CanSparkMax::floatToData(float, uint8_t*)	0	static
+../Core/Inc/Hardware/CanSparkMax.cpp:74:6:void CanSparkMax::handleFeedback(uint8_t, uint8_t, const uint8_t*)	0	static
+../Core/Inc/Hardware/CanSparkMax.cpp:91:7:float CanSparkMax::getAbsolutePosition()	0	static
+../Core/Inc/Hardware/CanSparkMax.cpp:96:7:float CanSparkMax::getDrivePosition()	0	static
+../Core/Inc/Hardware/CanSparkMax.cpp:101:7:float CanSparkMax::getRPM()	0	static
