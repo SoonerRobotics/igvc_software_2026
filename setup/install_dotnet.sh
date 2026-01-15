@@ -1886,4 +1886,20 @@ say "Note that the script does not resolve dependencies during installation."
 say "To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the \"Dependencies\" section."
 say "Installation finished successfully."
 
-# echo "export PATH="$PATH:~/.dotnet"" >> ~/.bashrc
+function add_dotnet_to_bashrc() {
+    local dotnet_bin_path="$1"
+    local bashrc_file="$HOME/.bashrc"
+    if grep -q 'export PATH=.*\$HOME\/\.dotnet\/' "$bashrc_file"; then
+        say "The PATH variable in $bashrc_file already contains an entry for .dotnet; skipping addition."
+    else
+        echo "" >> "$bashrc_file"
+        echo "# Add .NET SDK to PATH" >> "$bashrc_file"
+        echo "export PATH=\"\$HOME/.dotnet:$dotnet_bin_path:\$PATH\"" >> "$bashrc_file"
+        say "Added .NET SDK to PATH in $bashrc_file. Please restart your shell or run 'source $bashrc_file' to apply the changes."
+    fi
+}
+
+# Add ~/.dotnet to PATH instruction to ~/.bashrc
+if [ "$no_path" = false ] && [ "$install_dir" = "<auto>" ]; then
+    add_dotnet_to_bashrc "$bin_path"
+fi
