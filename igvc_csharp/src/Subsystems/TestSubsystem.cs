@@ -4,6 +4,7 @@ using igvc_csharp.Messages;
 using igvc_csharp.MessageUtils;
 using igvc_csharp.Subsystems;
 using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Subsystems.Simulator;
 using igvc_csharp.Utilities;
 using igvc_csharp.Yolo;
 using Messages;

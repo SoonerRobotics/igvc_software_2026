@@ -3,6 +3,7 @@ using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Utilities;
 using Messages;
 using Messages.Arc;
+using SocketCANSharp;
 
 namespace igvc_csharp.MessageUtils;
 
@@ -56,5 +57,21 @@ public static class MessageConstructor
         builder.Finish(commandOffset.Value);
         
         return ArcCommand.GetRootAsArcCommand(new ByteBuffer(builder.SizedByteArray()));
+    }
+
+    public static ArcCanFrame CreateArcCanFrame(CanFrame frame)
+    {
+        var builder = new FlatBufferBuilder(1024);
+        var dataOffset = ArcCanFrame.CreateCanDataVector(builder, frame.Data);
+        var arcCanFrameOffset = ArcCanFrame.CreateArcCanFrame(
+            builder,
+            TimeUtilities.Now(),
+            0,
+            frame.CanId,
+            dataOffset
+        );
+        builder.Finish(arcCanFrameOffset.Value);
+        
+        return ArcCanFrame.GetRootAsArcCanFrame(new ByteBuffer(builder.SizedByteArray()));
     }
 }

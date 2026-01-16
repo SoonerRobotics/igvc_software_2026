@@ -3,6 +3,7 @@ using System.Reflection.Metadata;
 using igvc_csharp.CanSpec;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
+using igvc_csharp.Events;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;
 using SocketCANSharp.Network;
@@ -174,16 +175,8 @@ public class CanbusSubsystem : SubsystemBase
                 
                 _bits.AddSample(bytesRead * 8);
                 _bytesRead.AddSample(bytesRead);
-
-                if (frame.CanId == (short)CanId.MotorOdometry)
-                {
-                    var odo = MotorOdometryMessage.Read(frame.Data);
-                    Logger.LogDebug("Motor Odometry: {DeltaX}, {DeltaY}, {DeltaTheta}", odo.DeltaX, odo.DeltaY, odo.DeltaTheta);
-                    continue;
-                }
                 
-                // TODO: Event bus
-                Logger.LogTrace("Can Packet: {CanId}", frame.CanId);
+                EventBus.Instance.Publish(new CanFrameEvent(frame));
             }
             catch (ObjectDisposedException ex)
             {

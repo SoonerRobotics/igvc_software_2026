@@ -2,9 +2,11 @@
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.MessageUtils;
+using Messages.Arc;
 using Microsoft.Extensions.Logging;
+using SocketCANSharp;
 
-namespace igvc_csharp.Subsystems;
+namespace igvc_csharp.Subsystems.Simulator;
 
 [Subsystem("SimulatorSubsystem", Disabled = !Constants.UseSimulation)]
 public class SimulatorSubsystem : SubsystemBase
@@ -109,6 +111,16 @@ public class SimulatorSubsystem : SubsystemBase
 
     private void ProcessMessage(MessageWrapper wrapper)
     {
+        if (wrapper.Type == MessageType.CanFrame)
+        {
+            var arcFrame = wrapper.As<ArcCanFrame>();
+            var canId = arcFrame.CanId;
+            var canData = arcFrame.GetCanDataArray();
+            var canFrame = new CanFrame(canId, canData);
+            EventBus.Instance.Publish(new CanFrameEvent(canFrame));
+            return;
+        }
+        
         EventBus.Instance.Publish(new MessageWrapperEvent(wrapper));
     }
 

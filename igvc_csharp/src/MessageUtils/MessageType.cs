@@ -14,4 +14,5 @@ public enum MessageType : ushort
     CapabilityAck = 60_001,
     CommandReq = 60_002,
     CommandAck = 60_003,
+    CanFrame = 60_004,
 }
