@@ -129,7 +129,7 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
         return Task.CompletedTask;
     }
 
-    [ArcCommand(Command.ToolsStartOpenCvCalibration)]
+    [ArcCommand(ArcCommandId.ToolsStartOpenCvCalibration)]
     public void StartCalibration(ArcCommand command)
     {
         _isCalibrating = true;
@@ -138,7 +138,7 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
         Logger.LogInformation("Started OpenCV calibration");
     }
 
-    [ArcCommand(Command.ToolsStopOpenCvCalibration)]
+    [ArcCommand(ArcCommandId.ToolsStopOpenCvCalibration)]
     public void StopCalibration()
     {
         _currentCommand = null;
@@ -148,7 +148,7 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
         Logger.LogInformation("Stopped OpenCV calibration");
     }
 
-    [ArcCommand(Command.ToolsSaveOpenCvCalibration)]
+    [ArcCommand(ArcCommandId.ToolsSaveOpenCvCalibration)]
     public void SaveCalibration(ArcCommand command)
     {
         _doCalibrate = true;

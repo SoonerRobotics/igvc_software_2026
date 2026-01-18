@@ -1,7 +1,9 @@
-﻿namespace igvc_csharp.Subsystems.Arc;
+﻿using Messages.Arc;
+
+namespace igvc_csharp.Subsystems.Arc;
 
 [AttributeUsage(AttributeTargets.Method)]
-public sealed class ArcCommandAttribute(Command command) : Attribute
+public sealed class ArcCommandAttribute(ArcCommandId command) : Attribute
 {
-    public Command Command { set; get; } = command;
+    public ArcCommandId Command { set; get; } = command;
 }

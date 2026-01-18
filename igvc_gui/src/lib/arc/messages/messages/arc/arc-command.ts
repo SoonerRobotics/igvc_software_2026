@@ -4,6 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ArcCommandId } from '../../messages/arc/arc-command-id.js';
+import { ArcCommandPurpose } from '../../messages/arc/arc-command-purpose.js';
 
 
 export class ArcCommand {
@@ -34,14 +36,14 @@ sequenceNumber():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
-purpose():number {
+purpose():ArcCommandPurpose {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+  return offset ? this.bb!.readInt8(this.bb_pos + offset) : ArcCommandPurpose.UnknownPurpose;
 }
 
-commandId():number {
+commandId():ArcCommandId {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+  return offset ? this.bb!.readInt8(this.bb_pos + offset) : ArcCommandId.UnknownCommand;
 }
 
 data(index: number):number|null {
@@ -71,12 +73,12 @@ static addSequenceNumber(builder:flatbuffers.Builder, sequenceNumber:number) {
   builder.addFieldInt32(1, sequenceNumber, 0);
 }
 
-static addPurpose(builder:flatbuffers.Builder, purpose:number) {
-  builder.addFieldInt32(2, purpose, 0);
+static addPurpose(builder:flatbuffers.Builder, purpose:ArcCommandPurpose) {
+  builder.addFieldInt8(2, purpose, ArcCommandPurpose.UnknownPurpose);
 }
 
-static addCommandId(builder:flatbuffers.Builder, commandId:number) {
-  builder.addFieldInt32(3, commandId, 0);
+static addCommandId(builder:flatbuffers.Builder, commandId:ArcCommandId) {
+  builder.addFieldInt8(3, commandId, ArcCommandId.UnknownCommand);
 }
 
 static addData(builder:flatbuffers.Builder, dataOffset:flatbuffers.Offset) {
@@ -108,7 +110,7 @@ static finishSizePrefixedArcCommandBuffer(builder:flatbuffers.Builder, offset:fl
   builder.finish(offset, undefined, true);
 }
 
-static createArcCommand(builder:flatbuffers.Builder, timestamp:bigint, sequenceNumber:number, purpose:number, commandId:number, dataOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createArcCommand(builder:flatbuffers.Builder, timestamp:bigint, sequenceNumber:number, purpose:ArcCommandPurpose, commandId:ArcCommandId, dataOffset:flatbuffers.Offset):flatbuffers.Offset {
   ArcCommand.startArcCommand(builder);
   ArcCommand.addTimestamp(builder, timestamp);
   ArcCommand.addSequenceNumber(builder, sequenceNumber);

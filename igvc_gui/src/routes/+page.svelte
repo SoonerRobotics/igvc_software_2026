@@ -5,6 +5,7 @@
     import { callCommand, connectionStatus, subscribe } from "$lib/arc/socket";
     import { toast } from "svelte-sonner";
     import ImageView from "../components/image-view.svelte";
+    import CameraView from "../components/camera-view.svelte";
 
     subscribe<ImageFrame>(
         MessageType.ImageFrame,
@@ -37,8 +38,8 @@
     });
 </script>
 
-<div class="p-4 space-y-4">
-    <p>Connection status: {$connectionStatus}</p>
+<div class="flex-1 overflow-auto p-4">
+    <!-- <p>Connection status: {$connectionStatus}</p>
 
     <div>
         <h2>Camera Feeds</h2>
@@ -92,12 +93,7 @@
                 Save Calibration
             </button>
         </div>
+    </div> -->
 
-        <div class="w-full h-full flex flex-row gap-4 mt-4 flex-wrap">
-            <ImageView id="front_view" alt="front view" />
-            <ImageView id="calibration_view" alt="calibraiton_view" />
-            <ImageView id="calibration_view" alt="calibraiton_view" />
-            <ImageView id="calibration_view" alt="calibraiton_view" />
-        </div>
-    </div>
+    <CameraView />
 </div>

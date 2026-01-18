@@ -25,7 +25,6 @@ public class ArcSubsystem : SubsystemBase
 {
     private const Endianness Endianness = Constants.ArcSubsystem.Endianness;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
-    private readonly ConcurrentDictionary<Guid, (uint, uint, uint)> _clientCapabilities = new();
     private CancellationTokenSource? _internalCts;
     private IHost? _host;
     private JpegServer? _server;
@@ -38,7 +37,7 @@ public class ArcSubsystem : SubsystemBase
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
-    private Dictionary<Command, List<MethodInfo>> _commandMethods = new();
+    private readonly Dictionary<ArcCommandId, List<MethodInfo>> _commandMethods = new();
     
 
     private Task? _outgoingSendTask;
@@ -235,7 +234,7 @@ public class ArcSubsystem : SubsystemBase
             await _internalCts.CancelAsync();
         }
 
-        foreach (var (clientId, socket) in _clients)
+        foreach (var (_, socket) in _clients)
         {
             try
             {
@@ -313,6 +312,7 @@ public class ArcSubsystem : SubsystemBase
             }
             catch
             {
+                // ignored
             }
         }
     }
@@ -367,7 +367,7 @@ public class ArcSubsystem : SubsystemBase
 
     private Task HandleCommandRequest(Guid guid, ArcCommand commandRaw, CancellationToken token)
     {
-        var command = (Command)commandRaw.CommandId;
+        var command = commandRaw.CommandId;
         
         if (_commandMethods.TryGetValue(command, out var methods))
         {

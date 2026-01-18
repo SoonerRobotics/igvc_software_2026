@@ -3,6 +3,7 @@ using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Utilities;
 using Messages;
 using Messages.Arc;
+using OpenCvSharp;
 using SocketCANSharp;
 
 namespace igvc_csharp.MessageUtils;
@@ -49,14 +50,20 @@ public static class MessageConstructor
         var commandOffset = ArcCommand.CreateArcCommand(
             builder,
             TimeUtilities.Now(),
-            0,
-            1,
+            command?.SequenceNumber ?? 0,
+            ArcCommandPurpose.Response,
             command?.CommandId ?? 0,
             dataOffset
         );
         builder.Finish(commandOffset.Value);
         
         return ArcCommand.GetRootAsArcCommand(new ByteBuffer(builder.SizedByteArray()));
+    }
+
+    public static MessageWrapper CreateWrappedResponse(ArcCommand? command, byte[]? data = null)
+    {
+        var cmd = CreateResponse(command, data);
+        return MessageWrapper.From(MessageType.CommandAck, cmd.ByteBuffer.ToSizedArray());
     }
 
     public static ArcCanFrame CreateArcCanFrame(CanFrame frame)
@@ -73,5 +80,25 @@ public static class MessageConstructor
         builder.Finish(arcCanFrameOffset.Value);
         
         return ArcCanFrame.GetRootAsArcCanFrame(new ByteBuffer(builder.SizedByteArray()));
+    }
+
+    public static ArcHistogram CreateHistogram(ColorUtilities.ColorRange range, int padding = 0)
+    {
+        var builder = new FlatBufferBuilder(1024);
+        range = range.WithPadding(padding);
+        var histogramOffset = ArcHistogram.CreateArcHistogram(
+            builder,
+            TimeUtilities.Now(),
+            0,
+            (float)range.MinHue,
+            (float)range.MaxHue,
+            (float)range.MinSaturation,
+            (float)range.MaxSaturation,
+            (float)range.MinValue,
+            (float)range.MaxValue
+        );
+        builder.Finish(histogramOffset.Value);
+        
+        return ArcHistogram.GetRootAsArcHistogram(new ByteBuffer(builder.SizedByteArray()));
     }
 }

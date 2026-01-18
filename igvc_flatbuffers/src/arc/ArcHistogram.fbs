@@ -1,0 +1,23 @@
+namespace {NAMESPACE_PLACEHOLDER}.arc;
+
+table ArcHistogram {
+    // The timestamp of the image frame in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the image frame
+    sequence_number: uint;
+
+    // Hue in degrees [0, 360)
+    min_hue: float;
+    max_hue: float;
+
+    // Saturation [0, 1]
+    min_saturation: float;
+    max_saturation: float;
+
+    // Value (brightness) [0, 1]
+    min_value: float;
+    max_value: float;
+}
+
+root_type ArcHistogram;

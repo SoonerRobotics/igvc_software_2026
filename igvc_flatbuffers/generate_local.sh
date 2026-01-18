@@ -43,8 +43,6 @@ for FBS_FILE in "${FBS_FILES[@]}"; do
 
     TS_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$TS_NAMESPACE}
     CSHARP_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CSHARP_NAMESPACE}
-
-    # 🔹 PascalCase C# namespace segments
     CSHARP_FBS_CONTENT=$(echo "$CSHARP_FBS_CONTENT" | pascal_dot_namespace)
 
     BASE="$(basename "${FBS_FILE%.fbs}")"

@@ -1,5 +1,30 @@
 namespace {NAMESPACE_PLACEHOLDER}.arc;
 
+enum ArcCommandId : byte {
+    // Default
+    UnknownCommand = 0x00,
+
+    // OpenCv Calibration
+    ToolsStartOpenCvCalibration = 0x01,
+    ToolsStopOpenCvCalibration = 0x02,
+    ToolsSaveOpenCvCalibration = 0x03,
+
+    // Hsv Calibration
+    ToolsStartHsvCalibration = 0x04,
+    ToolsStopHsvCalibration = 0x05,
+    ToolsEditHsvCalibration = 0x06,
+    ToolsSaveHsvCalibration = 0x07,
+}
+
+enum ArcCommandPurpose : byte {
+    // Default
+    UnknownPurpose = 0x00,
+
+    // Standard
+    Request = 0x01,
+    Response = 0x02,
+}
+
 table ArcCommand {
     // The timestamp of the image frame in microseconds
     timestamp: ulong;
@@ -8,10 +33,10 @@ table ArcCommand {
     sequence_number: uint;
 
     // The purpose of this arc command, 0 = request and 1 = acknowledgment
-    purpose: uint;
+    purpose: ArcCommandPurpose;
 
     // The identifier for this command
-    command_id: uint;
+    command_id: ArcCommandId;
 
     // The data backing this command
     data: [ubyte];

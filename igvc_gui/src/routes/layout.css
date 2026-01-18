@@ -1,6 +1,7 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@import "tw-animate-css";
 
-@plugin '@tailwindcss/forms';
+@custom-variant dark (&:is(.dark *));
 
 /* Added light theme variables */
 :root {
@@ -45,13 +46,13 @@
 
 /* Dark theme now uses .dark class */
 .dark {
-  --background: oklch(0.12 0.005 260);
+  --background: oklch(0.2 0.005 260);
   --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0.005 260);
+  --card: oklch(0.24 0.005 260);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.16 0.005 260);
   --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.2 160);
+  --primary: #BB0A21;
   --primary-foreground: oklch(0.12 0.005 260);
   --secondary: oklch(0.22 0.005 260);
   --secondary-foreground: oklch(0.85 0 0);
@@ -73,7 +74,7 @@
   --chart-3: oklch(0.75 0.18 85);
   --chart-4: oklch(0.55 0.22 25);
   --chart-5: oklch(0.6 0.15 280);
-  --sidebar: oklch(0.14 0.005 260);
+  --sidebar: oklch(0.18 0.005 260);
   --sidebar-foreground: oklch(0.95 0 0);
   --sidebar-primary: oklch(0.65 0.2 160);
   --sidebar-primary-foreground: oklch(0.12 0.005 260);

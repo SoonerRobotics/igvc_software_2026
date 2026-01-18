@@ -242,6 +242,25 @@ public static class ColorUtilities
         private static double Clamp01(double v)
             => v < 0 ? 0 : v > 1 ? 1 : v;
 
+        public ColorRange WithPadding(int padding)
+        {
+            var minHue = NormalizeHue(MinHue - padding);
+            var maxHue = NormalizeHue(MaxHue + padding);
+            var minS = Clamp01(MinSaturation - padding);
+            var maxS = Clamp01(MaxSaturation + padding);
+            var minV = Clamp01(MinValue - padding);
+            var maxV = Clamp01(MaxValue + padding);
+
+            return new ColorRange(
+                minHue,
+                maxHue,
+                minS,
+                maxS,
+                minV,
+                maxV
+            );
+        }
+        
         public static ColorRange From(Color lower, Color upper)
         {
             var hsvA = lower.ToHsv();
