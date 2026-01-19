@@ -71,6 +71,33 @@ SwerveDrive* InitSwerveDrive() {
 	    g_swerve_drive = &drive;
 	    return &drive;
 }
+
+// motor command stuff
+typedef struct {
+    int16_t forward_velocity;
+    int16_t sideways_velocity;
+    int16_t angular_velocity;
+} MotorCommandMsg;
+
+// motor odometry stuff
+typedef struct {
+    int16_t delta_x;
+    int16_t delta_y;
+    int16_t delta_theta;
+} MotorOdometryMsg;
+
+void encode_motor_odom_le(const MotorOdometryMsg *msg, uint8_t *out)
+{
+    out[0] = msg->delta_x & 0xFF;
+    out[1] = (msg->delta_x >> 8) & 0xFF;
+
+    out[2] = msg->delta_y & 0xFF;
+    out[3] = (msg->delta_y >> 8) & 0xFF;
+
+    out[4] = msg->delta_theta & 0xFF;
+    out[5] = (msg->delta_theta >> 8) & 0xFF;
+}
+
 int main(void)
 {
 
@@ -130,22 +157,16 @@ int main(void)
 }
 static void SendOdometry(const SwerveDriveState& odom)
 {
-    const float scale = 1000.0f;
-
-    int16_t fwd_raw  = (int16_t)(odom.x_vel       * scale);
-    int16_t side_raw = (int16_t)(odom.y_vel       * scale);
-    int16_t ang_raw  = (int16_t)(odom.angular_vel * scale);
-
     uint8_t txData[8] = {0};
-    txData[0] = (uint8_t)((fwd_raw  >> 8) & 0xFF);
-    txData[1] = (uint8_t)( fwd_raw        & 0xFF);
-    txData[2] = (uint8_t)((side_raw >> 8) & 0xFF);
-    txData[3] = (uint8_t)( side_raw       & 0xFF);
-    txData[4] = (uint8_t)((ang_raw  >> 8) & 0xFF);
-    txData[5] = (uint8_t)( ang_raw        & 0xFF);
+	MotorOdometryMsg msg = {
+		.delta_x = (int16_t)(odom.x_vel / 0.0001f),
+		.delta_y = (int16_t)(odom.y_vel / 0.0001f),
+		.delta_theta = (int16_t)(odom.angular_vel / 0.0001f)
+	};
+	encode_motor_odom_le(&msg, txData);
 
     CAN_TxHeaderTypeDef txHeader;
-    txHeader.StdId = 14;                 // Odometry Feedback ID
+    txHeader.StdId = 0xB;                 // Odometry Feedback ID (new 2026 id)
     txHeader.IDE   = CAN_ID_STD;
     txHeader.RTR   = CAN_RTR_DATA;
     txHeader.DLC   = 6;
@@ -172,13 +193,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			return;
 		}
 		uint32_t can_id = rxHeader.StdId;
-		if ((can_id == 10) && (rxHeader.DLC == 6)) {
-	        int16_t fwd_raw = (int16_t)((int16_t)data[0] << 8 | data[1]);
-	        int16_t side_raw = (int16_t)((int16_t)data[2] << 8 | data[3]);
-	        int16_t ang_raw  = (int16_t)((int16_t)data[4] << 8 | data[5]);
-	        cmd.x_vel       = fwd_raw  * 0.001;
-	        cmd.y_vel       = side_raw * 0.001;
-	        cmd.angular_vel = ang_raw  * 0.001;
+		if ((can_id == 0xA) && (rxHeader.DLC == 6)) {
+			MotorCommandMsg *msg = (MotorCommandMsg *)data;
+	        cmd.x_vel       = msg->forward_velocity * 0.0001;
+	        cmd.y_vel       = msg->sideways_velocity * 0.0001;
+	        cmd.angular_vel = msg->angular_velocity * 0.001;
 	        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 		}
 
