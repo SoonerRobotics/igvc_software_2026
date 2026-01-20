@@ -84,6 +84,10 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
     input_vel_[1] = static_cast<float>(state.delta_y);        // vy or Δy
     input_vel_[2] = static_cast<float>(state.delta_theta);  // w  or Δθ
 
+    char msg[96];
+    auto len = snprintf(msg, sizeof(msg), "DRIVE: %.6f\r\n", front_left_module_.drive_motor_.getDrivePosition());
+    CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
+
     // 2) Forward kinematics: wheel_velocities_ = A * input_vel_
     //    This gives per-module [vx_i, vy_i] in robot frame
     arm_mat_mult_f32(&drive_kinematics_mat_,

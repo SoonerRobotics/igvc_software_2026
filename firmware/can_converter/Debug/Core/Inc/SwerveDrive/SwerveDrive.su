@@ -3,4 +3,4 @@
 ../Core/Inc/SwerveDrive/SwerveModule.h:40:12:double SwerveModule::getCurrentAngleRad() const	16	static
 ../Core/Inc/SwerveDrive/SwerveDrive.cpp:24:22:SwerveDrive::SwerveDrive(SwerveDriveConfig&)::<lambda(int, const SwerveModule&)>	32	static
 ../Core/Inc/SwerveDrive/SwerveDrive.cpp:11:1:SwerveDrive::SwerveDrive(SwerveDriveConfig&)	224	static
-../Core/Inc/SwerveDrive/SwerveDrive.cpp:80:18:SwerveDriveState SwerveDrive::updateState(SwerveDriveState&)	104	static
+../Core/Inc/SwerveDrive/SwerveDrive.cpp:80:18:SwerveDriveState SwerveDrive::updateState(SwerveDriveState&)	216	static

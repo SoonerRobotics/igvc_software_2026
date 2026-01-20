@@ -16,20 +16,42 @@ float radians(double degrees) {
     return degrees * M_PI / 180.0f;
 }
 
+#include <stdint.h>
+#include <string.h>
+
+float read_float_le(const uint8_t *data) {
+    float value;
+    uint32_t temp;
+
+    /* Copy bytes into a 32-bit integer */
+    memcpy(&temp, data, sizeof(uint32_t));
+
+    /* If the system is big-endian, swap bytes */
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    temp = __builtin_bswap32(temp);
+#endif
+
+    /* Reinterpret bits as float */
+    memcpy(&value, &temp, sizeof(float));
+
+    return value;
+}
+
+
 extern CAN_HandleTypeDef hcan2;
-uint8_t enablemsg[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+uint8_t enablemsg[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00};
 
 extern CanSparkMax* s_spark_registry[64];
 CanSparkMax::CanSparkMax(uint8_t id, bool reversed)
     : deviceID(id), isReversed(reversed) {
 	uint16_t period_ms = 50;
 	uint8_t data[8] = { (uint8_t)(period_ms & 0xFF), (uint8_t)(period_ms >> 8), 0,0,0,0,0,0 };
-	if (id == 8) {
-		enablemsg[1] = enablemsg[1] + 1;
-	}
-	else {
-	enablemsg[0] = enablemsg[0] + (1 << id);
-	}
+//	if (id == 8) {
+//		enablemsg[1] = enablemsg[1] + 1;
+//	}
+//	else {
+//	enablemsg[0] = enablemsg[0] + (1 << id);
+//	}
 	s_spark_registry[deviceID] = this;
 	sendSparkMsg(2, 6, deviceID, 2, data);
 
@@ -42,6 +64,8 @@ CanSparkMax::CanSparkMax(uint8_t id, bool reversed)
 }
 
 bool CanSparkMax::sendSparkMsg(uint8_t  api_index, uint8_t  api_class, uint8_t id, uint8_t  dlc, uint8_t data[8]) {
+	for(;;)if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan2)) == 3)break;
+
 	uint32_t can_id =  (DEVICE_TYPE <<24) | (MANUFACTURER_CODE << 16) | (api_class << 10) | (api_index <<6) | (deviceID);
 	CAN_TxHeaderTypeDef tx;
 	tx.IDE = CAN_ID_EXT;
@@ -53,9 +77,13 @@ bool CanSparkMax::sendSparkMsg(uint8_t  api_index, uint8_t  api_class, uint8_t i
 	for (int i = 0; i < dlc; ++i) {
 	    can_data[i] = data[i];
 	}
-	if (HAL_CAN_AddTxMessage(&hcan2,&tx,can_data, &mailbox) != HAL_OK) {
-		return false;
+	auto st = HAL_CAN_AddTxMessage(&hcan2,&tx,can_data, &mailbox);
+	if (st != HAL_OK) {
+	    uint32_t err = HAL_CAN_GetError(&hcan2);
+	    // breakpoint here
+	    return false;
 	}
+
 	return true;
 }
 bool CanSparkMax::sendHeartbeat() {
@@ -84,8 +112,7 @@ void CanSparkMax::handleFeedback(uint8_t api_class,
                                 uint8_t api_index,
                                 const uint8_t data[8])
 {
-    float f;
-    std::memcpy(&f, data, sizeof(float));
+    float f = read_float_le(data);
 
     char msg[96];
     int len = 0;
@@ -115,9 +142,9 @@ void CanSparkMax::handleFeedback(uint8_t api_class,
 //                       (double)rpm_);
     }
 
-    //if (len > 0 && deviceID == 2) {
-    //    (void)CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
-    //}
+    if (len > 0 && deviceID == 2) {
+        (void)CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
+    }
 }
 
 
@@ -128,7 +155,11 @@ float CanSparkMax::getAbsolutePosition()
 
 float CanSparkMax::getAngle()
 {
-	return radians(getAbsolutePosition());
+	float piDouble = (float)M_PI;
+	float reading = getAbsolutePosition();
+	float angleRadians = reading * 2 * piDouble;
+	angleRadians = std::fmod((angleRadians + piDouble), (2.0f * piDouble) - piDouble);
+	return angleRadians;
 }
 
 float CanSparkMax::getDrivePosition()

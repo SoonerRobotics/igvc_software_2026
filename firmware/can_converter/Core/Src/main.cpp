@@ -123,6 +123,7 @@ int main(void)
   uint32_t last = HAL_GetTick();
   const uint32_t period_ms = 50;
 
+  float angle = 0.0f;
   while (1) {
 	  uint32_t now = HAL_GetTick();
 	  if ((now - last) >= period_ms) {
@@ -132,17 +133,46 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
+
+//		  angle += 0.005f;
+//		  if (angle >= 1.0f)
+//		  {
+//			  angle = 0.0f;
+//		  }
+//
+//		  CanSparkMax* hb_spark = s_spark_registry[1];
+//		  if (hb_spark)
+//		  {
+//			  hb_spark->sendHeartbeat();
+//		  }
+//
+//		  for (int i = 8; i >= 1; i--)
+//		  {
+//			  CanSparkMax* sp = s_spark_registry[i];
+//			  if (!sp) continue;
+//
+//			  if (i == 2 || i == 3 || i == 6 || i == 7)
+//			  {
+//				  sp->setPosition(angle);
+//			  } else {
+//				  sp->setVelocity(1.0f);
+//			  }
+////			  sp->setVelocity(1.0f);
+//		  }
+
 		  last = now;
 	  }
   }
 }
 static void SendOdometry(const SwerveDriveState& odom)
 {
+	for(;;) if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) == 3) break;
+
     uint8_t txData[8] = {0};
 	MotorOdometryMsg msg = {
-		.delta_x = (int16_t)(odom.delta_x / 0.0001f),
-		.delta_y = (int16_t)(odom.delta_y / 0.0001f),
-		.delta_theta = (int16_t)(odom.delta_theta / 0.0001f)
+		.delta_x = (int16_t)(odom.delta_x * 10000.0f),
+		.delta_y = (int16_t)(odom.delta_y * 10000.0f),
+		.delta_theta = (int16_t)(odom.delta_theta * 10000.0f)
 	};
 	encode_motor_odom_le(&msg, txData);
 
@@ -206,7 +236,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 //		);
 //		CDC_Transmit_FS((uint8_t*)msg, len);
 		// Look up the instance
-		extern CanSparkMax* s_spark_registry[64];
 		CanSparkMax* spark = s_spark_registry[deviceID];
 		if (spark) {
 
@@ -269,16 +298,30 @@ static void MX_CAN2_Init(void)
   hcan2.Init.TimeTriggeredMode = DISABLE;
   hcan2.Init.AutoBusOff = DISABLE;
   hcan2.Init.AutoWakeUp = DISABLE;
-  hcan2.Init.AutoRetransmission = DISABLE;
+  hcan2.Init.AutoRetransmission = ENABLE;
   hcan2.Init.ReceiveFifoLocked = DISABLE;
   hcan2.Init.TransmitFifoPriority = DISABLE;
   if (HAL_CAN_Init(&hcan2) != HAL_OK)
   {
     Error_Handler();
   }
+/*
   configFilter(&hcan2,0x02051840,16);
   configFilter(&hcan2,0x02051880,17);
   configFilter(&hcan2,0x02051940,18); //RPM, and encoder feedback ids
+*/
+
+  CAN_FilterTypeDef f = {0};
+  f.FilterBank = 16;
+  f.FilterActivation = CAN_FILTER_ENABLE;
+  f.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  f.FilterScale = CAN_FILTERSCALE_32BIT;
+  f.FilterMode = CAN_FILTERMODE_IDMASK;
+  f.FilterIdHigh = 0;
+  f.FilterIdLow = 0;
+  f.FilterMaskIdHigh = 0;
+  f.FilterMaskIdLow = 0;
+  HAL_CAN_ConfigFilter(&hcan2, &f);
 }
 static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank)
 {
