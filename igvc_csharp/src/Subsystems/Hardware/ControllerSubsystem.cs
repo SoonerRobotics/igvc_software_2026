@@ -102,7 +102,7 @@ public class ControllerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     break;
                 case 3:
                     var rX = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
-                    _msg.SidewaysVelocity = (short)(rX * maxStrafeVel / 0.001f);
+                    _msg.AngularVelocity = (short)(rX * maxStrafeVel / 0.001f);
                     break;
             }
         }
