@@ -21,9 +21,9 @@ typedef struct
 
 typedef struct
 {
-    double x_vel;       // (meters/second)
-    double y_vel;       // (meters/second)
-    double angular_vel; // (radians/second)
+    double delta_x;
+    double delta_y;
+    double delta_theta;
 } SwerveDriveState;
 
 class SwerveDrive

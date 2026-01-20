@@ -1,10 +1,11 @@
-../Core/Inc/Hardware/CanSparkMax.cpp:17:1:CanSparkMax::CanSparkMax(uint8_t, bool)	40	static
-../Core/Inc/Hardware/CanSparkMax.cpp:38:6:bool CanSparkMax::sendSparkMsg(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t*)	64	static
-../Core/Inc/Hardware/CanSparkMax.cpp:55:6:bool CanSparkMax::sendHeartbeat()	24	static
-../Core/Inc/Hardware/CanSparkMax.cpp:59:6:bool CanSparkMax::setPosition(float)	32	static
-../Core/Inc/Hardware/CanSparkMax.cpp:64:6:bool CanSparkMax::setVelocity(float)	32	static
-../Core/Inc/Hardware/CanSparkMax.cpp:70:6:void CanSparkMax::floatToData(float, uint8_t*)	24	static
-../Core/Inc/Hardware/CanSparkMax.cpp:75:6:void CanSparkMax::handleFeedback(uint8_t, uint8_t, const uint8_t*)	144	static
-../Core/Inc/Hardware/CanSparkMax.cpp:116:7:float CanSparkMax::getAbsolutePosition()	16	static
-../Core/Inc/Hardware/CanSparkMax.cpp:121:7:float CanSparkMax::getDrivePosition()	16	static
-../Core/Inc/Hardware/CanSparkMax.cpp:126:7:float CanSparkMax::getRPM()	16	static
+../Core/Inc/Hardware/CanSparkMax.cpp:15:7:float radians(double)	16	static
+../Core/Inc/Hardware/CanSparkMax.cpp:23:1:CanSparkMax::CanSparkMax(uint8_t, bool)	40	static
+../Core/Inc/Hardware/CanSparkMax.cpp:44:6:bool CanSparkMax::sendSparkMsg(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t*)	64	static
+../Core/Inc/Hardware/CanSparkMax.cpp:61:6:bool CanSparkMax::sendHeartbeat()	24	static
+../Core/Inc/Hardware/CanSparkMax.cpp:65:6:bool CanSparkMax::setPosition(float)	32	static
+../Core/Inc/Hardware/CanSparkMax.cpp:72:6:bool CanSparkMax::setVelocity(float)	32	static
+../Core/Inc/Hardware/CanSparkMax.cpp:78:6:void CanSparkMax::floatToData(float, uint8_t*)	24	static
+../Core/Inc/Hardware/CanSparkMax.cpp:83:6:void CanSparkMax::handleFeedback(uint8_t, uint8_t, const uint8_t*)	144	static
+../Core/Inc/Hardware/CanSparkMax.cpp:124:7:float CanSparkMax::getAbsolutePosition()	16	static
+../Core/Inc/Hardware/CanSparkMax.cpp:129:7:float CanSparkMax::getAngle()	16	static
+../Core/Inc/Hardware/CanSparkMax.cpp:134:7:float CanSparkMax::getDrivePosition()	16	static

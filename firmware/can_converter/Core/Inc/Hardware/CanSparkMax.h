@@ -48,7 +48,8 @@ public:
 	bool setVelocity(float value);
 	float getAbsolutePosition();
 	float getDrivePosition();
-	float getRPM();
+//	float getRPM();
+	float getAngle();
 	float encoderToRadians(float encoder_reading);
 	bool sendHeartbeat();
     void handleFeedback(uint8_t api_class, uint8_t api_index, const uint8_t data[8]);

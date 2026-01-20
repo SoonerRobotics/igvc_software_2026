@@ -132,32 +132,17 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
-		  double a = swerveDrive->front_left_module_.angle_motor_.getAbsolutePosition();
-		  double b = swerveDrive->front_left_module_.drive_motor_.getRPM();
-
-		    char msg[96];
-		    int len = snprintf(
-		        msg,
-		        sizeof(msg),
-				"RPM=%.3f Abs = %.3f\r\n",
-		        b,a
-		    );
-		    //CDC_Transmit_FS((uint8_t*)msg, len);
-		  //swerveDrive->front_left_module_.drive_motor_.getAbsolutePosition;
 		  last = now;
 	  }
-
-
-
   }
 }
 static void SendOdometry(const SwerveDriveState& odom)
 {
     uint8_t txData[8] = {0};
 	MotorOdometryMsg msg = {
-		.delta_x = (int16_t)(odom.x_vel / 0.0001f),
-		.delta_y = (int16_t)(odom.y_vel / 0.0001f),
-		.delta_theta = (int16_t)(odom.angular_vel / 0.0001f)
+		.delta_x = (int16_t)(odom.delta_x / 0.0001f),
+		.delta_y = (int16_t)(odom.delta_y / 0.0001f),
+		.delta_theta = (int16_t)(odom.delta_theta / 0.0001f)
 	};
 	encode_motor_odom_le(&msg, txData);
 
@@ -191,9 +176,9 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		uint32_t can_id = rxHeader.StdId;
 		if ((can_id == 0xA) && (rxHeader.DLC == 6)) {
 			MotorCommandMsg *msg = (MotorCommandMsg *)data;
-	        cmd.x_vel       = msg->forward_velocity * 0.0001;
-	        cmd.y_vel       = msg->sideways_velocity * 0.0001;
-	        cmd.angular_vel = msg->angular_velocity * 0.001;
+	        cmd.delta_x       = msg->forward_velocity * 0.0001;
+	        cmd.delta_y       = msg->sideways_velocity * 0.0001;
+	        cmd.delta_theta = msg->angular_velocity * 0.001;
 	        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 		}
 

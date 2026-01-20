@@ -24,15 +24,16 @@ typedef struct
 
 } SwerveModuleConfig;
 typedef struct {
-	double x_vel;
-	double y_vel;
+	float delta_x;
+	float delta_y;
+	float delta_theta;
 } SwerveModuleState;
 
 class SwerveModule {
 
 public:
 	SwerveModule(SwerveModuleConfig config);
-	SwerveModuleState updateState(SwerveModuleState desired_state);
+	void updateState(SwerveModuleState desired_state);
 	float getDriveDelta();
     double getXPos() const { return config_.x_pos; }
     double getYPos() const { return config_.y_pos; }
@@ -42,11 +43,6 @@ public:
 	SwerveModuleConfig config_;
 	CanSparkMax drive_motor_;
 	CanSparkMax angle_motor_;
-	double driveMotorGearRatio = 16.0f;
-	double steerMotorGearRatio = 25.0f;
-	double wheel_radius = .1016f;
-	double drive_motor_conversion_factor_;
-	double angle_motor_conversion_factor_;
 	double last_set_angle_;
 	double drive_motor_last_position;
 	double current_angle_motor_position;

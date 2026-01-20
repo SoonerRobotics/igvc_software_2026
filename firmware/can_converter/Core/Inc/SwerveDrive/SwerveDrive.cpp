@@ -80,9 +80,9 @@ SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
 SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 {
     // 1) Pack robot motion into input_vel_ (treating x_vel, y_vel, angular_vel as deltas or velocities per step)
-    input_vel_[0] = static_cast<float>(state.x_vel);        // vx or Δx
-    input_vel_[1] = static_cast<float>(state.y_vel);        // vy or Δy
-    input_vel_[2] = static_cast<float>(state.angular_vel);  // w  or Δθ
+    input_vel_[0] = static_cast<float>(state.delta_x);        // vx or Δx
+    input_vel_[1] = static_cast<float>(state.delta_y);        // vy or Δy
+    input_vel_[2] = static_cast<float>(state.delta_theta);  // w  or Δθ
 
     // 2) Forward kinematics: wheel_velocities_ = A * input_vel_
     //    This gives per-module [vx_i, vy_i] in robot frame
@@ -92,20 +92,20 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     // 3) Send commands to each module (vx, vy for that wheel)
     SwerveModuleState fl_cmd;
-    fl_cmd.x_vel = static_cast<double>(wheel_velocities_[0]);
-    fl_cmd.y_vel = static_cast<double>(wheel_velocities_[1]);
+    fl_cmd.delta_x = static_cast<double>(wheel_velocities_[0]);
+    fl_cmd.delta_y = static_cast<double>(wheel_velocities_[1]);
 
     SwerveModuleState fr_cmd;
-    fr_cmd.x_vel = static_cast<double>(wheel_velocities_[2]);
-    fr_cmd.y_vel = static_cast<double>(wheel_velocities_[3]);
+    fr_cmd.delta_x = static_cast<double>(wheel_velocities_[2]);
+    fr_cmd.delta_y = static_cast<double>(wheel_velocities_[3]);
 
     SwerveModuleState bl_cmd;
-    bl_cmd.x_vel = static_cast<double>(wheel_velocities_[4]);
-    bl_cmd.y_vel = static_cast<double>(wheel_velocities_[5]);
+    bl_cmd.delta_x = static_cast<double>(wheel_velocities_[4]);
+    bl_cmd.delta_y = static_cast<double>(wheel_velocities_[5]);
 
     SwerveModuleState br_cmd;
-    br_cmd.x_vel = static_cast<double>(wheel_velocities_[6]);
-    br_cmd.y_vel = static_cast<double>(wheel_velocities_[7]);
+    br_cmd.delta_x = static_cast<double>(wheel_velocities_[6]);
+    br_cmd.delta_y = static_cast<double>(wheel_velocities_[7]);
 
     // Update each module (let them handle motor commands, internal state, etc.)
     front_left_module_.updateState(fl_cmd);
@@ -160,9 +160,9 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     // 6) Copy estimated robot motion back into a SwerveDriveState (convert float -> double)
     SwerveDriveState measured{};
-    measured.x_vel       = static_cast<double>(vel_est_data_[0]); // Δx
-    measured.y_vel       = static_cast<double>(vel_est_data_[1]); // Δy
-    measured.angular_vel = static_cast<double>(vel_est_data_[2]); // Δθ
+    measured.delta_x       = static_cast<double>(vel_est_data_[0]); // Δx
+    measured.delta_y       = static_cast<double>(vel_est_data_[1]); // Δy
+    measured.delta_theta = static_cast<double>(vel_est_data_[2]); // Δθ
 
     return measured;
 }

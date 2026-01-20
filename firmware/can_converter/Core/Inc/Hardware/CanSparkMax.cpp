@@ -10,6 +10,12 @@
 #include <cstring>   // for C++
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include "math.h"
+
+float radians(double degrees) {
+    return degrees * M_PI / 180.0f;
+}
+
 extern CAN_HandleTypeDef hcan2;
 uint8_t enablemsg[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
@@ -59,6 +65,8 @@ bool CanSparkMax::sendHeartbeat() {
 bool CanSparkMax::setPosition(float value) {
 	uint8_t buf[8] = {0};
 	floatToData(value,buf);
+
+
 	return CanSparkMax::sendSparkMsg(POSITION_API_INDEX,POSITION_API_CLASS,deviceID,8,buf);
 }
 bool CanSparkMax::setVelocity(float value){
@@ -99,12 +107,12 @@ void CanSparkMax::handleFeedback(uint8_t api_class,
                        (double)drive_position_);
     }
     else if (api_class == ENCODER_API_CLASS && api_index == 1) {
-        rpm_ = f;
-
-        len = snprintf(msg, sizeof(msg),
-                       "Spark %u | RPM = %.3f\r\n",
-                       (unsigned)deviceID,
-                       (double)rpm_);
+//        rpm_ = f;
+//
+//        len = snprintf(msg, sizeof(msg),
+//                       "Spark %u | RPM = %.3f\r\n",
+//                       (unsigned)deviceID,
+//                       (double)rpm_);
     }
 
     //if (len > 0 && deviceID == 2) {
@@ -118,12 +126,12 @@ float CanSparkMax::getAbsolutePosition()
     return absolute_position_;
 }
 
+float CanSparkMax::getAngle()
+{
+	return radians(getAbsolutePosition());
+}
+
 float CanSparkMax::getDrivePosition()
 {
     return drive_position_;
-}
-
-float CanSparkMax::getRPM()
-{
-    return rpm_;
 }
