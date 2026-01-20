@@ -31,7 +31,7 @@ class SwerveDrive
 public:
 	SwerveDrive(SwerveDriveConfig& config);
 	SwerveDriveState updateState(SwerveDriveState& state);
-private:
+public:
 	SwerveDriveConfig config_;
 	SwerveModule front_left_module_;
 	SwerveModule front_right_module_;

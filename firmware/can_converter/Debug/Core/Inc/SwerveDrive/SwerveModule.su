@@ -1,3 +1,4 @@
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:11:1:SwerveModule::SwerveModule(SwerveModuleConfig)	24	static
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:24:7:float SwerveModule::getDriveDelta()	24	static
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:37:19:SwerveModuleState SwerveModule::updateState(SwerveModuleState)	88	static
+../Core/Inc/SwerveDrive/SwerveModule.cpp:77:6:void SwerveModule::debugPrint()	128	static

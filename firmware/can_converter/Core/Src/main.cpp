@@ -122,14 +122,7 @@ int main(void)
   SwerveDrive* swerveDrive = InitSwerveDrive();
   uint32_t last = HAL_GetTick();
   const uint32_t period_ms = 50;
-//  CanSparkMax drive1(1,false);
-//  CanSparkMax drive2(4,false);
-//  CanSparkMax drive3(5,false);
-//  CanSparkMax drive4(8,false);
-//  CanSparkMax a1(2,false);
-//  CanSparkMax a2(3,false);
-//  CanSparkMax a3(6,false);
-//  CanSparkMax a4(7,false);
+
   while (1) {
 	  uint32_t now = HAL_GetTick();
 	  if ((now - last) >= period_ms) {
@@ -139,19 +132,22 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
-//		  drive1.setVelocity(42.0*1);
-//		  drive2.setVelocity(42.0*1);
-//		  drive3.setVelocity(-42.0*1);
-//		  drive4.setVelocity(42.0*1);
-//		  a1.setVelocity(10.0);
-//		  a2.setVelocity(10.0);
-//		  a3.setVelocity(10.0);
-//		  a4.setVelocity(10.0);
-		  last = now;
+		  double a = swerveDrive->front_left_module_.angle_motor_.getAbsolutePosition();
+		  double b = swerveDrive->front_left_module_.drive_motor_.getRPM();
 
+		    char msg[96];
+		    int len = snprintf(
+		        msg,
+		        sizeof(msg),
+				"RPM=%.3f Abs = %.3f\r\n",
+		        b,a
+		    );
+		    //CDC_Transmit_FS((uint8_t*)msg, len);
+		  //swerveDrive->front_left_module_.drive_motor_.getAbsolutePosition;
+		  last = now;
 	  }
 
-	    //HAL_Delay(1);
+
 
   }
 }
@@ -214,7 +210,16 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		uint8_t deviceID  =  can_id        & 0x3F;       // lower 6 bits
 		uint8_t api_index = (can_id >> 6)  & 0x0F;       // next 4 bits
 		uint8_t api_class = (can_id >> 10) & 0x3F;       // next 6 bits
-
+//		char msg[64];
+//		int len = snprintf(
+//		    msg,
+//		    sizeof(msg),
+//		    "ID:%u cls:%u idx:%u\r\n",
+//		    deviceID,
+//		    api_class,
+//		    api_index
+//		);
+//		CDC_Transmit_FS((uint8_t*)msg, len);
 		// Look up the instance
 		extern CanSparkMax* s_spark_registry[64];
 		CanSparkMax* spark = s_spark_registry[deviceID];

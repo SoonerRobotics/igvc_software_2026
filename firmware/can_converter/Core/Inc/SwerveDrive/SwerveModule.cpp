@@ -74,6 +74,17 @@ SwerveModuleState SwerveModule::updateState(SwerveModuleState desired_state) {
     return measured_state;
 
 }
+void SwerveModule::debugPrint()
+{
+    char msg[96];
+    int len = snprintf(
+        msg,
+        sizeof(msg),
+		"d=%.3f",
+        getDriveDelta()
+    );
+    CDC_Transmit_FS((uint8_t*)msg, len);
+}
 
 
 

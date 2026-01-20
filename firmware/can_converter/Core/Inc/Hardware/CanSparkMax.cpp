@@ -8,7 +8,8 @@
 #include "CanSparkMax.h"
 #include "main.h"
 #include <cstring>   // for C++
-
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
 extern CAN_HandleTypeDef hcan2;
 uint8_t enablemsg[8] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
@@ -24,13 +25,13 @@ CanSparkMax::CanSparkMax(uint8_t id, bool reversed)
 	enablemsg[0] = enablemsg[0] + (1 << id);
 	}
 	s_spark_registry[deviceID] = this;
-	sendSparkMsg(33, 6, deviceID, 2, data);
+	sendSparkMsg(2, 6, deviceID, 2, data);
 
 	    // position feedback (API_CLASS=6, API_INDEX=34)
-	sendSparkMsg(34, 6, deviceID, 2, data);
+	sendSparkMsg(3, 6, deviceID, 2, data);
 
 	    // absolute position feedback (API_CLASS=6, API_INDEX=37)
-	sendSparkMsg(37, 6, deviceID, 2, data);
+	sendSparkMsg(5, 6, deviceID, 2, data);
 
 }
 
@@ -71,23 +72,47 @@ void CanSparkMax::floatToData(float f, uint8_t* data)
 	std::memcpy(data, &f, sizeof(float));
 }
 
-void CanSparkMax::handleFeedback(uint8_t api_class, uint8_t api_index, const uint8_t data[8]) {
-	if (api_class == ABSOLUTE_ENCODER_FEEDBACK_API_CLASS && api_index == 5) {
-		float f;
-		std::memcpy(&f, data, sizeof(float));
-		absolute_position_ = f;
-	}
-	else if (api_class == DRIVE_ENCODER_FEEDBACK_API_CLASS && api_index == 2) {
-		float f;
-		std::memcpy(&f, data, sizeof(float));
-		drive_position_ = f;
-	}
-	else if (api_class == ENCODER_API_CLASS && api_index == 1) {
-		float f;
-		std::memcpy(&f, data, sizeof(float));
-		rpm_ = f;
-	}
+void CanSparkMax::handleFeedback(uint8_t api_class,
+                                uint8_t api_index,
+                                const uint8_t data[8])
+{
+    float f;
+    std::memcpy(&f, data, sizeof(float));
+
+    char msg[96];
+    int len = 0;
+
+    if (api_class == ABSOLUTE_ENCODER_FEEDBACK_API_CLASS && api_index == 5) {
+        absolute_position_ = f;
+
+        len = snprintf(msg, sizeof(msg),
+                       "Spark %u | ABS_POS = %.6f\r\n",
+                       (unsigned)deviceID,
+                       (double)absolute_position_);
+    }
+    else if (api_class == DRIVE_ENCODER_FEEDBACK_API_CLASS && api_index == 2) {
+        drive_position_ = f;
+
+        len = snprintf(msg, sizeof(msg),
+                       "Spark %u | DRIVE_POS = %.6f\r\n",
+                       (unsigned)deviceID,
+                       (double)drive_position_);
+    }
+    else if (api_class == ENCODER_API_CLASS && api_index == 1) {
+        rpm_ = f;
+
+        len = snprintf(msg, sizeof(msg),
+                       "Spark %u | RPM = %.3f\r\n",
+                       (unsigned)deviceID,
+                       (double)rpm_);
+    }
+
+    //if (len > 0 && deviceID == 2) {
+    //    (void)CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
+    //}
 }
+
+
 float CanSparkMax::getAbsolutePosition()
 {
     return absolute_position_;

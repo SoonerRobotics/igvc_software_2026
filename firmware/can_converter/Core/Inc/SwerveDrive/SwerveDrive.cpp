@@ -6,7 +6,8 @@
  */
 
 #include "SwerveDrive.h"
-
+#include "usb_device.h"
+#include "usbd_cdc_if.h"
 SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
 	: config_(config),
 	  front_left_module_(*config.front_left),
