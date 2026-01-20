@@ -19,7 +19,7 @@ public static class Constants
     /// <summary>
     /// Determines if the robot will use the simulator.
     /// </summary>
-    public const bool UseSimulation = true;
+    public const bool UseSimulation = false;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -75,7 +75,7 @@ public static class Constants
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
-        public const string CanbusInterface = "can0";
+        public const string CanbusInterface = "bigcan0";
         
         /// <summary>
         /// How often to retry our connection to the Canbus.

@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("ControllerSubsystem", Disabled = true)]
-public class ControllerSubsystem(CanbusSubsystem? canbus) : SubsystemBase
+[Subsystem("ControllerSubsystem", DependsOn = [typeof(CanbusSubsystem)], Disabled = false)]
+public class ControllerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private MotorCommandMessage _msg = new(0, 0, 0);
 
@@ -90,26 +90,21 @@ public class ControllerSubsystem(CanbusSubsystem? canbus) : SubsystemBase
 
             if (evt is not { type: 3 }) continue;
             
-            float lX = 0;
-            float lY = 0;
-            float rX = 0;
             switch (evt.code)
             {
                 case 0:
-                    lX = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    var lX = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    _msg.SidewaysVelocity = (short)(lX * maxStrafeVel / 0.0001f);
                     break;
                 case 1:
-                    lY = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    var lY = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    _msg.ForwardVelocity = (short)(-lY * maxForwardVel / 0.0001f);
                     break;
                 case 3:
-                    rX = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    var rX = ApplyDeadZone(NormalizeAxis(evt.value, -32768, 32768));
+                    _msg.SidewaysVelocity = (short)(rX * maxStrafeVel / 0.001f);
                     break;
             }
-
-            var forwardVelocity = -lY * maxForwardVel * 5;
-            var sidewaysVelocity = lX * maxStrafeVel * 5;
-            var angularVelocity = rX * maxAngularVel * 5;
-            _msg = new MotorCommandMessage((short)forwardVelocity, (short)sidewaysVelocity, (short)angularVelocity);
         }
 
         fs.Dispose();

@@ -6,9 +6,9 @@ using System;
 
 public sealed class MotorCommandMessage(short forward, short sideways, short angular) : ICanMessage<MotorCommandMessage>
 {
-    public short ForwardVelocity { get; } = forward;
-    public short SidewaysVelocity { get; } = sideways;
-    public short AngularVelocity { get; } = angular;
+    public short ForwardVelocity { get; set; } = forward;
+    public short SidewaysVelocity { get; set; } = sideways;
+    public short AngularVelocity { get; set; } = angular;
 
     public static MotorCommandMessage Read(byte[] data)
     {
