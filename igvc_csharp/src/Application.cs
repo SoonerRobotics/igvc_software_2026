@@ -1,6 +1,13 @@
 using igvc_csharp;
 using igvc_csharp.Core.Config;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils.Messages;
+
+// Initialize boot parameters
+var result = BootParameters.Initialize(args);
+if (!result)
+{
+    return 1;
+}
 
 // Register flatbuffer stuff
 FlatBufferRegistry.Scan();
@@ -11,3 +18,5 @@ PresetManager.Initialize();
 
 // Run the robot
 await RobotManager.Run();
+
+return 0;

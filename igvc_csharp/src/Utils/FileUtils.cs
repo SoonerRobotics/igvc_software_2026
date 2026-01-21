@@ -1,6 +1,6 @@
-﻿namespace igvc_csharp.Utilities;
+﻿namespace igvc_csharp.Utils;
 
-public static class FileUtilities
+public static class FileUtils
 {
     private const string ResourcesFolder = "resources";
     private const string TraversalString = "../../../";

@@ -2,7 +2,7 @@
 using System.IO.Hashing;
 using igvc_csharp.Core;
 
-namespace igvc_csharp.MessageUtils;
+namespace igvc_csharp.Utils.Messages;
 
 /// <summary>
 /// Accumulates raw bytes and extracts framed messages.

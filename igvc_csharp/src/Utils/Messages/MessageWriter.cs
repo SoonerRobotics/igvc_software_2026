@@ -2,9 +2,9 @@
 using System.IO.Hashing;
 using igvc_csharp.Core;
 
-namespace igvc_csharp.MessageUtils;
+namespace igvc_csharp.Utils.Messages;
 
-public class MessageWriter
+public static class MessageWriter
 {
     private const int MagicSize = 4;
     private const int HeaderSize = MagicSize + 6;

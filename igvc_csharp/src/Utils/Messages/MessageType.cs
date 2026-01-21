@@ -1,4 +1,4 @@
-﻿namespace igvc_csharp.MessageUtils;
+﻿namespace igvc_csharp.Utils.Messages;
 
 public enum MessageType : ushort
 {

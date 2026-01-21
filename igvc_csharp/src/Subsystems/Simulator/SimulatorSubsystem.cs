@@ -1,7 +1,7 @@
 ﻿using System.Net.Sockets;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
-using igvc_csharp.MessageUtils;
+using igvc_csharp.Utils.Messages;
 using Messages.Arc;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;

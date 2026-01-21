@@ -1,11 +1,10 @@
-﻿using System.Globalization;
-using System.Text.Json;
+﻿using System.Text.Json;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
 
-namespace igvc_csharp.Utilities;
+namespace igvc_csharp.Utils;
 
-public static class ColorUtilities
+public static class ColorUtils
 {
     public sealed class Color : IConfigSerializable
     {

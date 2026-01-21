@@ -3,9 +3,9 @@ using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
-using igvc_csharp.MessageUtils;
 using igvc_csharp.Subsystems.Vision.Filters;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 
@@ -45,6 +45,7 @@ public class VisionSubsystem : SubsystemBase
             TaskScheduler.Default
         );
 
+        SetState(SubsystemState.Operating);
         return Task.CompletedTask;
     }
 

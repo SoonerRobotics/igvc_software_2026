@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("ControllerSubsystem", DependsOn = [typeof(CanbusSubsystem)], Disabled = false)]
+[Subsystem("ControllerSubsystem", DependsOn = [typeof(CanbusSubsystem)], Disabled = true)]
 public class ControllerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private MotorCommandMessage _msg = new(0, 0, 0);
@@ -34,12 +34,12 @@ public class ControllerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    async Task WriteControllerLoop(CancellationToken token)
+    private async Task WriteControllerLoop(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             canbus?.WriteFrame(_msg.Write());
-            await Task.Delay(TimeSpan.FromMilliseconds(20));
+            await Task.Delay(TimeSpan.FromMilliseconds(20), token);
         }
     }
 

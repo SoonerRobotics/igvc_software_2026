@@ -1,6 +1,6 @@
-﻿namespace igvc_csharp.Utilities;
+﻿using OpenCvSharp;
 
-using OpenCvSharp;
+namespace igvc_csharp.Utils;
 
 public static class OpenCvDetectionRenderer
 {

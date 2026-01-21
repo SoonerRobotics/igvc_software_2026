@@ -1,10 +1,9 @@
-﻿using System.Runtime.InteropServices;
-using igvc_csharp.MessageUtils;
+﻿using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-namespace igvc_csharp.Utilities;
+namespace igvc_csharp.Utils;
 
 public class CvUtils
 {
@@ -57,7 +56,7 @@ public class CvUtils
     /// <param name="mat"></param>
     /// <param name="rect"></param>
     /// <returns></returns>
-    public static ColorUtilities.ColorRange ExtractHsvRange(Mat mat, Rect rect)
+    public static ColorUtils.ColorRange ExtractHsvRange(Mat mat, Rect rect)
     {
         using var roi = new Mat(mat, rect);
 
@@ -74,13 +73,9 @@ public class CvUtils
             Cv2.MinMaxLoc(channels[1], out var minS, out double maxS);
             Cv2.MinMaxLoc(channels[2], out var minV, out double maxV);
 
-            return new ColorUtilities.ColorRange(
-                minHue: minH * 2.0,
-                maxHue: maxH * 2.0,
-                minSaturation: minS / 255.0,
-                maxSaturation: maxS / 255.0,
-                minValue: minV / 255.0,
-                maxValue: maxV / 255.0
+            return ColorUtils.ColorRange.From(
+                ColorUtils.Color.FromHsv((int)minH, (int)minS, (int)minV),
+                ColorUtils.Color.FromHsv((int)maxH, (int)maxS, (int)maxV)
             );
         }
         finally

@@ -2,7 +2,7 @@
 using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
 using igvc_csharp.Messages;
-using igvc_csharp.MessageUtils;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 

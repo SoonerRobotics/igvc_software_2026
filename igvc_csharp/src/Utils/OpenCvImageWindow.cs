@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using OpenCvSharp;
 
-namespace igvc_csharp.Utilities;
+namespace igvc_csharp.Utils;
 
 public sealed class OpenCvImageWindow : IDisposable
 {

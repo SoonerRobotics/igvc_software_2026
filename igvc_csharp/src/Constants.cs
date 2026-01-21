@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
 using igvc_csharp.Core.Units;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils;
 using OpenCvSharp;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
@@ -19,6 +19,7 @@ public static class Constants
     /// <summary>
     /// Determines if the robot will use the simulator.
     /// </summary>
+    [Config("simulation.enabled")]
     public const bool UseSimulation = false;
 
     /// <summary>
@@ -49,23 +50,7 @@ public static class Constants
         /// The default preset name.
         /// <b>NOTE:</b> This will be created if it does not exist.
         /// </summary>
-        public const string DefaultPresetName = "default";
-    }
-
-    public static class Experiments
-    {
-        /// <summary>
-        /// Determines if the simulator will use virtual can.<br/>
-        /// <b>NOTE:</b> You must be on linux for this experiment to work.
-        /// </summary>
-        [Config("experiments.simulator.vcan.enabled")]
-        public static readonly bool SimulatorUsesVCan = false && Hardware.IsLinux;
-
-        /// <summary>
-        /// If the simulator is using virtual can, what interface?
-        /// </summary>
-        [Config("experiments.simulator.vcan.interface")]
-        public const string SimulatorVCanInterface = "vcan0";
+        public const string DefaultPreset = "default";
     }
 
     public static class Hardware
@@ -111,11 +96,6 @@ public static class Constants
         public const string Path = "/";
 
         /// <summary>
-        /// The maximum number of clients that can be connected to the ArcServer
-        /// </summary>
-        public const int MaxConnections = 32;
-
-        /// <summary>
         /// The size of the receiving buffer for incoming messages
         /// </summary>
         public const int ReceiveBufferSize = 4096000;
@@ -135,7 +115,7 @@ public static class Constants
         public const string Host = "127.0.0.1";
 
         /// <summary>
-        /// The Port of the simulator, typically 8080.
+        /// The Port of the simulator, typically 4001.
         /// </summary>
         [Config("simulator.port")]
         public const int Port = 4001;
@@ -163,9 +143,9 @@ public static class Constants
         /// The range of color we are accepting as the "ground"
         /// </summary>
         [Config("vision.ground_threshold")]
-        public static readonly ColorUtilities.ColorRange GroundThreshold = ColorUtilities.ColorRange.From(
-            ColorUtilities.Color.FromHsv(0, 0, 0),
-            ColorUtilities.Color.FromHsv(180, 255, 255)
+        public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
+            ColorUtils.Color.FromHsv(0, 0, 0),
+            ColorUtils.Color.FromHsv(180, 255, 255)
         );
 
         /// <summary>
@@ -217,44 +197,5 @@ public static class Constants
         /// The size of each square in the OpenCV calibration pattern, in meters.
         /// </summary>
         public const double OpenCvCalibrationSquareSizeMeters = 0.024;
-    }
-    
-    // Competition Constants
-
-    public static class IGVC
-    {
-        /// <summary>
-        /// The minimum distance from the bottom of the stop sign to the ground<br/>
-        /// <b>NOTE:</b> This defaults to 5ft per the rules (page 21)
-        /// </summary>
-        public static readonly Distance StopSignHeight = DistanceUnit.Feet.Of(5);
-
-        /// <summary>
-        /// The average diameter of a barrel on the course.<br/>
-        /// <b>NOTE:</b> This defaults to 23.5in per the rules (page 21). Although, this may be different for AutoNav.
-        /// </summary>
-        public static readonly Distance BarrelDiameter = DistanceUnit.Inches.Of(23.5);
-    }
-
-    public static class SelfDrive
-    {
-        /// <summary>
-        /// The maximum distance to be from the barrel at the end of a test.<br/>
-        /// <b>NOTE:</b> As far as I can tell, this is the same for every test.
-        /// </summary>
-        public static readonly Distance BarrelStopDistance = DistanceUnit.Feet.Of(3);
-
-        /// <summary>
-        /// The distance range at which the robot must change lanes, distance is to the barrel in the same lane.<br/>
-        /// <b>NOTE:</b> Defaults of 10ft - 13ft are derived from the rules (page 39).
-        /// </summary>
-        public static readonly (Distance, Distance) LaneChangeDistance = (DistanceUnit.Feet.Of(10), DistanceUnit.Feet.Of(13));
-        
-        /// <summary>
-        /// The desired speed to travel during a test or run.<br/>
-        /// <b>NOTE:</b> The default of 4mph is derived from the middle of the minimum and maximum speed
-        /// as noted by the rules (3mph and 5mph respectively).
-        /// </summary>
-        public static readonly LinearVelocity TargetSpeed = LinearVelocityUnit.MilesPerHour.Of(4);
     }
 }

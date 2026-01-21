@@ -1,11 +1,11 @@
 ﻿using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Messages;
-using igvc_csharp.MessageUtils;
 using igvc_csharp.Subsystems;
 using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Subsystems.Simulator;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
 using igvc_csharp.Yolo;
 using Messages;
 using Microsoft.Extensions.Logging;
@@ -25,7 +25,7 @@ public class TestSubsystem(SimulatorSubsystem arc) : SubsystemBase
     public override Task Init(CancellationToken token)
     {
         _window = new OpenCvDetectionImageWindow("Simulator Camera");
-        _detector = new YoloDetector(FileUtilities.GetFileRelativeToRoot("resources/yolo11n.onnx"));
+        _detector = new YoloDetector(FileUtils.GetFileRelativeToRoot("resources/yolo11n.onnx"));
         
         SubscribeMessage<ImageFrame>(
             MessageType.ImageFrame,

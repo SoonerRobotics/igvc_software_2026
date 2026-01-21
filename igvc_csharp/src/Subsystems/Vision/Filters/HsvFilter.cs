@@ -1,5 +1,5 @@
 ﻿using OpenCvSharp;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils;
 
 namespace igvc_csharp.Subsystems.Vision.Filters;
 
@@ -19,7 +19,7 @@ public sealed class HsvFilter : IFilter
     private readonly OutputMode _outputMode;
 
     public HsvFilter(
-        ColorUtilities.ColorRange range,
+        ColorUtils.ColorRange range,
         OutputMode outputMode = OutputMode.WhiteForRange)
     {
         _outputMode = outputMode;

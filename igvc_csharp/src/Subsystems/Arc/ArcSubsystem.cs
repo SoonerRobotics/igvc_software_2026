@@ -7,8 +7,8 @@ using System.Reflection;
 using System.Threading.Channels;
 using Google.FlatBuffers;
 using igvc_csharp.Events;
-using igvc_csharp.MessageUtils;
 using igvc_csharp.Subsystems.Arc.Streaming;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Messages.Arc;
 using Messages.Performance;
@@ -341,7 +341,7 @@ public class ArcSubsystem : SubsystemBase
             return;
         }
 
-        if (_clients.Count >= Constants.ArcSubsystem.MaxConnections)
+        if (_clients.Count >= 32)
         {
             Logger.LogWarning("Client tried to connect and was rejected due to max connections being reached");
             ctx.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;

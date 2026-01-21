@@ -1,6 +1,6 @@
-﻿namespace igvc_csharp.Utilities;
+﻿namespace igvc_csharp.Utils;
 
-public static class TimeUtilities
+public static class TimeUtils
 {
     /// <summary>
     /// Returns the current time in milliseconds since the Unix epoch.

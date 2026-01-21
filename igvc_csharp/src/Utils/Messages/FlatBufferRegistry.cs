@@ -3,7 +3,7 @@ using System.Reflection;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging;
 
-namespace igvc_csharp.Utilities;
+namespace igvc_csharp.Utils.Messages;
 
 public class FlatBufferRegistry
 {
@@ -34,7 +34,6 @@ public class FlatBufferRegistry
 
             var del = GetFactory(type, method);
             Factories[type] = del;
-            Logger.LogDebug("Registered {Type} for FlatBuffer resolving", type.Name);
         }
     }
 

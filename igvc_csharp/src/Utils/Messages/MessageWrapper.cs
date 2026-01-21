@@ -1,9 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using Google.FlatBuffers;
 using igvc_csharp.Events;
-using igvc_csharp.Utilities;
 
-namespace igvc_csharp.MessageUtils;
+namespace igvc_csharp.Utils.Messages;
 
 public class MessageWrapper
 {

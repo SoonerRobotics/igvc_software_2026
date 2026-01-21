@@ -1,12 +1,9 @@
 ﻿using Google.FlatBuffers;
-using igvc_csharp.Subsystems.Arc;
-using igvc_csharp.Utilities;
 using Messages;
 using Messages.Arc;
-using OpenCvSharp;
 using SocketCANSharp;
 
-namespace igvc_csharp.MessageUtils;
+namespace igvc_csharp.Utils.Messages;
 
 public static class MessageConstructor
 {
@@ -20,7 +17,7 @@ public static class MessageConstructor
         var jpegOffset = ImageFrame.CreateImageDataVector(builder, data);
         var imageOffset = ImageFrame.CreateImageFrame(
             builder,
-            TimeUtilities.Now(),
+            TimeUtils.Now(),
             0,
             width,
             height,
@@ -49,7 +46,7 @@ public static class MessageConstructor
         var dataOffset = data != null ? ArcCommand.CreateDataVector(builder, data) : default(VectorOffset);
         var commandOffset = ArcCommand.CreateArcCommand(
             builder,
-            TimeUtilities.Now(),
+            TimeUtils.Now(),
             command?.SequenceNumber ?? 0,
             ArcCommandPurpose.Response,
             command?.CommandId ?? 0,
@@ -72,7 +69,7 @@ public static class MessageConstructor
         var dataOffset = ArcCanFrame.CreateCanDataVector(builder, frame.Data);
         var arcCanFrameOffset = ArcCanFrame.CreateArcCanFrame(
             builder,
-            TimeUtilities.Now(),
+            TimeUtils.Now(),
             0,
             frame.CanId,
             dataOffset
@@ -82,23 +79,24 @@ public static class MessageConstructor
         return ArcCanFrame.GetRootAsArcCanFrame(new ByteBuffer(builder.SizedByteArray()));
     }
 
-    public static ArcHistogram CreateHistogram(ColorUtilities.ColorRange range, int padding = 0)
+    public static ArcHistogram CreateHistogram(ColorUtils.ColorRange range, int padding = 0)
     {
-        var builder = new FlatBufferBuilder(1024);
-        range = range.WithPadding(padding);
-        var histogramOffset = ArcHistogram.CreateArcHistogram(
-            builder,
-            TimeUtilities.Now(),
-            0,
-            (float)range.MinHue,
-            (float)range.MaxHue,
-            (float)range.MinSaturation,
-            (float)range.MaxSaturation,
-            (float)range.MinValue,
-            (float)range.MaxValue
-        );
-        builder.Finish(histogramOffset.Value);
-        
-        return ArcHistogram.GetRootAsArcHistogram(new ByteBuffer(builder.SizedByteArray()));
+        // var builder = new FlatBufferBuilder(1024);
+        // range = range.WithPadding(padding);
+        // var histogramOffset = ArcHistogram.CreateArcHistogram(
+        //     builder,
+        //     TimeUtilities.Now(),
+        //     0,
+        //     (float)range.MinHue,
+        //     (float)range.MaxHue,
+        //     (float)range.MinSaturation,
+        //     (float)range.MaxSaturation,
+        //     (float)range.MinValue,
+        //     (float)range.MaxValue
+        // );
+        // builder.Finish(histogramOffset.Value);
+        //
+        // return ArcHistogram.GetRootAsArcHistogram(new ByteBuffer(builder.SizedByteArray()));
+        return ArcHistogram.GetRootAsArcHistogram(null);
     }
 }

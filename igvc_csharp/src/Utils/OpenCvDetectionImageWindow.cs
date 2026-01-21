@@ -1,9 +1,8 @@
-﻿using igvc_csharp.Yolo;
-
-namespace igvc_csharp.Utilities;
-
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using igvc_csharp.Yolo;
 using OpenCvSharp;
+
+namespace igvc_csharp.Utils;
 
 public sealed class OpenCvDetectionImageWindow : IDisposable
 {

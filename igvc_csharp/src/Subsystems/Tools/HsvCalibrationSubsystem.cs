@@ -1,8 +1,8 @@
 using System.Threading.Channels;
 using igvc_csharp.Core;
-using igvc_csharp.MessageUtils;
 using igvc_csharp.Subsystems.Arc;
-using igvc_csharp.Utilities;
+using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Messages.Arc;
 using Microsoft.Extensions.Logging;
@@ -53,7 +53,7 @@ public class HsvCalibrationSubsystem : SubsystemBase
                 case false:
                     await Task.Delay(100, token);
                     continue;
-                case true when TimeUtilities.Now() >= _stopCalibrationTimestamp:
+                case true when TimeUtils.Now() >= _stopCalibrationTimestamp:
                     _isCalibrating = false;
                     _stopCalibrationTimestamp = 0;
                     Logger.LogInformation("OpenCV calibration timed out");
@@ -134,7 +134,7 @@ public class HsvCalibrationSubsystem : SubsystemBase
     public void StartCalibration(ArcCommand command)
     {
         _isCalibrating = true;
-        _stopCalibrationTimestamp = TimeUtilities.Now() + Constants.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
+        _stopCalibrationTimestamp = TimeUtils.Now() + Constants.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
         _doCalibrate = false;
         Logger.LogInformation("Started HSV calibration");
     }

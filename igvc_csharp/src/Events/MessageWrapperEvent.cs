@@ -1,5 +1,5 @@
 ﻿using igvc_csharp.Core;
-using igvc_csharp.MessageUtils;
+using igvc_csharp.Utils.Messages;
 
 namespace igvc_csharp.Events;
 

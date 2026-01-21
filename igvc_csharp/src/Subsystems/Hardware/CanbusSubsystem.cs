@@ -65,9 +65,7 @@ public class CanbusSubsystem : SubsystemBase
 
     private static CanNetworkInterface? FindNetwork()
     {
-        var inter = Constants.Experiments.SimulatorUsesVCan
-            ? Constants.Experiments.SimulatorVCanInterface
-            : Constants.Hardware.CanbusInterface;
+        const string inter = Constants.Hardware.CanbusInterface;
         return CanNetworkInterface
             .GetAllInterfaces(true)
             .First(ifc => ifc.Name.Equals(inter));
@@ -80,6 +78,7 @@ public class CanbusSubsystem : SubsystemBase
             _canNetwork ??= FindNetwork();
             if (_canNetwork == null)
             {
+                SetState(SubsystemState.Ready);
                 return;
             }
 
@@ -88,6 +87,7 @@ public class CanbusSubsystem : SubsystemBase
             _canSocket.Bind(_canNetwork);
             _connected = true;
             Logger.LogInformation("Connected to Canbus at {socket}", _canNetwork.Name);
+            SetState(SubsystemState.Operating);
         }
     }
 
@@ -105,11 +105,18 @@ public class CanbusSubsystem : SubsystemBase
             // Empty the queue
             _frameQueue.CompleteAdding();
             _frameQueue.Dispose();
-            
-            if (wasConnected)
+
+            if (!wasConnected)
             {
-                Logger.LogInformation("Disconnected from Canbus at {socket}", oldName ?? "Unknown");
+                return;
             }
+            
+            if (State != SubsystemState.ShuttingDown)
+            {
+                SetState(SubsystemState.Ready);
+            }
+                
+            Logger.LogInformation("Disconnected from canbus at {socket}", oldName ?? "Unknown");
         }
     }
 
@@ -222,7 +229,9 @@ public class CanbusSubsystem : SubsystemBase
             return Task.CompletedTask;
         }
         
+        SetState(SubsystemState.ShuttingDown);
         CloseSocket();
+        SetState(SubsystemState.Shutdown);
         return Task.CompletedTask;
     }
 }
