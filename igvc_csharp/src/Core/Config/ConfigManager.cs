@@ -4,7 +4,7 @@ using igvc_csharp.Events;
 
 namespace igvc_csharp.Core.Config;
 
-public sealed class ConfigManager
+public static class ConfigManager
 {
     private static readonly Dictionary<string, IConfigBinding> _bindings = new();
     public static IReadOnlyDictionary<string, IConfigBinding> Bindings => _bindings;

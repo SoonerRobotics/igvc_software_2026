@@ -28,7 +28,7 @@ public class YoloTestSubsystem : SubsystemBase
 
     public override Task Init(CancellationToken token)
     {
-        _detector = new YoloDetector(FileUtiltiies.GetFileRelativeToRoot("resources/yolo11n.onnx"));
+        _detector = new YoloDetector(FileUtilities.GetFileRelativeToRoot("resources/yolo11n.onnx"));
 
         SubscribeImage(
             "front_view",

@@ -145,7 +145,7 @@ public static class Constants
         [Config("vision.ground_threshold")]
         public static readonly ColorUtilities.ColorRange GroundThreshold = ColorUtilities.ColorRange.From(
             ColorUtilities.Color.FromHsv(0, 0, 0),
-            ColorUtilities.Color.FromHsv(255, 255, 255)
+            ColorUtilities.Color.FromHsv(180, 255, 255)
         );
 
         /// <summary>

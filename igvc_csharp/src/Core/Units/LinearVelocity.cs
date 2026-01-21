@@ -59,9 +59,10 @@ public struct LinearVelocity : IEquatable<LinearVelocity>, IComparable<LinearVel
     public static Distance operator *(LinearVelocity v, Time t) => new Distance(v.MetersPerSecond * t.Seconds);
     
     public object Serialize() => new { mps = MetersPerSecond };
-    public void Deserialize(object value)
+    public object Deserialize(object value)
     {
         var obj = (JsonElement)value;
         MetersPerSecond = obj.GetProperty("mps").GetDouble();
+        return this;
     }
 }

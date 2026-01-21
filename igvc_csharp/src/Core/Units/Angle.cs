@@ -45,9 +45,10 @@ public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
     public override string ToString() => $"{Radians} rad";
     
     public object Serialize() => new { radians = Radians };
-    public void Deserialize(object value)
+    public object Deserialize(object value)
     {
         var obj = (JsonElement)value;
         Radians = obj.GetProperty("radians").GetDouble();
+        return this;
     }
 }

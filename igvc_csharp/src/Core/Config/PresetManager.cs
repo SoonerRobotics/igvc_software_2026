@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using igvc_csharp.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Core.Config;
@@ -7,11 +8,13 @@ public class PresetManager
 {
     private static readonly ILogger Logger = Logging.From<PresetManager>();
 
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new();
+    
     public static void Initialize()
     {
-        Directory.CreateDirectory(Constants.Configuration.PresetsDirectory);
-        var defaultPath = Path.Combine(Constants.Configuration.PresetsDirectory,
-            Constants.Configuration.DefaultPresetName);
+        var resolvedDir = FileUtilities.ExpandPath(Constants.Configuration.PresetsDirectory);
+        Directory.CreateDirectory(resolvedDir);
+        var defaultPath = Path.Combine(resolvedDir, Constants.Configuration.DefaultPresetName);
         if (!File.Exists(defaultPath))
         {
             WritePreset(defaultPath);
@@ -43,13 +46,7 @@ public class PresetManager
             dict[key] = binding.Serialize();
         }
 
-        var json = JsonSerializer.Serialize(
-            dict,
-            new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-
+        var json = JsonSerializer.Serialize(dict, JsonSerializerOptions);
         File.WriteAllText(path, json);
         Logger.LogInformation("Saved preset {Path}", path);
     }

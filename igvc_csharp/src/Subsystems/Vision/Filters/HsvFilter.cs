@@ -7,8 +7,8 @@ public sealed class HsvFilter : IFilter
 {
     public enum OutputMode
     {
-        WhiteForRange,     // default (lanes = white)
-        WhiteForOutside    // inverted (ground = white)
+        WhiteForRange,
+        WhiteForOutside 
     }
 
     private readonly Scalar _lower1;
@@ -24,15 +24,9 @@ public sealed class HsvFilter : IFilter
     {
         _outputMode = outputMode;
 
-        var minH = ToCvHue(range.MinHue);
-        var maxH = ToCvHue(range.MaxHue);
-
-        var minS = ToCvByte(range.MinSaturation);
-        var maxS = ToCvByte(range.MaxSaturation);
-
-        var minV = ToCvByte(range.MinValue);
-        var maxV = ToCvByte(range.MaxValue);
-
+        var (minH, minS, minV) = range.Lower.ToHsv();
+        var (maxH, maxS, maxV) = range.Upper.ToHsv();
+        
         _wrapsHue = minH > maxH;
 
         if (!_wrapsHue)
@@ -73,10 +67,4 @@ public sealed class HsvFilter : IFilter
         Cv2.CvtColor(mask, frame, ColorConversionCodes.GRAY2BGR);
         return frame;
     }
-    
-    private static int ToCvHue(double hue)
-        => (int)Math.Round(((hue % 360 + 360) % 360) / 2.0);
-
-    private static int ToCvByte(double v)
-        => (int)Math.Round(Math.Clamp(v, 0, 1) * 255);
 }

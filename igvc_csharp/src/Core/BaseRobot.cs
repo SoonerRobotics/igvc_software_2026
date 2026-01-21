@@ -157,12 +157,12 @@ public abstract class BaseRobot : IDisposable
             }
 
             _subsystemsByType.TryGetValue(param.ParameterType, out var dep);
-            var attribute = param.GetCustomAttribute<SubsystemDependencyAttribute>();
-            if (dep == null && attribute is { Required: true })
-            {
-                Logger.LogError("Missing required dependency {Dep}", param.ParameterType.Name);
-                return null;
-            }
+            // var attribute = param.GetCustomAttribute<SubsystemDependencyAttribute>();
+            // if (dep == null && attribute is { Required: true })
+            // {
+            //     Logger.LogError("Missing required dependency {Dep}", param.ParameterType.Name);
+            //     return null;
+            // }
 
             args.Add(dep);
         }

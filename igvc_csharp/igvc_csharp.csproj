@@ -25,4 +25,14 @@
       <PackageReference Include="YoloSharp" Version="6.0.7" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="src\Core\EvDev\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="VnSdk_Net">
+        <HintPath>..\..\..\..\..\..\usr\local\vectornav\net\VnSdk_Net.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>
