@@ -25,7 +25,7 @@ public class TestSubsystem(SimulatorSubsystem arc) : SubsystemBase
     public override Task Init(CancellationToken token)
     {
         _window = new OpenCvDetectionImageWindow("Simulator Camera");
-        _detector = new YoloDetector(FileUtiltiies.GetFileRelativeToRoot("resources/yolo11n.onnx"));
+        _detector = new YoloDetector(FileUtilities.GetFileRelativeToRoot("resources/yolo11n.onnx"));
         
         SubscribeMessage<ImageFrame>(
             MessageType.ImageFrame,

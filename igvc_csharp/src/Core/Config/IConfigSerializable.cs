@@ -3,5 +3,6 @@
 public interface IConfigSerializable
 {
     object Serialize();
-    void Deserialize(object value);
+
+    object Deserialize(object value);
 }

@@ -47,9 +47,10 @@ public struct Time : IEquatable<Time>, IComparable<Time>, IConfigSerializable
     public override string ToString() => $"{Seconds} s";
     
     public object Serialize() => new { seconds = Seconds };
-    public void Deserialize(object value)
+    public object Deserialize(object value)
     {
         var obj = (JsonElement)value;
         Seconds = obj.GetProperty("seconds").GetDouble();
+        return this;
     }
 }

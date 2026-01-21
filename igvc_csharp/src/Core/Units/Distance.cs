@@ -51,9 +51,10 @@ public struct Distance : IEquatable<Distance>, IConfigSerializable
     public static LinearVelocity operator /(Distance d, Time t) => new LinearVelocity(d.Meters / t.Seconds);
     
     public object Serialize() => new { meters = Meters };
-    public void Deserialize(object value)
+    public object Deserialize(object value)
     {
         var obj = (JsonElement)value;
         Meters = obj.GetProperty("meters").GetDouble();
+        return this;
     }
 }

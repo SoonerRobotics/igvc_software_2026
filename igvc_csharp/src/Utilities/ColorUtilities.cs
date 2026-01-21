@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json;
+using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
 
 namespace igvc_csharp.Utilities;
@@ -8,271 +9,197 @@ public static class ColorUtilities
 {
     public sealed class Color : IConfigSerializable
     {
-        public double R { private set; get; }
-        public double G { private set; get; }
-        public double B { private set; get; }
-        public double A { private set; get; }
+        public byte R { private set; get; }
+        public byte G { private set; get; }
+        public byte B { private set; get; }
+        public byte A { private set; get; }
 
-        // Config stuff
-
-        public object Serialize() => new { r = R, g = G, b = B, a = A };
-        public void Deserialize(object value)
+        private Color(byte r, byte g, byte b, byte a = 255)
         {
-            var obj = (JsonElement)value;
-            R = obj.GetProperty("r").GetDouble();
-            G = obj.GetProperty("g").GetDouble();
-            B =  obj.GetProperty("b").GetDouble();
-            A =  obj.GetProperty("a").GetDouble();
-        }
-
-        private Color(double r, double g, double b, double a = 1.0)
-        {
-            R = Clamp01(r);
-            G = Clamp01(g);
-            B = Clamp01(b);
-            A = Clamp01(a);
+            R = Assertions.ByteInRange(r, 0, 255);
+            G = Assertions.ByteInRange(g, 0, 255);
+            B = Assertions.ByteInRange(b, 0, 255);
+            A = Assertions.ByteInRange(a, 0, 255);
         }
         
-        public static Color FromRgb(double r, double g, double b, double a = 1.0)
-            => new Color(r, g, b, a);
-
-        public static Color FromRgb255(int r, int g, int b, int a = 255)
-            => new Color(r / 255.0, g / 255.0, b / 255.0, a / 255.0);
+        // Builders
+        
+        public static Color FromRgb(byte r, byte g, byte b) => new (r, g, b);
+        public static Color FromRgba(byte r, byte g, byte b, byte a) => new (r, g, b, a);
 
         public static Color FromHex(string hex)
         {
-            hex = hex.TrimStart('#');
-
-            if (hex.Length != 6 && hex.Length != 8)
-                throw new ArgumentException("Hex must be RRGGBB or RRGGBBAA");
-
-            byte r = byte.Parse(hex.Substring(0, 2), NumberStyles.HexNumber);
-            byte g = byte.Parse(hex.Substring(2, 2), NumberStyles.HexNumber);
-            byte b = byte.Parse(hex.Substring(4, 2), NumberStyles.HexNumber);
-            byte a = hex.Length == 8
-                ? byte.Parse(hex.Substring(6, 2), NumberStyles.HexNumber)
-                : (byte)255;
-
-            return FromRgb255(r, g, b, a);
+            hex = hex.Replace("#", "");
+            
+            // Validate its at least 6 or 8 characters
+            hex = Assertions.StringIsLengths(hex, [6, 8]);
+            
+            // Add #FF if its not 8
+            if (hex.Length != 8)
+            {
+                hex += "FF";
+            }
+            
+            // Convert
+            var r = Convert.ToByte(hex.Substring(0, 2), 16);
+            var g = Convert.ToByte(hex.Substring(2, 2), 16);
+            var b = Convert.ToByte(hex.Substring(4, 2), 16);
+            var a = Convert.ToByte(hex.Substring(6, 2), 16);
+            return new Color(r, g, b, a);
         }
 
-        public static Color FromHsv(double h, double s, double v, double a = 1.0)
+        public static Color FromHsv(int h, int s, int v)
         {
-            h = Mod(h, 360);
-            s = Clamp01(s);
-            v = Clamp01(v);
+            h = Assertions.IntInRange(h, 0, 180);
+            s = Assertions.IntInRange(s, 0, 255);
+            v = Assertions.IntInRange(v, 0, 255);
+            
+            var hf = h * 2f;
+            var sf = s / 255f;
+            var vf = v / 255f;
 
-            double c = v * s;
-            double x = c * (1 - Math.Abs((h / 60.0 % 2) - 1));
-            double m = v - c;
+            var c = vf * sf;
+            var x = c * (1 - Math.Abs((hf / 60f) % 2 - 1));
+            var m = vf - c;
 
-            double r;
-            double g;
-            double b;
-            switch (h)
+            float r1 = 0, g1 = 0, b1 = 0;
+
+            switch (hf)
             {
                 case < 60:
-                    (r, g, b) = (c, x, 0);
+                    r1 = c; g1 = x; b1 = 0;
                     break;
                 case < 120:
-                    (r, g, b) = (x, c, 0);
+                    r1 = x; g1 = c; b1 = 0;
                     break;
                 case < 180:
-                    (r, g, b) = (0, c, x);
+                    r1 = 0; g1 = c; b1 = x;
                     break;
                 case < 240:
-                    (r, g, b) = (0, x, c);
+                    r1 = 0; g1 = x; b1 = c;
                     break;
                 case < 300:
-                    (r, g, b) = (x, 0, c);
+                    r1 = x; g1 = 0; b1 = c;
                     break;
                 default:
-                    (r, g, b) = (c, 0, x);
+                    r1 = c; g1 = 0; b1 = x;
                     break;
             }
 
-            return new Color(r + m, g + m, b + m, a);
+            var r = (byte)Math.Round((r1 + m) * 255);
+            var g = (byte)Math.Round((g1 + m) * 255);
+            var b = (byte)Math.Round((b1 + m) * 255);
+
+            return new Color(r, g, b);
         }
+        
+        // Helpers
 
-        public static Color FromHsl(double h, double s, double l, double a = 1.0)
+        public string ToHex(bool includeHashtag = true)
         {
-            h = Mod(h, 360);
-            s = Clamp01(s);
-            l = Clamp01(l);
+            var hash = includeHashtag ? "#" : "";
+            return $"{hash}{R:X2}{G:X2}:{B:X2}{A:X2}";
+        }
+        
+        public(int h, int s, int v) ToHsv()
+        {
+            var rf = R / 255f;
+            var gf = G / 255f;
+            var bf = B / 255f;
 
-            double c = (1 - Math.Abs(2 * l - 1)) * s;
-            double x = c * (1 - Math.Abs((h / 60.0 % 2) - 1));
-            double m = l - c / 2;
+            var max = Math.Max(rf, Math.Max(gf, bf));
+            var min = Math.Min(rf, Math.Min(gf, bf));
+            var delta = max - min;
 
-            double r;
-            double g;
-            double b;
-            switch (h)
+            var hDeg = 0f;
+
+            if (delta > 0)
             {
-                case < 60:
-                    (r, g, b) = (c, x, 0);
-                    break;
-                case < 120:
-                    (r, g, b) = (x, c, 0);
-                    break;
-                case < 180:
-                    (r, g, b) = (0, c, x);
-                    break;
-                case < 240:
-                    (r, g, b) = (0, x, c);
-                    break;
-                case < 300:
-                    (r, g, b) = (x, 0, c);
-                    break;
-                default:
-                    (r, g, b) = (c, 0, x);
-                    break;
+                if (max == rf)
+                {
+                    hDeg = 60f * (((gf - bf) / delta) % 6f);
+                }
+                else if (max == gf)
+                {
+                    hDeg = 60f * (((bf - rf) / delta) + 2f);
+                }
+                else
+                {
+                    hDeg = 60f * (((rf - gf) / delta) + 4f);
+                }
             }
 
-            return new Color(r + m, g + m, b + m, a);
-        }
-
-        public (double H, double S, double V) ToHsv()
-        {
-            double max = Math.Max(R, Math.Max(G, B));
-            double min = Math.Min(R, Math.Min(G, B));
-            double delta = max - min;
-
-            double h = delta switch
+            if (hDeg < 0)
             {
-                0 => 0,
-                _ when max == R => 60 * (((G - B) / delta) % 6),
-                _ when max == G => 60 * (((B - R) / delta) + 2),
-                _ => 60 * (((R - G) / delta) + 4)
-            };
+                hDeg += 360f;
+            }
 
-            if (h < 0) h += 360;
+            var sFloat = max == 0 ? 0 : delta / max;
 
-            double s = max == 0 ? 0 : delta / max;
-            return (h, s, max);
+            var hCv = (int)Math.Round(hDeg / 2f);
+            var sCv = (int)Math.Round(sFloat * 255f);
+            var vCv = (int)Math.Round(max * 255f);
+            return (hCv, sCv, vCv);
         }
 
-        public (double H, double S, double L) ToHsl()
+        
+        // Configuration
+        
+        public object Serialize() => new { r = R, g = G, b = B, a = A };
+        
+        public object Deserialize(object value)
         {
-            double max = Math.Max(R, Math.Max(G, B));
-            double min = Math.Min(R, Math.Min(G, B));
-            double delta = max - min;
-
-            double l = (max + min) / 2;
-
-            double s = delta == 0
-                ? 0
-                : delta / (1 - Math.Abs(2 * l - 1));
-
-            double h = delta switch
-            {
-                0 => 0,
-                _ when max == R => 60 * (((G - B) / delta) % 6),
-                _ when max == G => 60 * (((B - R) / delta) + 2),
-                _ => 60 * (((R - G) / delta) + 4)
-            };
-
-            if (h < 0) h += 360;
-
-            return (h, s, l);
+            var obj = (JsonElement)value;
+            R = obj.GetProperty("r").GetByte();
+            G = obj.GetProperty("g").GetByte();
+            B = obj.GetProperty("b").GetByte();
+            A = obj.GetProperty("a").GetByte();
+            return this;
         }
 
-        public string ToHex(bool includeAlpha = false)
+        public static Color StaticDeserialize(object value)
         {
-            int r = (int)Math.Round(R * 255);
-            int g = (int)Math.Round(G * 255);
-            int b = (int)Math.Round(B * 255);
-            int a = (int)Math.Round(A * 255);
-
-            return includeAlpha
-                ? $"#{r:X2}{g:X2}{b:X2}{a:X2}"
-                : $"#{r:X2}{g:X2}{b:X2}";
+            return (Color)(new Color(0, 0, 0).Deserialize(value));
         }
 
-        private static double Clamp01(double v)
-            => v < 0 ? 0 : v > 1 ? 1 : v;
+        // Modifiers
 
-        private static double Mod(double x, double m)
-            => (x % m + m) % m;
+        public Color WithAlpha(byte alpha)
+        {
+            A = alpha;
+            return this;
+        }
+        
+        // Constants
+        
+        public static Color White => new (255, 255, 255);
     }
 
-    public sealed class ColorRange
+    public sealed class ColorRange : IConfigSerializable
     {
-        public double MinHue { get; }
-        public double MaxHue { get; }
-        public double MinSaturation { get; }
-        public double MaxSaturation { get; }
-        public double MinValue { get; }
-        public double MaxValue { get; }
+        public Color Lower { get; private set; }
+        public Color Upper { get; private set; }
 
-        public ColorRange(
-            double minHue, double maxHue,
-            double minSaturation, double maxSaturation,
-            double minValue, double maxValue)
+        private ColorRange(Color lower, Color upper)
         {
-            MinHue = NormalizeHue(minHue);
-            MaxHue = NormalizeHue(maxHue);
-            MinSaturation = Clamp01(minSaturation);
-            MaxSaturation = Clamp01(maxSaturation);
-            MinValue = Clamp01(minValue);
-            MaxValue = Clamp01(maxValue);
-        }
-
-        public bool Contains(Color color)
-        {
-            var (h, s, v) = color.ToHsv();
-
-            return HueInRange(h)
-                   && s >= MinSaturation && s <= MaxSaturation
-                   && v >= MinValue && v <= MaxValue;
-        }
-
-        private bool HueInRange(double h)
-        {
-            // Handles wrap-around (e.g. 350°–10°)
-            if (MinHue <= MaxHue)
-                return h >= MinHue && h <= MaxHue;
-
-            return h >= MinHue || h <= MaxHue;
-        }
-
-        private static double NormalizeHue(double h)
-            => (h % 360 + 360) % 360;
-
-        private static double Clamp01(double v)
-            => v < 0 ? 0 : v > 1 ? 1 : v;
-
-        public ColorRange WithPadding(int padding)
-        {
-            var minHue = NormalizeHue(MinHue - padding);
-            var maxHue = NormalizeHue(MaxHue + padding);
-            var minS = Clamp01(MinSaturation - padding);
-            var maxS = Clamp01(MaxSaturation + padding);
-            var minV = Clamp01(MinValue - padding);
-            var maxV = Clamp01(MaxValue + padding);
-
-            return new ColorRange(
-                minHue,
-                maxHue,
-                minS,
-                maxS,
-                minV,
-                maxV
-            );
+            Lower = lower;
+            Upper = upper;
         }
         
         public static ColorRange From(Color lower, Color upper)
         {
-            var hsvA = lower.ToHsv();
-            var hsvB = upper.ToHsv();
-            return new ColorRange(
-                hsvA.H,
-                hsvB.H,
-                hsvA.S,
-                hsvB.S,
-                hsvA.V,
-                hsvB.V
-            );
+            return new ColorRange(lower, upper);
+        }
+
+        public object Serialize() => new { min = Lower.Serialize(), max = Upper.Serialize() };
+        public object Deserialize(object value)
+        {
+            var obj = (JsonElement)value;
+            var lowerObj = obj.GetProperty("lower");
+            var upperObj = obj.GetProperty("upper");
+            Lower = Color.StaticDeserialize(lowerObj);
+            Upper = Color.StaticDeserialize(upperObj);
+            return this;
         }
     }
 }

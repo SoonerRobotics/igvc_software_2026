@@ -63,9 +63,10 @@ public struct AngularVelocity : IEquatable<AngularVelocity>, IComparable<Angular
 
     public object Serialize() => new { rps = RadiansPerSecond };
 
-    public void Deserialize(object value)
+    public object Deserialize(object value)
     {
         var obj = (JsonElement)value;
         RadiansPerSecond = obj.GetProperty("rps").GetDouble();
+        return this;
     }
 }
