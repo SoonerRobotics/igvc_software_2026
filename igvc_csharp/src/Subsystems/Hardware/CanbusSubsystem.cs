@@ -4,14 +4,15 @@ using igvc_csharp.CanSpec;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
+using igvc_csharp.Subsystems.Simulator;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;
 using SocketCANSharp.Network;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CanbusSubsystem", Disabled = Constants.UseSimulation)]
-public class CanbusSubsystem : SubsystemBase
+[Subsystem("CanbusSubsystem")]
+public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : SubsystemBase
 {
     // Variables
     private CanNetworkInterface? _canNetwork;
@@ -40,6 +41,14 @@ public class CanbusSubsystem : SubsystemBase
     
     public override Task Init(CancellationToken token)
     {
+        // We always want this node to be up, but if we are simulating
+        // then it should just not write to the socket and instead
+        // write to the simulator
+        if (Constants.UseSimulation)
+        {
+            return Task.CompletedTask;
+        }
+        
         _ = Task.Factory.StartNew(
             () => WriteTask(token),
             token,
@@ -198,8 +207,15 @@ public class CanbusSubsystem : SubsystemBase
         }
     }
 
-    public void WriteFrame(CanFrame frame)
+    public void SendCanFrame(CanFrame frame)
     {
+        // If we are simulator, write to it instead
+        if (Constants.UseSimulation)
+        {
+            simulatorSubsystem.SendCanFrame(frame);
+            return;
+        }
+        
         // We don't want to flood the canbus when we connect
         if (!_connected || _canSocket == null)
         {

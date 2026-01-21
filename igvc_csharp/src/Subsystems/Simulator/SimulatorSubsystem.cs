@@ -25,7 +25,7 @@ public class SimulatorSubsystem : SubsystemBase
             () => ConnectionLoop(_internalCts.Token),
             _internalCts.Token
         );
-        
+
         SetState(SubsystemState.Initialized);
         return Task.CompletedTask;
     }
@@ -120,13 +120,33 @@ public class SimulatorSubsystem : SubsystemBase
             EventBus.Instance.Publish(new CanFrameEvent(canFrame));
             return;
         }
-        
+
         EventBus.Instance.Publish(new MessageWrapperEvent(wrapper));
+    }
+
+    public async Task SendCanFrame(CanFrame frame)
+    {
+        var arcFrame = MessageConstructor.CreateArcCanFrame(frame);
+        var wrapper = MessageWrapper.From(MessageType.CanFrame, arcFrame.ByteBuffer.ToFullArray());
+        await SendWrapper(wrapper);
+    }
+
+    private async Task SendWrapper(MessageWrapper wrapper)
+    {
+        if (_client is not { Connected: true })
+        {
+            return;
+        }
+
+        // TODO: Store the stream?
+        var bytes = MessageWriter.Write(wrapper.Type, wrapper.Data, Constants.SimulatorSubsystem.Endianness);
+        await using var stream = _client.GetStream();
+        await stream.WriteAsync(bytes);
     }
 
     private async Task ReceiveLoop(TcpClient client, CancellationToken token)
     {
-        var stream = client.GetStream();
+        await using var stream = client.GetStream();
         var buffer = new byte[Constants.SimulatorSubsystem.ReceiveBufferSize];
         var accumulator = new MessageAccumulator(
             Endianness,

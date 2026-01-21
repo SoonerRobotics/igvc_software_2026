@@ -38,7 +38,7 @@ public class ControllerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         while (!token.IsCancellationRequested)
         {
-            canbus?.WriteFrame(_msg.Write());
+            canbus?.SendCanFrame(_msg.Write());
             await Task.Delay(TimeSpan.FromMilliseconds(20), token);
         }
     }
