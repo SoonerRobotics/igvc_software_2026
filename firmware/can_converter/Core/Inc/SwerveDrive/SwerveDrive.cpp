@@ -8,6 +8,7 @@
 #include "SwerveDrive.h"
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include <math.h>
 SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
 	: config_(config),
 	  front_left_module_(*config.front_left),
@@ -72,11 +73,7 @@ SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
     {
     	while(1);
     }
-
 }
-#include "SwerveDrive.h"
-#include <math.h>   // for cosf, sinf
-
 SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 {
     // 1) Pack robot motion into input_vel_ (treating x_vel, y_vel, angular_vel as deltas or velocities per step)
@@ -84,9 +81,7 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
     input_vel_[1] = static_cast<float>(state.delta_y);        // vy or Δy
     input_vel_[2] = static_cast<float>(state.delta_theta);  // w  or Δθ
 
-    char msg[96];
-    auto len = snprintf(msg, sizeof(msg), "DRIVE: %.6f\r\n", front_left_module_.drive_motor_.getDrivePosition());
-    CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
+
 
     // 2) Forward kinematics: wheel_velocities_ = A * input_vel_
     //    This gives per-module [vx_i, vy_i] in robot frame
@@ -170,5 +165,11 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     return measured;
 }
-
+void SwerveDrive::debug_print()
+{
+    front_left_module_.debugPrint();
+    front_right_module_.debugPrint();
+    back_left_module_.debugPrint();
+    back_right_module_.debugPrint();
+}
 

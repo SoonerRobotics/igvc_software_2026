@@ -53,11 +53,12 @@ public:
 	float encoderToRadians(float encoder_reading);
 	bool sendHeartbeat();
     void handleFeedback(uint8_t api_class, uint8_t api_index, const uint8_t data[8]);
+    uint8_t deviceID;
 
 private:
 	bool sendSparkMsg(uint8_t  api_index, uint8_t  api_class,uint8_t id, uint8_t  dlc, uint8_t data[8]);
 	void floatToData(float f, uint8_t* data);
-	uint8_t deviceID;
+
 	bool isReversed;
 	float absolute_position_ = 0.0f;
 	float drive_position_ = 0.0f;

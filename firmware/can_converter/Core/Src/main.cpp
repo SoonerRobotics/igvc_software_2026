@@ -118,12 +118,10 @@ int main(void)
   HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
 
 
-
+  uint8_t count = 0;
   SwerveDrive* swerveDrive = InitSwerveDrive();
   uint32_t last = HAL_GetTick();
   const uint32_t period_ms = 50;
-
-  float angle = 0.0f;
   while (1) {
 	  uint32_t now = HAL_GetTick();
 	  if ((now - last) >= period_ms) {
@@ -133,35 +131,24 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
+	  count++;
+	  if (count == 4) {
+		  swerveDrive->debug_print();
+		  count = 0;
+	  }
 
-//		  angle += 0.005f;
-//		  if (angle >= 1.0f)
-//		  {
-//			  angle = 0.0f;
-//		  }
-//
-//		  CanSparkMax* hb_spark = s_spark_registry[1];
-//		  if (hb_spark)
-//		  {
-//			  hb_spark->sendHeartbeat();
-//		  }
-//
-//		  for (int i = 8; i >= 1; i--)
-//		  {
-//			  CanSparkMax* sp = s_spark_registry[i];
-//			  if (!sp) continue;
-//
-//			  if (i == 2 || i == 3 || i == 6 || i == 7)
-//			  {
-//				  sp->setPosition(angle);
-//			  } else {
-//				  sp->setVelocity(1.0f);
-//			  }
-////			  sp->setVelocity(1.0f);
-//		  }
-
+//		  char msg[64];
+//		  		int len = snprintf(
+//		  		    msg,
+//		  		    sizeof(msg),
+//		  		    "FIFO0: %lu FIFO1: %lu \r\n",
+//		  		    lvl0,
+//		  		    lvl1
+//		  		);
+//		  		CDC_Transmit_FS((uint8_t*)msg, len);
 		  last = now;
 	  }
+
   }
 }
 static void SendOdometry(const SwerveDriveState& odom)
@@ -189,11 +176,7 @@ static void SendOdometry(const SwerveDriveState& odom)
 
 void serial_debug(SwerveModule& module)
 {
-    char msg[64];
-    float delta = module.getDriveDelta();
 
-    int len = snprintf(msg, sizeof(msg), "Delta: %.3f\r\n", delta);
-    CDC_Transmit_FS((uint8_t*)msg, len);
 }
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
@@ -305,24 +288,12 @@ static void MX_CAN2_Init(void)
   {
     Error_Handler();
   }
-/*
+
   configFilter(&hcan2,0x02051840,16);
   configFilter(&hcan2,0x02051880,17);
   configFilter(&hcan2,0x02051940,18); //RPM, and encoder feedback ids
-*/
-
-  CAN_FilterTypeDef f = {0};
-  f.FilterBank = 16;
-  f.FilterActivation = CAN_FILTER_ENABLE;
-  f.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  f.FilterScale = CAN_FILTERSCALE_32BIT;
-  f.FilterMode = CAN_FILTERMODE_IDMASK;
-  f.FilterIdHigh = 0;
-  f.FilterIdLow = 0;
-  f.FilterMaskIdHigh = 0;
-  f.FilterMaskIdLow = 0;
-  HAL_CAN_ConfigFilter(&hcan2, &f);
 }
+
 static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank)
 {
 	const uint32_t m_shift  = (0xFFFFFFC0u << 3);

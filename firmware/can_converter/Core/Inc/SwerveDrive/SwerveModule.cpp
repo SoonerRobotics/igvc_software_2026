@@ -77,8 +77,9 @@ void SwerveModule::debugPrint()
     int len = snprintf(
         msg,
         sizeof(msg),
-		"d=%.3f",
-        getDriveDelta()
+		"ID:%u %u delta=%.3f\r\n",
+		drive_motor_.deviceID,angle_motor_.deviceID,
+		last_drive_motor_delta
     );
     CDC_Transmit_FS((uint8_t*)msg, len);
 }
