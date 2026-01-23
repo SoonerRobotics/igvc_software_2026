@@ -1,0 +1,24 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+table DepthFrame {
+    // The timestamp of the depth frame in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the depth frame
+    sequence_number: uint;
+
+    // The width and height of the depth frame
+    width: uint;
+    height: uint;
+
+    // The encoding format of the image (e.g. Z16)
+    encoding: string;
+
+    // The depth frame identifier (e.g., "front_view")
+    identifier: string;
+
+    // The raw depth data
+    depth_data: [ubyte];
+}
+
+root_type DepthFrame;

@@ -15,6 +15,12 @@ public class CvUtils
         return Cv2.ImDecode(byts, ImreadModes.Color);
     }
 
+    public static Mat AsMat(DepthFrame frame)
+    {
+        var byts = frame.GetDepthDataArray();
+        return Cv2.ImDecode(byts, ImreadModes.AnyDepth);
+    }
+
     public static byte[] FromMat(Mat mat)
     {
         Cv2.ImEncode(".jpg", mat, out var buf);

@@ -8,6 +8,7 @@ public enum MessageType : ushort
     Gps = 0x03,
     Metric = 0x04,
     MetricHistory = 0x05,
+    DepthFrame = 0x06,
     
     // Reserved Stuff
     CapabilityReq = 60_000,

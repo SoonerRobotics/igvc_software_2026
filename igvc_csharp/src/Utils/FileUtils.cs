@@ -20,6 +20,12 @@ public static class FileUtils
         return Directory.Exists(resourcesPath) ? Path.Join(cwd, TraversalString) : string.Empty;
     }
 
+    public static string GetRepositoryRootDirectory()
+    {
+        var projectRoot =  GetProjectRootDirectory();
+        return Path.Join(projectRoot, "..");
+    }
+
     public static string GetFileRelativeToRoot(string file, string subfolder = "")
     {
         return Path.Join(

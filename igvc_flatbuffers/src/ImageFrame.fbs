@@ -11,7 +11,7 @@ table ImageFrame {
     width: uint;
     height: uint;
 
-    // The encoding format of the image (e.g., "RGB8", "GRAY8")
+    // The encoding format of the image (e.g., "RGB8", "BGR8", "GRAY8")
     encoding: string;
 
     // The image identifier (e.g., "camera_front", "camera_rear")

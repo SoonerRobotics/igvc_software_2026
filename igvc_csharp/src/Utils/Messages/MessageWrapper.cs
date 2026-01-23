@@ -40,4 +40,9 @@ public class MessageWrapper
             Data = data
         };
     }
+
+    public static MessageWrapper From(MessageType type, ByteBuffer data)
+    {
+        return From(type, data.ToFullArray());
+    }
 }
