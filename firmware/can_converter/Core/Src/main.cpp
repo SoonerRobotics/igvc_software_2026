@@ -260,7 +260,7 @@ static void MX_CAN2_Init(void)
   }
 
   configFilter(&hcan2,0x02051840,16);
-  configFilter(&hcan2,0x02051880,17);
+  //configFilter(&hcan2,0x02051880,17); dont use RPM
   configFilter(&hcan2,0x02051940,18); //RPM, and encoder feedback ids
 }
 
@@ -300,11 +300,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-  //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
- // HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
 
-  /* USER CODE END MX_GPIO_Init_2 */
 }
 void SystemClock_Config(void)
 {

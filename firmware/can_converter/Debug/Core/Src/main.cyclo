@@ -7,5 +7,5 @@
 ../Core/Src/main.cpp:243:13:void MX_CAN2_Init()	2
 ../Core/Src/main.cpp:267:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	1
 ../Core/Src/main.cpp:286:13:void MX_GPIO_Init()	1
-../Core/Src/main.cpp:309:6:void SystemClock_Config()	4
-../Core/Src/main.cpp:364:6:void Error_Handler()	1
+../Core/Src/main.cpp:305:6:void SystemClock_Config()	4
+../Core/Src/main.cpp:360:6:void Error_Handler()	1

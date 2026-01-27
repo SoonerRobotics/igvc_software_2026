@@ -44,12 +44,7 @@ CanSparkMax::CanSparkMax(uint8_t id, bool reversed)
     : deviceID(id), isReversed(reversed) {
 	uint16_t period_ms = 50;
 	uint8_t data[8] = { (uint8_t)(period_ms & 0xFF), (uint8_t)(period_ms >> 8), 0,0,0,0,0,0 };
-//	if (id == 8) {
-//		enablemsg[1] = enablemsg[1] + 1;
-//	}
-//	else {
-//	enablemsg[0] = enablemsg[0] + (1 << id);
-//	}
+
 	s_spark_registry[deviceID] = this;
 	sendSparkMsg(2, 6, deviceID, 2, data);
 
