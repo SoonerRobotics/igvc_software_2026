@@ -130,7 +130,13 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
-		  //swerveDrive->debug_print(); //prints motor feedback
+		  /*char msg[96];
+		  int len = snprintf(msg,sizeof(msg),
+				  "STATE dx = %.5f dy =%.5f da=%.5f\r\n",
+				  measured.delta_x,
+				  measured.delta_y,
+				  measured.delta_theta);
+		    CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);*/
 		  last = now;
 	  }
 
@@ -260,7 +266,7 @@ static void MX_CAN2_Init(void)
   }
 
   configFilter(&hcan2,0x02051840,16);
-  //configFilter(&hcan2,0x02051880,17); dont use RPM
+  configFilter(&hcan2,0x02051880,17); //dont use RPM
   configFilter(&hcan2,0x02051940,18); //RPM, and encoder feedback ids
 }
 

@@ -35,7 +35,7 @@ float SwerveModule::getDriveDelta() {
 	float current_drive_motor_position = drive_motor_.getDrivePosition() / driveMotorConversion;
 	last_drive_motor_delta = (current_drive_motor_position - drive_motor_last_position);
 	drive_motor_last_position = current_drive_motor_position;
-	current_angle_motor_position = angle_motor_.getAbsolutePosition();
+	current_angle_motor_position = angle_motor_.getAngle();
 	return last_drive_motor_delta;
 }
 

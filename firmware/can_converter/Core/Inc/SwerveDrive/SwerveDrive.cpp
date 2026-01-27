@@ -165,33 +165,5 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     return measured;
 }
-void SwerveDrive::debug_print() {
-    char msg[160];
 
-    int len = snprintf(msg, sizeof(msg),
-        "FL@%p d=%.4f a=%.3f | "
-        "FR@%p d=%.4f a=%.3f | "
-        "BL@%p d=%.4f a=%.3f | "
-        "BR@%p d=%.4f a=%.3f\r\n",
-        (void*)front_left_module_,
-        front_left_module_->getDriveDelta(),
-        front_left_module_->getCurrentAngleRad(),
-
-        (void*)front_right_module_,
-        front_right_module_->getDriveDelta(),
-        front_right_module_->getCurrentAngleRad(),
-
-        (void*)back_left_module_,
-        back_left_module_->getDriveDelta(),
-        back_left_module_->getCurrentAngleRad(),
-
-        (void*)back_right_module_,
-        back_right_module_->getDriveDelta(),
-        back_right_module_->getCurrentAngleRad()
-
-    );
-    if (len > (int)sizeof(msg)) len = sizeof(msg); // clamp (paranoia)
-
-    CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
-}
 
