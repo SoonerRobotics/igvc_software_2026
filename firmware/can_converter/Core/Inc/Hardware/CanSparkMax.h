@@ -48,17 +48,15 @@ public:
 	bool setVelocity(float value);
 	float getAbsolutePosition();
 	float getDrivePosition();
-//	float getRPM();
 	float getAngle();
 	float encoderToRadians(float encoder_reading);
 	bool sendHeartbeat();
     void handleFeedback(uint8_t api_class, uint8_t api_index, const uint8_t data[8]);
-    uint8_t deviceID;
 
 private:
+    uint8_t deviceID;
 	bool sendSparkMsg(uint8_t  api_index, uint8_t  api_class,uint8_t id, uint8_t  dlc, uint8_t data[8]);
 	void floatToData(float f, uint8_t* data);
-
 	bool isReversed;
 	float absolute_position_ = 0.0f;
 	float drive_position_ = 0.0f;

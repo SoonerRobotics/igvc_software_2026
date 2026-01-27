@@ -33,10 +33,10 @@ public:
 	SwerveDriveState updateState(SwerveDriveState& state);
 public:
 	SwerveDriveConfig config_;
-	SwerveModule front_left_module_;
-	SwerveModule front_right_module_;
-	SwerveModule back_left_module_;
-	SwerveModule back_right_module_;
+	SwerveModule* front_left_module_;
+	SwerveModule* front_right_module_;
+	SwerveModule* back_left_module_;
+	SwerveModule* back_right_module_;
 	void debug_print();
     float drive_kinematics_data_[8][3];
     arm_matrix_instance_f32 drive_kinematics_mat_;

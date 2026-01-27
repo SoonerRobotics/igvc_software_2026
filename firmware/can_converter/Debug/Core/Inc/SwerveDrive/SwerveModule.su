@@ -4,6 +4,5 @@ C:\ST\STM32CubeIDE_1.18.1\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.external
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:18:1:SwerveModule::SwerveModule(SwerveModuleConfig)	24	static
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:29:7:float SwerveModule::getDriveDelta()	24	static
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:43:6:void SwerveModule::updateState(SwerveModuleState)	80	static
-../Core/Inc/SwerveDrive/SwerveModule.cpp:74:6:void SwerveModule::debugPrint()	144	static
-../Core/Inc/SwerveDrive/SwerveModule.cpp:85:1:void __static_initialization_and_destruction_0()	24	static
-../Core/Inc/SwerveDrive/SwerveModule.cpp:85:1:cpp)	8	static
+../Core/Inc/SwerveDrive/SwerveModule.cpp:71:1:void __static_initialization_and_destruction_0()	24	static
+../Core/Inc/SwerveDrive/SwerveModule.cpp:71:1:cpp)	8	static

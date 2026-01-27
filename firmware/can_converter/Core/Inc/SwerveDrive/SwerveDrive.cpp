@@ -11,10 +11,10 @@
 #include <math.h>
 SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
 	: config_(config),
-	  front_left_module_(*config.front_left),
-	  front_right_module_(*config.front_right),
-	  back_left_module_(*config.back_left),
-	  back_right_module_(*config.back_right)
+	  front_left_module_(config.front_left),
+	  front_right_module_(config.front_right),
+	  back_left_module_(config.back_left),
+	  back_right_module_(config.back_right)
 {
 	arm_mat_init_f32(&drive_kinematics_mat_,8,3, &drive_kinematics_data_[0][0]);
 	arm_mat_init_f32(&input_vel_mat_,3,1,input_vel_);
@@ -37,10 +37,10 @@ SwerveDrive::SwerveDrive(SwerveDriveConfig& config)
          drive_kinematics_data_[row_index + 1][1] = 1.0f;
          drive_kinematics_data_[row_index + 1][2] = x;
      };
-    fill_rows(0, front_left_module_);
-    fill_rows(2, front_right_module_);
-    fill_rows(4, back_left_module_);
-    fill_rows(6, back_right_module_);
+    fill_rows(0, *front_left_module_);
+    fill_rows(2, *front_right_module_);
+    fill_rows(4, *back_left_module_);
+    fill_rows(6, *back_right_module_);
 
 
     // Compute Pinv
@@ -107,10 +107,10 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
     br_cmd.delta_y = static_cast<double>(wheel_velocities_[7]);
 
     // Update each module (let them handle motor commands, internal state, etc.)
-    front_left_module_.updateState(fl_cmd);
-    front_right_module_.updateState(fr_cmd);
-    back_left_module_.updateState(bl_cmd);
-    back_right_module_.updateState(br_cmd);
+    front_left_module_->updateState(fl_cmd);
+    front_right_module_->updateState(fr_cmd);
+    back_left_module_->updateState(bl_cmd);
+    back_right_module_->updateState(br_cmd);
 
     // 4) Read back what actually happened from each module:
     //
@@ -122,32 +122,32 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     // Front left
     {
-        float d   = front_left_module_.getDriveDelta();
-        float ang = static_cast<float>(front_left_module_.getCurrentAngleRad());
+        float d   = front_left_module_->getDriveDelta();
+        float ang = static_cast<float>(front_left_module_->getCurrentAngleRad());
         wheel_meas_data_[0] = d * cosf(ang); // vx_fl
         wheel_meas_data_[1] = d * sinf(ang); // vy_fl
     }
 
     // Front right
     {
-        float d   = front_right_module_.getDriveDelta();
-        float ang = static_cast<float>(front_right_module_.getCurrentAngleRad());
+        float d   = front_right_module_->getDriveDelta();
+        float ang = static_cast<float>(front_right_module_->getCurrentAngleRad());
         wheel_meas_data_[2] = d * cosf(ang); // vx_fr
         wheel_meas_data_[3] = d * sinf(ang); // vy_fr
     }
 
     // Back left
     {
-        float d   = back_left_module_.getDriveDelta();
-        float ang = static_cast<float>(back_left_module_.getCurrentAngleRad());
+        float d   = back_left_module_->getDriveDelta();
+        float ang = static_cast<float>(back_left_module_->getCurrentAngleRad());
         wheel_meas_data_[4] = d * cosf(ang); // vx_bl
         wheel_meas_data_[5] = d * sinf(ang); // vy_bl
     }
 
     // Back right
     {
-        float d   = back_right_module_.getDriveDelta();
-        float ang = static_cast<float>(back_right_module_.getCurrentAngleRad());
+        float d   = back_right_module_->getDriveDelta();
+        float ang = static_cast<float>(back_right_module_->getCurrentAngleRad());
         wheel_meas_data_[6] = d * cosf(ang); // vx_br
         wheel_meas_data_[7] = d * sinf(ang); // vy_br
     }
@@ -165,11 +165,33 @@ SwerveDriveState SwerveDrive::updateState(SwerveDriveState& state)
 
     return measured;
 }
-void SwerveDrive::debug_print()
-{
-    front_left_module_.debugPrint();
-    front_right_module_.debugPrint();
-    back_left_module_.debugPrint();
-    back_right_module_.debugPrint();
+void SwerveDrive::debug_print() {
+    char msg[160];
+
+    int len = snprintf(msg, sizeof(msg),
+        "FL@%p d=%.4f a=%.3f | "
+        "FR@%p d=%.4f a=%.3f | "
+        "BL@%p d=%.4f a=%.3f | "
+        "BR@%p d=%.4f a=%.3f\r\n",
+        (void*)front_left_module_,
+        front_left_module_->getDriveDelta(),
+        front_left_module_->getCurrentAngleRad(),
+
+        (void*)front_right_module_,
+        front_right_module_->getDriveDelta(),
+        front_right_module_->getCurrentAngleRad(),
+
+        (void*)back_left_module_,
+        back_left_module_->getDriveDelta(),
+        back_left_module_->getCurrentAngleRad(),
+
+        (void*)back_right_module_,
+        back_right_module_->getDriveDelta(),
+        back_right_module_->getCurrentAngleRad()
+
+    );
+    if (len > (int)sizeof(msg)) len = sizeof(msg); // clamp (paranoia)
+
+    CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
 }
 

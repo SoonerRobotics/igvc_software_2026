@@ -38,8 +38,7 @@ public:
     double getXPos() const { return config_.x_pos; }
     double getYPos() const { return config_.y_pos; }
     double getCurrentAngleRad() const { return current_angle_motor_position; }
-    void debugPrint();
-public:
+private:
 	SwerveModuleConfig config_;
 	CanSparkMax drive_motor_;
 	CanSparkMax angle_motor_;

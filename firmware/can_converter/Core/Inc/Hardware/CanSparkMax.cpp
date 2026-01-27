@@ -8,8 +8,6 @@
 #include "CanSparkMax.h"
 #include "main.h"
 #include <cstring>   // for C++
-#include "usb_device.h"
-#include "usbd_cdc_if.h"
 #include "math.h"
 
 float radians(double degrees) {
@@ -64,7 +62,7 @@ CanSparkMax::CanSparkMax(uint8_t id, bool reversed)
 }
 
 bool CanSparkMax::sendSparkMsg(uint8_t  api_index, uint8_t  api_class, uint8_t id, uint8_t  dlc, uint8_t data[8]) {
-	for(;;)if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan2)) == 3)break;
+	for(;;)if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan2)) >= 1)break;
 
 	uint32_t can_id =  (DEVICE_TYPE <<24) | (MANUFACTURER_CODE << 16) | (api_class << 10) | (api_index <<6) | (deviceID);
 	CAN_TxHeaderTypeDef tx;
@@ -114,37 +112,14 @@ void CanSparkMax::handleFeedback(uint8_t api_class,
 {
     float f = read_float_le(data);
 
-    char msg[96];
-    int len = 0;
 
     if (api_class == ABSOLUTE_ENCODER_FEEDBACK_API_CLASS && api_index == 5) {
         absolute_position_ = f;
 
-//        len = snprintf(msg, sizeof(msg),
-//                       "Spark %u | ABS_POS = %.6f\r\n",
-//                       (unsigned)deviceID,
-//                       (double)absolute_position_);
     }
     else if (api_class == DRIVE_ENCODER_FEEDBACK_API_CLASS && api_index == 2) {
         drive_position_ = f;
-
-//        len = snprintf(msg, sizeof(msg),
-//                       "Spark %u | DRIVE_POS = %.6f\r\n",
-//                       (unsigned)deviceID,
-//                       (double)drive_position_);
     }
-    else if (api_class == ENCODER_API_CLASS && api_index == 1) {
-//        rpm_ = f;
-//
-//        len = snprintf(msg, sizeof(msg),
-//                       "Spark %u | RPM = %.3f\r\n",
-//                       (unsigned)deviceID,
-//                       (double)rpm_);
-    }
-
-//    if (len > 0 && deviceID == 2) {
-//        (void)CDC_Transmit_FS((uint8_t*)msg, (uint16_t)len);
-//    }
 }
 
 

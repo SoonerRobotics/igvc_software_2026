@@ -67,22 +67,9 @@ void SwerveModule::updateState(SwerveModuleState desired_state) {
 		last_set_angle_ = desired_angle;
 		angle_motor_.setPosition((desired_angle)/(2*M_PI));
 	}
-//	desired_drive_speed *= cos(desired_angle - angle_motor_.getAngle());
 	drive_motor_.setVelocity(desired_drive_speed * 42.0f); //no clue about 42 zemlin gap
 }
 
-void SwerveModule::debugPrint()
-{
-    char msg[96];
-    int len = snprintf(
-        msg,
-        sizeof(msg),
-		"ID:%u %u delta=%.3f\r\n",
-		drive_motor_.deviceID,angle_motor_.deviceID,
-		last_drive_motor_delta
-    );
-    CDC_Transmit_FS((uint8_t*)msg, len);
-}
 
 
 

@@ -8,7 +8,6 @@
 CAN_HandleTypeDef hcan1;
 CAN_HandleTypeDef hcan2;
 void SystemClock_Config(void);
-void serial_debug(SwerveModule& module);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_CAN2_Init(void);
@@ -118,7 +117,7 @@ int main(void)
   HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
 
 
-  uint8_t count = 0;
+
   SwerveDrive* swerveDrive = InitSwerveDrive();
   uint32_t last = HAL_GetTick();
   const uint32_t period_ms = 50;
@@ -131,21 +130,7 @@ int main(void)
 		  if (hb_spark) {
 			  hb_spark->sendHeartbeat();
 		  }
-	  count++;
-	  if (count == 4) {
-		  swerveDrive->debug_print();
-		  count = 0;
-	  }
-
-//		  char msg[64];
-//		  		int len = snprintf(
-//		  		    msg,
-//		  		    sizeof(msg),
-//		  		    "FIFO0: %lu FIFO1: %lu \r\n",
-//		  		    lvl0,
-//		  		    lvl1
-//		  		);
-//		  		CDC_Transmit_FS((uint8_t*)msg, len);
+		  //swerveDrive->debug_print(); //prints motor feedback
 		  last = now;
 	  }
 
@@ -153,7 +138,7 @@ int main(void)
 }
 static void SendOdometry(const SwerveDriveState& odom)
 {
-	for(;;) if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) == 3) break;
+	for(;;) if((HAL_CAN_GetTxMailboxesFreeLevel(&hcan1)) >= 1) break;
 
     uint8_t txData[8] = {0};
 	MotorOdometryMsg msg = {
@@ -174,10 +159,6 @@ static void SendOdometry(const SwerveDriveState& odom)
     HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &mailbox);
 }
 
-void serial_debug(SwerveModule& module)
-{
-
-}
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	if (hcan ->Instance == CAN1) {
@@ -208,17 +189,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		uint8_t deviceID  =  can_id        & 0x3F;       // lower 6 bits
 		uint8_t api_index = (can_id >> 6)  & 0x0F;       // next 4 bits
 		uint8_t api_class = (can_id >> 10) & 0x3F;       // next 6 bits
-//		char msg[64];
-//		int len = snprintf(
-//		    msg,
-//		    sizeof(msg),
-//		    "ID:%u cls:%u idx:%u\r\n",
-//		    deviceID,
-//		    api_class,
-//		    api_index
-//		);
-//		CDC_Transmit_FS((uint8_t*)msg, len);
-		// Look up the instance
 		CanSparkMax* spark = s_spark_registry[deviceID];
 		if (spark) {
 
