@@ -9,7 +9,8 @@
 
 float driveMotorGearRatio = 1.0f / ((10.0f / 60) * (24.0f / 60));
 float wheelRadius = 0.1016f;
-float driveMotorConversion = wheelRadius * (driveMotorGearRatio / (2 * wheelRadius * M_PI));
+// float driveMotorConversion = wheelRadius * (driveMotorGearRatio / (2 * wheelRadius * M_PI));
+float driveMotorConversion = (2.0f * M_PI * wheelRadius) / driveMotorGearRatio;
 
 float radiansA(double degrees) {
     return degrees * M_PI / 180.0f;
@@ -67,7 +68,11 @@ void SwerveModule::updateState(SwerveModuleState desired_state) {
 		last_set_angle_ = desired_angle;
 		angle_motor_.setPosition((desired_angle)/(2*M_PI));
 	}
-	drive_motor_.setVelocity(desired_drive_speed * 42.0f); //no clue about 42 zemlin gap
+	// drive_motor_.setVelocity(desired_drive_speed * 42.0f); //no clue about 42 zemlin gap
+
+	float meters_per_motor_rotation = (2.0f * M_PI * wheelRadius) / driveMotorGearRatio;
+	float motor_rpm = desired_drive_speed / meters_per_motor_rotation * 60.0f;
+	drive_motor_.setVelocity(motor_rpm);
 }
 
 
