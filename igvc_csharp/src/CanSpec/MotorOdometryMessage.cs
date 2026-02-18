@@ -26,15 +26,9 @@ public sealed class MotorOdometryMessage(double forward, double sideways, double
 
     public CanFrame Write()
     {
-        var data = new byte[6];
-
-        BitConverter.GetBytes((short)DeltaX).CopyTo(data, 0);
-        BitConverter.GetBytes((short)DeltaY).CopyTo(data, 2);
-        BitConverter.GetBytes((short)DeltaTheta).CopyTo(data, 4);
-
+        // This should never be called
         return new CanFrame(
-            (uint)CanId.MotorOdometry,
-            data
+            (uint)CanId.MotorOdometry, []
         );
     }
 }

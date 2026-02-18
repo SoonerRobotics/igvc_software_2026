@@ -4,11 +4,11 @@ namespace igvc_csharp.CanSpec;
 
 using System;
 
-public sealed class MotorCommandMessage(short forward, short sideways, short angular) : ICanMessage<MotorCommandMessage>
+public sealed class MotorCommandMessage(double forward, double sideways, double angular) : ICanMessage<MotorCommandMessage>
 {
-    public short ForwardVelocity { get; set; } = forward;
-    public short SidewaysVelocity { get; set; } = sideways;
-    public short AngularVelocity { get; set; } = angular;
+    public double ForwardVelocity { get; set; } = forward;
+    public double SidewaysVelocity { get; set; } = sideways;
+    public double AngularVelocity { get; set; } = angular;
 
     public static MotorCommandMessage Read(byte[] data)
     {
@@ -18,9 +18,9 @@ public sealed class MotorCommandMessage(short forward, short sideways, short ang
         }
 
         return new MotorCommandMessage(
-            BitConverter.ToInt16(data, 0),
-            BitConverter.ToInt16(data, 2),
-            BitConverter.ToInt16(data, 4)
+            BitConverter.ToInt16(data, 0) * 0.0001f,
+            BitConverter.ToInt16(data, 2) * 0.0001f,
+            BitConverter.ToInt16(data, 4) * 0.0001f
         );
     }
 
@@ -28,9 +28,9 @@ public sealed class MotorCommandMessage(short forward, short sideways, short ang
     {
         var data = new byte[6];
 
-        BitConverter.GetBytes(ForwardVelocity).CopyTo(data, 0);
-        BitConverter.GetBytes(SidewaysVelocity).CopyTo(data, 2);
-        BitConverter.GetBytes(AngularVelocity).CopyTo(data, 4);
+        BitConverter.GetBytes((short)(ForwardVelocity / 0.0001f)).CopyTo(data, 0);
+        BitConverter.GetBytes((short)(SidewaysVelocity / 0.0001f)).CopyTo(data, 2);
+        BitConverter.GetBytes((short)(AngularVelocity / 0.001f)).CopyTo(data, 4);
 
         return new CanFrame(
             (uint)CanId.MotorCommand,

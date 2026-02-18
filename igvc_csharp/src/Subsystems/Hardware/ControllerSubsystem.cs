@@ -23,10 +23,39 @@ public class ControllerSubsystem : SubsystemBase
             token
         );
         
+        DebugPrints();
+        
         return Task.CompletedTask;
     }
 
-    public void DebugPrints()
+    public override Task Periodic(CancellationToken token)
+    {
+        if (Buttons.A.IsDown) Buttons.A.Update(true);
+        if (Buttons.B.IsDown) Buttons.B.Update(true);
+        if (Buttons.X.IsDown) Buttons.X.Update(true);
+        if (Buttons.Y.IsDown) Buttons.Y.Update(true);
+        if (Buttons.LeftStick.IsDown) Buttons.LeftStick.Update(true);
+        if (Buttons.RightStick.IsDown) Buttons.RightStick.Update(true);
+        if (Buttons.LeftBumper.IsDown) Buttons.LeftBumper.Update(true);
+        if (Buttons.RightBumper.IsDown) Buttons.RightBumper.Update(true);
+        if (Buttons.Menu.IsDown) Buttons.Menu.Update(true);
+        if (Buttons.View.IsDown) Buttons.View.Update(true);
+        if (Buttons.Xbox.IsDown) Buttons.Xbox.Update(true);
+        
+        if (Dpad.DpadLeft.IsDown) Dpad.DpadLeft.Update(true);
+        if (Dpad.DpadRight.IsDown) Dpad.DpadRight.Update(true);
+        if (Dpad.DpadUp.IsDown) Dpad.DpadUp.Update(true);
+        if (Dpad.DpadDown.IsDown) Dpad.DpadDown.Update(true);
+        
+        Axes.LeftStick.Broadcast();
+        Axes.RightStick.Broadcast();
+        Axes.LeftTrigger.Broadcast();
+        Axes.RightTrigger.Broadcast();
+        
+        return Task.CompletedTask;
+    }
+
+    private void DebugPrints()
     {
         Buttons.A.OnPressed += () => Logger.LogDebug("(Xbox Controller) A Button Pressed");
         Buttons.B.OnPressed += () => Logger.LogDebug("(Xbox Controller) B Button Pressed");
@@ -39,6 +68,16 @@ public class ControllerSubsystem : SubsystemBase
         Buttons.Menu.OnPressed += () => Logger.LogDebug("(Xbox Controller) Menu Button Pressed");
         Buttons.View.OnPressed += () => Logger.LogDebug("(Xbox Controller) View Button Pressed");
         Buttons.Xbox.OnPressed += () => Logger.LogDebug("(Xbox Controller) Xbox Button Pressed");
+        
+        Dpad.DpadLeft.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Left Button Pressed");
+        Dpad.DpadRight.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Right Button Pressed");
+        Dpad.DpadDown.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Down Button Pressed");
+        Dpad.DpadUp.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Up Button Pressed");
+
+        Axes.LeftStick.OnChanged += (dirX, dirY) => Logger.LogDebug("(Xbox Controller) Left Stick: {x}.{y}", dirX, dirY);
+        Axes.RightStick.OnChanged += (dirX, dirY) => Logger.LogDebug("(Xbox Controller) Right Stick: {x}.{y}", dirX, dirY);
+        Axes.LeftTrigger.OnChanged += (dir) => Logger.LogDebug("(Xbox Controller) Left Trigger: {x}", dir);
+        Axes.RightTrigger.OnChanged += (dir) => Logger.LogDebug("(Xbox Controller) Right rigger: {x}", dir);
     }
 
     private XboxController? GetController()
@@ -222,6 +261,11 @@ public class ControllerSubsystem : SubsystemBase
             _value = value;
             OnChanged?.Invoke(value);
         }
+
+        public void Broadcast()
+        {
+            OnChanged?.Invoke(_value);
+        }
     }
 
     public sealed class MultiAxisInputAction
@@ -240,6 +284,11 @@ public class ControllerSubsystem : SubsystemBase
         public void UpdateY(float y)
         {
             _y = y;
+            OnChanged?.Invoke(_x, _y);
+        }
+
+        public void Broadcast()
+        {
             OnChanged?.Invoke(_x, _y);
         }
     }

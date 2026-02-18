@@ -4,6 +4,7 @@ using igvc_csharp.CanSpec;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
+using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Subsystems.Simulator;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;
@@ -20,6 +21,9 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     private BlockingCollection<CanFrame> _frameQueue = new(128);
     private volatile bool _connected;
     private readonly Lock _socketLock = new();
+    
+    // Layers
+    public SafetyLightsLayer SafetyLights = null!;
 
     // Metrics
     // Emits the total bits received and written (so bus utilization) over the last second every 250ms
@@ -41,6 +45,8 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     
     public override Task Init(CancellationToken token)
     {
+        SafetyLights = new SafetyLightsLayer(this);
+        
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
         // write to the simulator
