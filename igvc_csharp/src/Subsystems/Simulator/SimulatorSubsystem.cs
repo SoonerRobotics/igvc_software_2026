@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
+using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils.Messages;
 using Messages.Arc;
 using Microsoft.Extensions.Logging;
@@ -9,7 +10,7 @@ using SocketCANSharp;
 namespace igvc_csharp.Subsystems.Simulator;
 
 [Subsystem("SimulatorSubsystem", Disabled = !Constants.UseSimulation)]
-public class SimulatorSubsystem : SubsystemBase
+public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : SubsystemBase
 {
     private const Endianness Endianness = Constants.SimulatorSubsystem.Endianness;
 
