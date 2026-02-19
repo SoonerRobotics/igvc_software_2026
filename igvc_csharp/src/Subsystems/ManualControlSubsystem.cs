@@ -1,5 +1,6 @@
 using igvc_csharp.Core;
 using igvc_csharp.Subsystems.Hardware;
+using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
 
@@ -44,7 +45,7 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
         {
             if (_dpadDepressedAt == null || _dpadFlashed) return;
             
-            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 1.5)
+            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 2)
             {
                 return;
             }
@@ -52,13 +53,14 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             _dpadFlashed = true;
             // TODO: Flash lights and vibrate remote
             canbus.SafetyLights.Flash();
+            Logger.LogDebug("Flashing DPad for mission switch");
         };
         controller.Dpad.DpadRight.OnReleased += () =>
         {
             if (_dpadDepressedAt == null) return;
 
             _dpadFlashed = false;
-            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 3)
+            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 2)
             {
                 _dpadDepressedAt = null;
                 return;
@@ -68,6 +70,7 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             Robot.Instance.State.Mission = Robot.Instance.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
                 : MissionEnum.Autonav;
+            Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
         };
     }
 }

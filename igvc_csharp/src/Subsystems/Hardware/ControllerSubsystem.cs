@@ -23,7 +23,7 @@ public class ControllerSubsystem : SubsystemBase
             token
         );
         
-        DebugPrints();
+        // DebugPrints();
         
         return Task.CompletedTask;
     }
@@ -214,6 +214,14 @@ public class ControllerSubsystem : SubsystemBase
                         Dpad.DpadDown.Update(true);
                         Dpad.DpadUp.Update(false);
                         break;
+                }
+
+                if (dpe.X == 0 && dpe.Y == 0)
+                {
+                    Dpad.DpadLeft.Update(false);
+                    Dpad.DpadRight.Update(false);
+                    Dpad.DpadUp.Update(false);
+                    Dpad.DpadDown.Update(false);
                 }
 
                 break;
