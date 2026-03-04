@@ -34,6 +34,8 @@ public class SubsystemBase : ISubsystem
     /// </summary>
     protected CancellationToken LifetimeToken { get; private set; }
 
+    // IGVC Stuff
+    
     protected SubsystemBase()
     {
         Name = GetSubsystemName(GetType());
@@ -56,7 +58,8 @@ public class SubsystemBase : ISubsystem
             {
                 await foreach (var evt in reader.ReadAllAsync(token))
                 {
-                    await handler(evt, token);
+                    // Run the callback in the background
+                    _ = Task.Run(() => handler(evt, token), token);
                 }
             }
             catch (OperationCanceledException)
@@ -220,6 +223,33 @@ public class SubsystemBase : ISubsystem
         return Task.CompletedTask;
     }
 
+    public virtual Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
+    {
+        return Task.CompletedTask;
+    }
+
+    public virtual Task OnRobotMissionChanged(MissionEnum old, MissionEnum current)
+    {
+        return Task.CompletedTask;
+    }
+
+    public virtual Task OnRobotEstopped()
+    {
+        return Task.CompletedTask;
+    }
+
+    public virtual Task OnMobilityStart()
+    {
+        return Task.CompletedTask;
+    }
+    
+    public virtual Task OnMobilityStop()
+    {
+        return Task.CompletedTask;
+    }
+    
+    // Setters
+
     protected void SetState(SubsystemState newState)
     {
         if (State == newState)
@@ -233,6 +263,21 @@ public class SubsystemBase : ISubsystem
 
         Logger.LogInformation("Subsystem {Subsystem} state changed: {OldState} -> {NewState}", Name, oldState,
             newState);
+    }
+
+    protected void SetRobotMode(RobotModeEnum mode)
+    {
+        Robot.Instance.SetMode(mode);
+    }
+
+    protected void SetRobotMission(MissionEnum mission)
+    {
+        Robot.Instance.SetMission(mission);
+    }
+
+    protected void SetMobility(bool mobility)
+    {
+        Robot.Instance.SetMobility(mobility);
     }
 
     private static string GetSubsystemName(Type type)

@@ -1,5 +1,6 @@
 using igvc_csharp.Core;
 using igvc_csharp.Subsystems.Hardware;
+using igvc_csharp.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
@@ -12,28 +13,30 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
     
     public override Task Init(CancellationToken token)
     {
-        ControllerHooks();
+        ControllerHooks(token);
 
         return Task.CompletedTask;
     }
 
-    private void ControllerHooks()
+    private void ControllerHooks(CancellationToken token)
     {
         // System Mode
         controller.Buttons.Menu.OnReleased += () =>
         {
-            // TODO: Convert these to functions maybe?
-            Robot.Instance.State.Mode = RobotModeEnum.Manual;
+            SetRobotMode(RobotModeEnum.Manual);
+            canbus.SafetyLights.SetManual();
         };
 
         controller.Buttons.Xbox.OnReleased += () =>
         {
-            Robot.Instance.State.Mode = RobotModeEnum.Autonomous;
+            SetRobotMode(RobotModeEnum.Autonomous);
+            canbus.SafetyLights.SetAutonomous();
         };
 
         controller.Buttons.View.OnReleased += () =>
         {
-            Robot.Instance.State.Mode = RobotModeEnum.Disabled;
+            SetRobotMode(RobotModeEnum.Disabled);
+            canbus.SafetyLights.SetDisabled();
         };
         
         // System Mission
@@ -45,14 +48,13 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
         {
             if (_dpadDepressedAt == null || _dpadFlashed) return;
             
-            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 2)
+            if ((DateTime.Now - _dpadDepressedAt).Value.Milliseconds <= 1500)
             {
                 return;
             }
             
             _dpadFlashed = true;
-            // TODO: Flash lights and vibrate remote
-            canbus.SafetyLights.Flash();
+            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
             Logger.LogDebug("Flashing DPad for mission switch");
         };
         controller.Dpad.DpadRight.OnReleased += () =>
@@ -60,16 +62,16 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             if (_dpadDepressedAt == null) return;
 
             _dpadFlashed = false;
-            if ((DateTime.Now - _dpadDepressedAt).Value.Seconds <= 2)
+            if ((DateTime.Now - _dpadDepressedAt).Value.Milliseconds <= 3000)
             {
                 _dpadDepressedAt = null;
                 return;
             }
 
             _dpadDepressedAt = null;
-            Robot.Instance.State.Mission = Robot.Instance.State.Mission == MissionEnum.Autonav
+            SetRobotMission(Robot.Instance.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
-                : MissionEnum.Autonav;
+                : MissionEnum.Autonav);
             Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
         };
     }

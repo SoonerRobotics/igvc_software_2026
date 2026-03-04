@@ -33,4 +33,32 @@ public sealed class Robot : BaseRobot
     {
         base.Dispose();
     }
+    
+    // Setters
+    
+    public void SetMobility(bool mobility)
+    {
+        State.MotionAllowed = mobility;
+        CallSubsystemFunction(mobility ? "OnMobilityStart" : "OnMobilityStop");
+    }
+
+    public void SetEstopped(bool estopped)
+    {
+        State.Estopped = estopped;
+        CallSubsystemFunction("OnRobotEstopped");
+    }
+
+    public void SetMode(RobotModeEnum mode)
+    {
+        var oldMode = State.Mode;
+        State.Mode = mode;
+        CallSubsystemFunction("OnRobotModeChanged", oldMode, mode);
+    }
+
+    public void SetMission(MissionEnum mission)
+    {
+        var oldMission = State.Mission;
+        State.Mission = mission;
+        CallSubsystemFunction("OnRobotModeChanged", oldMission, mission);
+    }
 }

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using igvc_csharp.CanSpec;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
 using Microsoft.Extensions.Logging;

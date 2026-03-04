@@ -32,4 +32,7 @@
       </Reference>
     </ItemGroup>
 
+    <Target Name="CopyVNDll" AfterTargets="Build">
+	<Copy SourceFiles="/usr/local/vectornav/net/VnSdk_Net.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    </Target>
 </Project>

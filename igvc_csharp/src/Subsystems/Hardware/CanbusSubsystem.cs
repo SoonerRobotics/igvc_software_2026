@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection.Metadata;
-using igvc_csharp.CanSpec;
+using System.Runtime.InteropServices;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
@@ -24,6 +24,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     
     // Layers
     public SafetyLightsLayer SafetyLights = null!;
+    public MotorControlLayer MotorControl = null!;
 
     // Metrics
     // Emits the total bits received and written (so bus utilization) over the last second every 250ms
@@ -46,6 +47,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     public override Task Init(CancellationToken token)
     {
         SafetyLights = new SafetyLightsLayer(this);
+        MotorControl = new MotorControlLayer(this);
         
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
@@ -255,5 +257,19 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
         CloseSocket();
         SetState(SubsystemState.Shutdown);
         return Task.CompletedTask;
+    }
+    
+    // Utils
+    
+    public static byte[] PacketToBytes<T>(T packet) where T : struct
+    {
+        var bytes = new byte[Marshal.SizeOf<T>()];
+        MemoryMarshal.Write(bytes.AsSpan(), packet);
+        return bytes;
+    }
+
+    public static T PacketFromBytes<T>(byte[] bytes) where T : struct
+    {
+        return MemoryMarshal.Read<T>(bytes.AsSpan());
     }
 }

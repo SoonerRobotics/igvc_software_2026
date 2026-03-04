@@ -8,6 +8,7 @@ public sealed class RobotState
     private int _motionAllowed;
     private int _mission;
     private int _isSimulation;
+    private int _estopped;
 
     public RobotModeEnum Mode
     {
@@ -31,5 +32,11 @@ public sealed class RobotState
     {
         get => Volatile.Read(ref _isSimulation) != 0;
         set => Volatile.Write(ref _isSimulation, value ? 1 : 0);
+    }
+
+    public bool Estopped
+    {
+        get => Volatile.Read(ref _estopped) != 0;
+        set => Volatile.Write(ref _estopped, value ? 1 : 0);
     }
 }

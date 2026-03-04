@@ -1,4 +1,4 @@
-namespace igvc_csharp.CanSpec;
+namespace igvc_csharp.Subsystems.Hardware.CanLayers;
 
 public enum CanId : uint
 {

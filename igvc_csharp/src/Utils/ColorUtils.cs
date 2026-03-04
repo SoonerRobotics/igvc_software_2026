@@ -172,6 +172,16 @@ public static class ColorUtils
         // Constants
         
         public static Color White => new (255, 255, 255);
+        public static Color Red => new(255, 0, 0);
+        public static Color Green => new Color(0, 255, 0);
+        public static Color Blue => new(0, 0, 255);
+        public static Color Black => new Color(0, 0, 0);
+        
+        public static Color Amaranth => new Color(159, 43, 104);
+        public static Color CadetBlue => new Color(95, 158, 160);
+        
+        public static Color Manual => new(199, 110, 0);
+        public static Color Autonomous => new Color(255, 255, 255);
     }
 
     public sealed class ColorRange : IConfigSerializable

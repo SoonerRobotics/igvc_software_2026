@@ -8,6 +8,7 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Vision;
 
@@ -55,10 +56,26 @@ public class VisionSubsystem : SubsystemBase
         _filters.Add(new BlurFilter(5, 3, BlurFilter.BlurMethod.BoxBlur));
 
         // Ground hsv filter
-        // _filters.Add(new HsvFilter(Constants.VisionSubsystem.GroundThreshold));
-        
+        _filters.Add(new HsvFilter(Constants.VisionSubsystem.GroundThreshold));
+
+        // Region of disinterest (defaults to remove within the region)
+        _filters.Add(new RegionFilter(
+            [new Point(0, 0), new Point(100, 100), new Point(50, 50)]
+        ));
+
         // Top down transformation
-        // _filters.Add(new TopDownFilter());
+        _filters.Add(new TopDownFilter(
+            [
+                new Point2f(220, 200), 
+                new Point2f(420, 200), 
+                new Point2f(580, 420), 
+                new Point2f(60, 420)
+            ],
+            new Size(80, 80)
+        ));
+
+        // Inflation
+        _filters.Add(new InflationFilter());
     }
 
     private async Task ImageProcessingTask(CancellationToken token)
@@ -92,7 +109,7 @@ public class VisionSubsystem : SubsystemBase
                 watch.Stop();
                 _processingTime.AddSample(watch.ElapsedMilliseconds);
                 watch.Reset();
-                
+
                 mat.Dispose();
             }
         }

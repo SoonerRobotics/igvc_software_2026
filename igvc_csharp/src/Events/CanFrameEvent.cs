@@ -3,4 +3,7 @@ using SocketCANSharp;
 
 namespace igvc_csharp.Events;
 
-public class CanFrameEvent(CanFrame frame) : IRobotEvent;
+public class CanFrameEvent(CanFrame frame) : IRobotEvent
+{
+    public CanFrame Frame { get; } = frame;
+}

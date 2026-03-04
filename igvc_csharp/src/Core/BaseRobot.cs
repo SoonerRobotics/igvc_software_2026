@@ -94,6 +94,24 @@ public abstract class BaseRobot : IDisposable
         return subsystem!;
     }
 
+    protected void CallSubsystemFunction(string name, params object[] pms)
+    {
+        foreach (var subsystem in _subsystems)
+        {
+            var subsystemType = subsystem.GetType();
+            var methods = subsystemType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (var method in methods)
+            {
+                if (method.Name != name)
+                {
+                    continue;
+                }
+                
+                method.Invoke(subsystem, pms);
+            }
+        }
+    }
+
     public virtual async Task Init(CancellationToken token)
     {
         if (_initialized)
