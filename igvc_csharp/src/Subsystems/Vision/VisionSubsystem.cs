@@ -46,7 +46,7 @@ public class VisionSubsystem : SubsystemBase
             TaskScheduler.Default
         );
 
-        SetState(SubsystemState.Operating);
+        SetOperatingState(SubsystemState.Operating);
         return Task.CompletedTask;
     }
 

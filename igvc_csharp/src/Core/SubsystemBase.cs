@@ -195,7 +195,7 @@ public class SubsystemBase : ISubsystem
 
     public virtual Task Init(CancellationToken token)
     {
-        SetState(SubsystemState.Initialized);
+        SetOperatingState(SubsystemState.Initialized);
         LifetimeToken = token;
         return Task.CompletedTask;
     }
@@ -250,7 +250,7 @@ public class SubsystemBase : ISubsystem
     
     // Setters
 
-    protected void SetState(SubsystemState newState)
+    protected void SetOperatingState(SubsystemState newState)
     {
         if (State == newState)
         {

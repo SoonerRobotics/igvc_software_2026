@@ -95,7 +95,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
             _canNetwork ??= FindNetwork();
             if (_canNetwork == null)
             {
-                SetState(SubsystemState.Ready);
+                SetOperatingState(SubsystemState.Idle);
                 return;
             }
 
@@ -104,7 +104,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
             _canSocket.Bind(_canNetwork);
             _connected = true;
             Logger.LogInformation("Connected to Canbus at {socket}", _canNetwork.Name);
-            SetState(SubsystemState.Operating);
+            SetOperatingState(SubsystemState.Operating);
         }
     }
 
@@ -130,7 +130,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
             
             if (State != SubsystemState.ShuttingDown)
             {
-                SetState(SubsystemState.Ready);
+                SetOperatingState(SubsystemState.Idle);
             }
                 
             Logger.LogInformation("Disconnected from canbus at {socket}", oldName ?? "Unknown");
@@ -253,9 +253,9 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
             return Task.CompletedTask;
         }
         
-        SetState(SubsystemState.ShuttingDown);
+        SetOperatingState(SubsystemState.ShuttingDown);
         CloseSocket();
-        SetState(SubsystemState.Shutdown);
+        SetOperatingState(SubsystemState.Shutdown);
         return Task.CompletedTask;
     }
     

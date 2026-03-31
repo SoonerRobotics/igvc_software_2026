@@ -27,13 +27,13 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             _internalCts.Token
         );
 
-        SetState(SubsystemState.Initialized);
+        SetOperatingState(SubsystemState.Initialized);
         return Task.CompletedTask;
     }
 
     public override async Task Shutdown()
     {
-        SetState(SubsystemState.ShuttingDown);
+        SetOperatingState(SubsystemState.ShuttingDown);
 
         if (_internalCts != null)
         {
@@ -57,7 +57,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         _internalCts?.Dispose();
         _internalCts = null;
 
-        SetState(SubsystemState.Shutdown);
+        SetOperatingState(SubsystemState.Shutdown);
     }
 
     public override async Task Restart()
@@ -74,7 +74,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         {
             try
             {
-                SetState(SubsystemState.Ready);
+                SetOperatingState(SubsystemState.Idle);
                 _client = new TcpClient();
                 await _client.ConnectAsync(
                     Constants.SimulatorSubsystem.Host,
@@ -82,7 +82,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
                     token
                 );
 
-                SetState(SubsystemState.Operating);
+                SetOperatingState(SubsystemState.Operating);
                 await ReceiveLoop(_client, token);
             }
             catch (OperationCanceledException)

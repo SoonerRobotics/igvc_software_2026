@@ -38,7 +38,7 @@ public class YoloTestSubsystem : SubsystemBase
 
         _ = Task.Run(() => InteferenceLoop(token), token);
 
-        SetState(SubsystemState.Operating);
+        SetOperatingState(SubsystemState.Operating);
         return Task.CompletedTask;
     }
 

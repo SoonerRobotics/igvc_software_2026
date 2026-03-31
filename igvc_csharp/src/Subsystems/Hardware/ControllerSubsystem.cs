@@ -104,7 +104,7 @@ public class ControllerSubsystem : SubsystemBase
             _controller ??= GetController();
             if (_controller == null)
             {
-                SetState(SubsystemState.Ready);
+                SetOperatingState(SubsystemState.Idle);
                 await Task.Delay(1000, token);
                 continue;
             }
@@ -114,9 +114,9 @@ public class ControllerSubsystem : SubsystemBase
             _controller.OnDisconnected += OnControllerDisconnected;
             _controller.OnEvent += OnControllerEvent;
 
-            SetState(SubsystemState.Operating);
+            SetOperatingState(SubsystemState.Operating);
             await _controller.ConnectAsync(token);
-            SetState(SubsystemState.Ready);
+            SetOperatingState(SubsystemState.Idle);
             await Task.Delay(1000, token);
         }
     }

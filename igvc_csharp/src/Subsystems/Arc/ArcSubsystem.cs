@@ -111,7 +111,7 @@ public class ArcSubsystem : SubsystemBase
 
         Logger.LogInformation("ArcSubsystem initialized on port {Port}", Constants.ArcSubsystem.Port);
         await _host.StartAsync(_internalCts.Token);
-        SetState(SubsystemState.Operating);
+        SetOperatingState(SubsystemState.Operating);
     }
 
     private Task OnPerformanceSampleEvent(PerformanceSampleEvent e, CancellationToken token)
@@ -227,7 +227,7 @@ public class ArcSubsystem : SubsystemBase
 
     public override async Task Shutdown()
     {
-        SetState(SubsystemState.ShuttingDown);
+        SetOperatingState(SubsystemState.ShuttingDown);
 
         if (_internalCts != null)
         {
@@ -268,7 +268,7 @@ public class ArcSubsystem : SubsystemBase
         _internalCts?.Dispose();
         _internalCts = null;
 
-        SetState(SubsystemState.Shutdown);
+        SetOperatingState(SubsystemState.Shutdown);
     }
 
     public override async Task Restart()
