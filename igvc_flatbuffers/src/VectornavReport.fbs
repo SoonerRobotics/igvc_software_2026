@@ -19,13 +19,21 @@ table VectornavReport {
     sequence_number: uint;
 
     // The GPS location data
-    location: Location;
+    latitude: double;
+    longitude: double;
 
     // The orientation data
-    orientation: Orientation;
+    pitch: float;
+    roll: float;
+    yaw: float;
+
+    // The velocity data
+    vel_north: float;
+    vel_east: float;
+    vel_down: float;
 
     // The number of satellites used in the GPS fix
-    num_satellites: ushort;
+    num_satellites: byte;
 
     // The quality of the GPS fix (0 = no fix, 1 = 2D fix, 2 = 3D fix)
     fix_quality: byte;
