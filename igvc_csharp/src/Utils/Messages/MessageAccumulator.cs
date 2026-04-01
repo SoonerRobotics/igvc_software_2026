@@ -46,7 +46,7 @@ public sealed class MessageAccumulator(
             var buffer = _stream.GetBuffer();
             var span = buffer.AsSpan((int)_stream.Position);
 
-            if (!span[..MagicSize].SequenceEqual(Constants.NetworkingMagic))
+            if (!span[..MagicSize].SequenceEqual(Configuration.NetworkingMagic))
             {
                 // skip until magic
                 _stream.Position += 1;

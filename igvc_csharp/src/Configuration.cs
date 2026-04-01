@@ -9,7 +9,7 @@ using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace igvc_csharp;
 
-public static class Constants
+public static class Configuration
 {
     /// <summary>
     /// Global robot periodic rate (fixed delay)
@@ -38,7 +38,7 @@ public static class Constants
         public const LogLevel Level = LogLevel.Trace;
     }
 
-    public static class Configuration
+    public static class Config
     {
         /// <summary>
         /// The directory that all presets will be placed in.

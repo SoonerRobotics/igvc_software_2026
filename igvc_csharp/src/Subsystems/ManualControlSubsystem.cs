@@ -74,5 +74,16 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
                 : MissionEnum.Autonav);
             Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
         };
+        
+        // Drive
+        controller.Axes.LeftStick.OnChanged += (x, y) =>
+        {
+
+        };
+
+        controller.Axes.RightStick.OnChanged += (x, y) =>
+        {
+
+        };
     }
 }

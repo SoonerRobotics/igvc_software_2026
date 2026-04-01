@@ -52,7 +52,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
         // write to the simulator
-        if (Constants.UseSimulation)
+        if (Configuration.UseSimulation)
         {
             return Task.CompletedTask;
         }
@@ -82,7 +82,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
 
     private static CanNetworkInterface? FindNetwork()
     {
-        const string inter = Constants.Hardware.CanbusInterface;
+        const string inter = Configuration.Hardware.CanbusInterface;
         return CanNetworkInterface
             .GetAllInterfaces(true)
             .First(ifc => ifc.Name.Equals(inter));
@@ -184,7 +184,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
             if (!_connected || _canSocket == null)
             {
                 ConnectSocket();
-                await Task.Delay(Constants.Hardware.CanbusTimeout, token);
+                await Task.Delay(Configuration.Hardware.CanbusTimeout, token);
                 continue;
             }
 
@@ -218,7 +218,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     public void SendCanFrame(CanFrame frame)
     {
         // If we are simulator, write to it instead
-        if (Constants.UseSimulation)
+        if (Configuration.UseSimulation)
         {
             simulatorSubsystem.SendCanFrame(frame);
             return;

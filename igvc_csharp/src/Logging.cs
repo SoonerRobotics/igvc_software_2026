@@ -18,7 +18,7 @@ public static class Logging
             
             _factory = LoggerFactory.Create(builder =>
             {
-                builder.SetMinimumLevel(Constants.Logging.Level);
+                builder.SetMinimumLevel(Configuration.Logging.Level);
                 builder.AddConsole();
             });
             return _factory;

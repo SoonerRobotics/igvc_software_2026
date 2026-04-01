@@ -58,7 +58,7 @@ public class RobotManager
             while (!ct.IsCancellationRequested)
             {
                 await robot.Periodic(ct);
-                await Task.Delay(Constants.PeriodicRate, ct);
+                await Task.Delay(Configuration.PeriodicRate, ct);
             }
         }
         catch (OperationCanceledException)

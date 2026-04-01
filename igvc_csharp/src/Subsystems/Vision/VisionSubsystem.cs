@@ -56,7 +56,7 @@ public class VisionSubsystem : SubsystemBase
         _filters.Add(new BlurFilter(5, 3, BlurFilter.BlurMethod.BoxBlur));
 
         // Ground hsv filter
-        _filters.Add(new HsvFilter(Constants.VisionSubsystem.GroundThreshold));
+        _filters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
 
         // Region of disinterest (defaults to remove within the region)
         _filters.Add(new RegionFilter(

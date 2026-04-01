@@ -8,11 +8,11 @@ public class BootParameters
     private static readonly ILogger Logger = Logging.From<BootParameters>();
 
     // Preset Option
-    public static string Preset { get; private set; } = Constants.Configuration.DefaultPreset;
+    public static string Preset { get; private set; } = Configuration.Config.DefaultPreset;
     private static readonly Option<string> PresetFileOption = new("--file")
     {
         Description = "The preset to use",
-        DefaultValueFactory = _ => Constants.Configuration.DefaultPreset
+        DefaultValueFactory = _ => Configuration.Config.DefaultPreset
     };
 
     private static readonly RootCommand Command = new("IGVC 2026 | Suspended Disbelief")

@@ -4,8 +4,6 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { Location } from '../messages/location.js';
-import { Orientation } from '../messages/orientation.js';
 
 
 export class VectornavReport {
@@ -36,28 +34,58 @@ sequenceNumber():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
-location(obj?:Location):Location|null {
+latitude():number {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? (obj || new Location()).__init(this.bb_pos + offset, this.bb!) : null;
+  return offset ? this.bb!.readFloat64(this.bb_pos + offset) : 0.0;
 }
 
-orientation(obj?:Orientation):Orientation|null {
+longitude():number {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? (obj || new Orientation()).__init(this.bb_pos + offset, this.bb!) : null;
+  return offset ? this.bb!.readFloat64(this.bb_pos + offset) : 0.0;
+}
+
+pitch():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+roll():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+yaw():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+velNorth():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+velEast():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+velDown():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
 numSatellites():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.readUint16(this.bb_pos + offset) : 0;
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readInt8(this.bb_pos + offset) : 0;
 }
 
 fixQuality():number {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
+  const offset = this.bb!.__offset(this.bb_pos, 26);
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : 0;
 }
 
 static startVectornavReport(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(12);
 }
 
 static addTimestamp(builder:flatbuffers.Builder, timestamp:bigint) {
@@ -68,20 +96,44 @@ static addSequenceNumber(builder:flatbuffers.Builder, sequenceNumber:number) {
   builder.addFieldInt32(1, sequenceNumber, 0);
 }
 
-static addLocation(builder:flatbuffers.Builder, locationOffset:flatbuffers.Offset) {
-  builder.addFieldStruct(2, locationOffset, 0);
+static addLatitude(builder:flatbuffers.Builder, latitude:number) {
+  builder.addFieldFloat64(2, latitude, 0.0);
 }
 
-static addOrientation(builder:flatbuffers.Builder, orientationOffset:flatbuffers.Offset) {
-  builder.addFieldStruct(3, orientationOffset, 0);
+static addLongitude(builder:flatbuffers.Builder, longitude:number) {
+  builder.addFieldFloat64(3, longitude, 0.0);
+}
+
+static addPitch(builder:flatbuffers.Builder, pitch:number) {
+  builder.addFieldFloat32(4, pitch, 0.0);
+}
+
+static addRoll(builder:flatbuffers.Builder, roll:number) {
+  builder.addFieldFloat32(5, roll, 0.0);
+}
+
+static addYaw(builder:flatbuffers.Builder, yaw:number) {
+  builder.addFieldFloat32(6, yaw, 0.0);
+}
+
+static addVelNorth(builder:flatbuffers.Builder, velNorth:number) {
+  builder.addFieldFloat32(7, velNorth, 0.0);
+}
+
+static addVelEast(builder:flatbuffers.Builder, velEast:number) {
+  builder.addFieldFloat32(8, velEast, 0.0);
+}
+
+static addVelDown(builder:flatbuffers.Builder, velDown:number) {
+  builder.addFieldFloat32(9, velDown, 0.0);
 }
 
 static addNumSatellites(builder:flatbuffers.Builder, numSatellites:number) {
-  builder.addFieldInt16(4, numSatellites, 0);
+  builder.addFieldInt8(10, numSatellites, 0);
 }
 
 static addFixQuality(builder:flatbuffers.Builder, fixQuality:number) {
-  builder.addFieldInt8(5, fixQuality, 0);
+  builder.addFieldInt8(11, fixQuality, 0);
 }
 
 static endVectornavReport(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -97,4 +149,20 @@ static finishSizePrefixedVectornavReportBuffer(builder:flatbuffers.Builder, offs
   builder.finish(offset, undefined, true);
 }
 
+static createVectornavReport(builder:flatbuffers.Builder, timestamp:bigint, sequenceNumber:number, latitude:number, longitude:number, pitch:number, roll:number, yaw:number, velNorth:number, velEast:number, velDown:number, numSatellites:number, fixQuality:number):flatbuffers.Offset {
+  VectornavReport.startVectornavReport(builder);
+  VectornavReport.addTimestamp(builder, timestamp);
+  VectornavReport.addSequenceNumber(builder, sequenceNumber);
+  VectornavReport.addLatitude(builder, latitude);
+  VectornavReport.addLongitude(builder, longitude);
+  VectornavReport.addPitch(builder, pitch);
+  VectornavReport.addRoll(builder, roll);
+  VectornavReport.addYaw(builder, yaw);
+  VectornavReport.addVelNorth(builder, velNorth);
+  VectornavReport.addVelEast(builder, velEast);
+  VectornavReport.addVelDown(builder, velDown);
+  VectornavReport.addNumSatellites(builder, numSatellites);
+  VectornavReport.addFixQuality(builder, fixQuality);
+  return VectornavReport.endVectornavReport(builder);
+}
 }

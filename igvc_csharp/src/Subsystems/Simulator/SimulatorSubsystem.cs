@@ -9,10 +9,10 @@ using SocketCANSharp;
 
 namespace igvc_csharp.Subsystems.Simulator;
 
-[Subsystem("SimulatorSubsystem", Disabled = !Constants.UseSimulation)]
+[Subsystem("SimulatorSubsystem", Disabled = !Configuration.UseSimulation)]
 public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : SubsystemBase
 {
-    private const Endianness Endianness = Constants.SimulatorSubsystem.Endianness;
+    private const Endianness Endianness = Configuration.SimulatorSubsystem.Endianness;
 
     private TcpClient? _client;
     private Task? _connectTask;
@@ -77,8 +77,8 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
                 SetOperatingState(SubsystemState.Idle);
                 _client = new TcpClient();
                 await _client.ConnectAsync(
-                    Constants.SimulatorSubsystem.Host,
-                    Constants.SimulatorSubsystem.Port,
+                    Configuration.SimulatorSubsystem.Host,
+                    Configuration.SimulatorSubsystem.Port,
                     token
                 );
 
@@ -92,7 +92,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "Simulator connection error, retrying in {Delay}",
-                    Constants.SimulatorSubsystem.ReconnectDelay);
+                    Configuration.SimulatorSubsystem.ReconnectDelay);
             }
             finally
             {
@@ -101,7 +101,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
 
             try
             {
-                await Task.Delay(Constants.SimulatorSubsystem.ReconnectDelay, token);
+                await Task.Delay(Configuration.SimulatorSubsystem.ReconnectDelay, token);
             }
             catch (OperationCanceledException)
             {
@@ -140,7 +140,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         }
 
         // TODO: Store the stream?
-        var bytes = MessageWriter.Write(wrapper.Type, wrapper.Data, Constants.SimulatorSubsystem.Endianness);
+        var bytes = MessageWriter.Write(wrapper.Type, wrapper.Data, Configuration.SimulatorSubsystem.Endianness);
         await using var stream = _client.GetStream();
         await stream.WriteAsync(bytes);
     }
@@ -148,11 +148,11 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
     private async Task ReceiveLoop(TcpClient client, CancellationToken token)
     {
         await using var stream = client.GetStream();
-        var buffer = new byte[Constants.SimulatorSubsystem.ReceiveBufferSize];
+        var buffer = new byte[Configuration.SimulatorSubsystem.ReceiveBufferSize];
         var accumulator = new MessageAccumulator(
             Endianness,
             ProcessMessage,
-            initialCapacity: Constants.SimulatorSubsystem.ReceiveBufferSize
+            initialCapacity: Configuration.SimulatorSubsystem.ReceiveBufferSize
         );
 
         try

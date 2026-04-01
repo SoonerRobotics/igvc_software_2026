@@ -134,7 +134,7 @@ public class HsvCalibrationSubsystem : SubsystemBase
     public void StartCalibration(ArcCommand command)
     {
         _isCalibrating = true;
-        _stopCalibrationTimestamp = TimeUtils.Now() + Constants.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
+        _stopCalibrationTimestamp = TimeUtils.Now() + Configuration.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
         _doCalibrate = false;
         Logger.LogInformation("Started HSV calibration");
     }

@@ -20,10 +20,10 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Arc;
 
-[Subsystem("ArcSubsystem", Disabled = !Constants.ArcSubsystem.Enabled)]
+[Subsystem("ArcSubsystem", Disabled = !Configuration.ArcSubsystem.Enabled)]
 public class ArcSubsystem : SubsystemBase
 {
-    private const Endianness Endianness = Constants.ArcSubsystem.Endianness;
+    private const Endianness Endianness = Configuration.ArcSubsystem.Endianness;
     private readonly ConcurrentDictionary<Guid, WebSocket> _clients = new();
     private CancellationTokenSource? _internalCts;
     private IHost? _host;
@@ -47,7 +47,7 @@ public class ArcSubsystem : SubsystemBase
         _internalCts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
         // Wait for port to become available
-        await WaitForPortAsync(Constants.ArcSubsystem.Port, token);
+        await WaitForPortAsync(Configuration.ArcSubsystem.Port, token);
 
         // Load all ArcCommandAttribute users
         var allMethods = AppDomain.CurrentDomain.GetAssemblies()
@@ -76,7 +76,7 @@ public class ArcSubsystem : SubsystemBase
             {
                 builder.UseKestrel(options =>
                 {
-                    options.Listen(Constants.ArcSubsystem.Host, Constants.ArcSubsystem.Port);
+                    options.Listen(Configuration.ArcSubsystem.Host, Configuration.ArcSubsystem.Port);
                     // options.ListenLocalhost(Constants.ArcSubsystem.Port);
                 });
 
@@ -94,7 +94,7 @@ public class ArcSubsystem : SubsystemBase
 
         _outgoingSendTask = Task.Run(() => ArcSendLoop(_internalCts.Token), _internalCts.Token);
 
-        _server = new JpegServer($"http://localhost:{Constants.ArcSubsystem.Port + 1}/");
+        _server = new JpegServer($"http://localhost:{Configuration.ArcSubsystem.Port + 1}/");
         _ = _server.StartAsync(token);
 
         // Subscribe to MessageWrapperEvent
@@ -109,7 +109,7 @@ public class ArcSubsystem : SubsystemBase
             token
         );
 
-        Logger.LogInformation("ArcSubsystem initialized on port {Port}", Constants.ArcSubsystem.Port);
+        Logger.LogInformation("ArcSubsystem initialized on port {Port}", Configuration.ArcSubsystem.Port);
         await _host.StartAsync(_internalCts.Token);
         SetOperatingState(SubsystemState.Operating);
     }
@@ -179,7 +179,7 @@ public class ArcSubsystem : SubsystemBase
         var payload = MessageWriter.Write(
             wrapper.Type,
             wrapper.Data,
-            Constants.ArcSubsystem.Endianness
+            Configuration.ArcSubsystem.Endianness
         );
 
         foreach (var (id, socket) in _clients)
@@ -333,7 +333,7 @@ public class ArcSubsystem : SubsystemBase
 
     private async Task HandleHttpRequest(HttpContext ctx, CancellationToken token)
     {
-        if (!ctx.WebSockets.IsWebSocketRequest || ctx.Request.Path != Constants.ArcSubsystem.Path)
+        if (!ctx.WebSockets.IsWebSocketRequest || ctx.Request.Path != Configuration.ArcSubsystem.Path)
         {
             Logger.LogTrace("Client tried to connect with no websocket intent, or incorrect path: {Path}",
                 ctx.Request.Path);
@@ -405,11 +405,11 @@ public class ArcSubsystem : SubsystemBase
 
     private async Task ReceiveLoop(Guid clientId, WebSocket socket, CancellationToken token)
     {
-        var buffer = new byte[Constants.ArcSubsystem.ReceiveBufferSize];
+        var buffer = new byte[Configuration.ArcSubsystem.ReceiveBufferSize];
         var accumulator = new MessageAccumulator(
             Endianness,
             (message) => ProcessMessage(clientId, message, token),
-            initialCapacity: Constants.ArcSubsystem.ReceiveBufferSize
+            initialCapacity: Configuration.ArcSubsystem.ReceiveBufferSize
         );
 
         try

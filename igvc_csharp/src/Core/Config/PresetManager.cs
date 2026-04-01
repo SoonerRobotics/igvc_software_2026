@@ -12,7 +12,7 @@ public class PresetManager
     
     public static void Initialize()
     {
-        var resolvedDir = FileUtils.ExpandPath(Constants.Configuration.PresetsDirectory);
+        var resolvedDir = FileUtils.ExpandPath(Configuration.Config.PresetsDirectory);
         Directory.CreateDirectory(resolvedDir);
         var defaultPath = Path.Combine(resolvedDir, BootParameters.Preset);
         if (!File.Exists(defaultPath))

@@ -25,7 +25,7 @@ public static class MessageWriter
         var buffer = new byte[frameSize];
         var span = buffer.AsSpan();
 
-        Constants.NetworkingMagic.CopyTo(span);
+        Configuration.NetworkingMagic.CopyTo(span);
 
         if (endianness == Endianness.Little)
         {

@@ -1,7 +1,9 @@
 using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
+using igvc_csharp.Events;
 using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 
@@ -37,7 +39,6 @@ public class VectorNavSubsystem : SubsystemBase
                     break;
                 }
 
-                Logger.LogWarning("VectorNav shared memory not available yet, retrying...");
                 await Task.Delay(1000, token).ConfigureAwait(false);
             }
 
@@ -84,18 +85,35 @@ public class VectorNavSubsystem : SubsystemBase
                         Logger.LogWarning("[#{Seq}] VectorNav report marked invalid", report.Value.SequenceNum);
                         continue;
                     }
-                    
+
                     SetOperatingState(SubsystemState.Operating);
 
                     var r = report.Value;
                     var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(r.TimestampUs / 1000);
 
-                    
-                    
+
                     var builder = new FlatBufferBuilder(1024);
-                    builder.PutUlong(TimeUtils.Now());
-                    builder.PutUint(r.SequenceNum);
-                    
+                    var reportOffset = VectornavReport.CreateVectornavReport(
+                        builder,
+                        TimeUtils.Now(),
+                        r.SequenceNum,
+                        r.Latitude,
+                        r.Longitude,
+                        r.Pitch,
+                        r.Roll,
+                        r.Yaw,
+                        r.VelNorthMs,
+                        r.VelEastMs,
+                        r.VelDownMs,
+                        (sbyte)r.NumSats,
+                        (sbyte)r.GpsFix
+                    );
+                    builder.Finish(reportOffset.Value);
+                    var reportMessage = MessageWrapper.From(MessageType.Gps, builder.SizedByteArray());
+                    EventBus.Instance.Publish(
+                        new MessageWrapperEvent(reportMessage)
+                    );
+
                     Logger.LogTrace(
                         "[#{Seq}] {Time} | " +
                         "Lat: {Lat:F6}, Lon: {Lon:F6}, Alt: {Alt:F2}m | " +

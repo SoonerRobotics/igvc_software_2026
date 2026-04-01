@@ -64,8 +64,8 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
 
             // Find chessboard corners
             var patternSize = new Size(
-                Constants.CalibrationSubsystem.OpenCvCalibrationPatternWidth,
-                Constants.CalibrationSubsystem.OpenCvCalibrationPatternHeight
+                Configuration.CalibrationSubsystem.OpenCvCalibrationPatternWidth,
+                Configuration.CalibrationSubsystem.OpenCvCalibrationPatternHeight
             );
             var found = Cv2.FindChessboardCornersSB(
                 mat,
@@ -111,8 +111,8 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
         Cv2.DrawChessboardCorners(
             mat,
             new Size(
-                Constants.CalibrationSubsystem.OpenCvCalibrationPatternWidth,
-                Constants.CalibrationSubsystem.OpenCvCalibrationPatternHeight
+                Configuration.CalibrationSubsystem.OpenCvCalibrationPatternWidth,
+                Configuration.CalibrationSubsystem.OpenCvCalibrationPatternHeight
             ),
             corners,
             true
@@ -133,7 +133,7 @@ public class OpenCvCalibrationSubsystem : SubsystemBase
     public void StartCalibration(ArcCommand command)
     {
         _isCalibrating = true;
-        _stopCalibrationTimestamp = TimeUtils.Now() + Constants.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
+        _stopCalibrationTimestamp = TimeUtils.Now() + Configuration.CalibrationSubsystem.OpenCvCalibrationTimeoutMs;
         _doCalibrate = false;
         Logger.LogInformation("Started OpenCV calibration");
     }
