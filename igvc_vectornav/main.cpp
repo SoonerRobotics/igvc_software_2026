@@ -171,6 +171,7 @@ int main() {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
+    spdlog::set_pattern("{\"timestamp\": \"%Y-%m-%dT%H:%M:%S.%eZ\", \"level\": \"%l\", \"name\": \"%n\", \"message\": \"%v\"}");
     spdlog::info("Starting IGVC VectorNav connector");
 
     ShmContext shm = openSharedMemory();
