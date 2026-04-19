@@ -8,7 +8,7 @@
  * @param percentAmount a number between 0 and 1 inclusive to represent how much each color contributes to the final color
  * @return an openCV color somewhere between the two given colors, inclusive
  */
-cv::Scalar lerp(cv::Scalar src, cv::Scalar dest, double percentAmount)
+cv::Scalar Lerp(cv::Scalar src, cv::Scalar dest, double percentAmount)
 {
     double ch1 = (src[0] * (1.0 - percentAmount)) + (dest[0] * percentAmount);
     double ch2 = (src[1] * (1.0 - percentAmount)) + (dest[1] * percentAmount);
@@ -62,7 +62,7 @@ public class Feeler
     /**
      * @return x coordinate of the end of the feeler
      */
-    public int getX()
+    public int GetX()
     {
         return _x;
     }
@@ -70,7 +70,7 @@ public class Feeler
     /**
      * @return y coordinate of the end of the feeler
      */
-    public int getY()
+    public int GetY()
     {
         return _y;
     }
@@ -78,7 +78,7 @@ public class Feeler
     /**
      * @return the calculated length of the feeler as it currently stands
      */
-    double getLength()
+    public double GetLength()
     {
         return Math.Sqrt((_x * _x) + (_y * _y));
     }
@@ -87,7 +87,7 @@ public class Feeler
      * Set the color of the feeler. This is important if it gets drawn on an image on the UI for debugging
      * @param the color of the feeler, in BGR because OpenCV
      */
-    void setColor(cv::Scalar c)
+    public void SetColor(cv::Scalar c)
     {
         _color = c;
     }
@@ -96,7 +96,7 @@ public class Feeler
      * Get the polar coordinates of the end of the feeler from its x and y coordinates in radians.
      * @return the polar coordinates of the feeler in radians
      */
-    std::vector<double> toPolar()
+    public std::vector<double> ToPolar()
     {
         std::vector<double> polar;
 
@@ -124,7 +124,7 @@ public class Feeler
      * @param y the y coordiante to translate
      * @return the coordinates of the pixel in opencv-land
      */
-    std::vector<int> centerCoordinates(int x, int y, int width, int height)
+    public static std::vector<int> CenterCoordinates(int x, int y, int width, int height)
     {
         std::vector<int> ret;
 
@@ -134,15 +134,15 @@ public class Feeler
         return ret;
     }
 
-    double dist(int x, int y)
+    public static double Dist(int x, int y)
     {
-        return std::sqrt((x * x) + (y * y));
+        return Math.Sqrt((x * x) + (y * y));
     }
 
     /**
      * @return x coordinate of the end of the feeler when it was created
      */
-    int getOriginalX()
+    public int GetOriginalX()
     {
         return _original_x;
     }
@@ -150,7 +150,7 @@ public class Feeler
     /**
      * @return y coordinate of the end of the feeler when it was created
      */
-    int getOriginalY()
+    public int GetOriginalY()
     {
         return _original_y;
     }
@@ -158,7 +158,7 @@ public class Feeler
     /**
      * @return length of the feeler when it was created
      */
-    double getOriginalLength()
+    public double GetOriginalLength()
     {
         return _original_length;
     }
@@ -166,7 +166,7 @@ public class Feeler
     /**
      * @return the bias amount (total) of the feeler
      */
-    double getBiasAmount()
+    public double GetBiasAmount()
     {
         return _bias_amount;
     }
@@ -174,7 +174,7 @@ public class Feeler
     /**
      * @return color of the feeler (for drawing purposes)
      */
-    cv::Scalar getColor()
+    public cv::Scalar GetColor()
     {
         return _color;
     }
@@ -183,20 +183,16 @@ public class Feeler
      * TODO figure out which data we actually want to have here
      * @return a string representation of the feeler
      */
-    std::string to_string()
+    public String ToString()
     {
-        std::string string;
-
-        string = "(" + std::to_string(_x) + ", " + std::to_string(_y) + ") | length " + std::to_string(_length) + " | original: " + std::to_string(_original_length);
-
-        return string;
+        return "(" + std::to_string(_x) + ", " + std::to_string(_y) + ") | length " + std::to_string(_length) + " | original: " + std::to_string(_original_length);
     }
 
     /**
      * Set the x and y of the end point of the feeler, relative to the origin
      * the origin being the center of the image
      */
-    void setXY(int x_, int y_)
+    public void SetXY(int x_, int y_)
     {
         _x = x_;
         _y = y_;
@@ -207,7 +203,7 @@ public class Feeler
     /**
      * Set the original x and y of the feeler. This is mostly used for all the operator magic methods (*, -, +)
      */
-    void setOriginalXY(int x, int y)
+    public void SetOriginalXY(int x, int y)
     {
         _original_x = x;
         _original_y = y;
@@ -220,7 +216,7 @@ public class Feeler
      * This may or may not work but I think this is how vectors work
      * @param length the length of the feeler
      */
-    void setLength(double newLength)
+    public void SetLength(double newLength)
     {
         double scaleFactor = newLength / _length;
 
@@ -235,7 +231,7 @@ public class Feeler
      * for the purposes of navigating towards a waypoint/biasing 'forward'/etc
      * @param amount the amount to bias by, in pixels
      */
-    void bias(double amount)
+    public void Bias(double amount)
     {
         // unbias by setting it to 0
         if (amount <= 0.0)
@@ -262,7 +258,7 @@ public class Feeler
      * FIXME TODO we should pass this a pointer not the whole matrix so we can throw it into some threads.
      * @param the thresholded image to perform feeler on
      */
-    void update(cv::Mat* mask, AutoNav::Node* node)
+    public void Update(cv::Mat* mask, AutoNav::Node* node)
     {
         int channels = mask->channels();
         auto pixelPtr = (uint8_t*)mask->data;
@@ -402,13 +398,7 @@ public class Feeler
      * @param the feeler to add to this feeler
      * @return a new feeler with values copied from the current feeler plus the other feeler
      */
-    Feeler operator +(Feeler  &other)
-    {
-        Feeler ret = Feeler(_x + other.x, _y + other.y);
-        ret.setColor(_color);
-
-        return ret;
-    }
+    public static Feeler operator +(Feeler self, Feeler other) => new(self.GetX() + other.GetX(), self.GetY() + other.GetY(), self.GetColor());
 
     /**
      * Subtract a feeler from another feeler
@@ -416,13 +406,7 @@ public class Feeler
      * @param the feeler to subtract from this feeler
      * @return a new feeler with values copied from the current feeler minus the other feeler
      */
-    Feeler operator -(Feeler  &other)
-    {
-        Feeler ret = Feeler(_x - other.x, _y - other.y);
-        ret.setColor(_color);
-
-        return ret;
-    }
+    public static Feeler operator -(Feeler self, Feeler other) => new(self.GetX() - other.GetX(), self.GetY() - other.GetY(), self.GetColor());
 
     /**
      * Multiply a feeler by a scalar value.
@@ -431,14 +415,7 @@ public class Feeler
      * @param scalarNum an integer to multiply by
      * @return a new feeler with values copied from the old one
      */
-    Feeler operator *(int &scalarNum)
-    {
-        Feeler ret = Feeler(_x * scalarNum, _y * scalarNum);
-
-        ret.setColor(_color);
-
-        return ret;
-    }
+    public static Feeler operator *(Feeler self, double scalar) => new(self.GetX() * scalar, self.GetY() * scalar, self.GetColor());
 
     /**
      * Dot product a feeler with another feeler.
@@ -447,9 +424,7 @@ public class Feeler
      * @param other the other Feeler
      * @return a number representing the dot product of the two Feelers.
      */
-    // int operator*(Feeler  &other) {
-    //     return (_x * other.getX()) + (_y * other.getY());
-    // }
+    // public static int operator *(Feeler self, Feeler other) => (self.GetX() * other.GetX()) + (self.GetY() * other.GetY());
 
     /**
      * Dot product a feeler with another feeler, but normalize both of them first.
@@ -459,18 +434,18 @@ public class Feeler
      * @param other the other Feeler
      * @return a number representing the dot product of the two Feelers after both have been normalized.
      */
-    double operator *(Feeler  &other)
+    public static double operator *(Feeler self, Feeler other)
     {
         if (other.getX() == 0 && other.getY() == 0)
         {
             return 0.0;
         }
 
-        double x_norm = _x / _getLength();
-        double y_norm = _y / _getLength();
+        double x_norm = self.GetX() / self.GetLength();
+        double y_norm = self.GetY() / self.GetLength();
 
-        double other_x_norm = other.getX() / other.getLength();
-        double other_y_norm = other.getY() / other.getLength();
+        double other_x_norm = other.GetX() / other.GetLength();
+        double other_y_norm = other.GetY() / other.GetLength();
 
         return (x_norm * other_x_norm) + (y_norm * other_y_norm);
     }
