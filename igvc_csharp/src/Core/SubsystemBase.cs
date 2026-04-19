@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
 using igvc_csharp.Messages;
 using igvc_csharp.Utils.Messages;
@@ -34,15 +33,15 @@ public class SubsystemBase : ISubsystem
     /// </summary>
     protected CancellationToken LifetimeToken { get; private set; }
 
+    // Properties
+    private SubsystemProperty<string> _pError = new("error");
+
     // IGVC Stuff
     
     protected SubsystemBase()
     {
         Name = GetSubsystemName(GetType());
         Logger = Logging.From(GetType());
-
-        // Register any metrics we have
-        RegisterMetrics();
     }
 
     protected void Subscribe<TEvent>(
@@ -72,42 +71,6 @@ public class SubsystemBase : ISubsystem
             }
         }, token);
     }
-
-    protected void RegisterMetrics()
-    {
-        var type = GetType();
-        var subsystem = type.Name;
-
-        foreach (var field in type.GetFields(
-                     BindingFlags.Instance |
-                     BindingFlags.NonPublic |
-                     BindingFlags.Public))
-        {
-            var attr = field.GetCustomAttribute<MetricAttribute>();
-            if (attr == null)
-                continue;
-            
-            var definition = new MetricDefinition(
-                subsystem,
-                attr.Group,
-                attr.Name,
-                attr.Unit,
-                attr.Aggregate);
-
-            var metric = Activator.CreateInstance(
-                field.FieldType,
-                definition,
-                attr.MaxSamples,
-                attr.MaxAgeSeconds > 0
-                    ? TimeSpan.FromSeconds(attr.MaxAgeSeconds)
-                    : null,
-                attr.EmitEveryMs)!;
-
-            field.SetValue(this, metric);
-            PerformanceRegistry.Instance.Register((IPerformanceMetric)metric);
-        }
-    }
-
 
     protected void Subscribe<TIn, TOut>(
         Func<TIn, bool> filter,
@@ -278,6 +241,16 @@ public class SubsystemBase : ISubsystem
     protected void SetMobility(bool mobility)
     {
         Robot.Instance.SetMobility(mobility);
+    }
+    
+    protected void SetError(string error)
+    {
+        _pError.Set(error);
+    }
+
+    protected void ClearError()
+    {
+        _pError.Set(null);
     }
 
     private static string GetSubsystemName(Type type)

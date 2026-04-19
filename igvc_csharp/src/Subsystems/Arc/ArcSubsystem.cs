@@ -103,39 +103,9 @@ public class ArcSubsystem : SubsystemBase
             token
         );
 
-        // Subscribe to PerformanceSampleEvent
-        Subscribe<PerformanceSampleEvent>(
-            OnPerformanceSampleEvent,
-            token
-        );
-
         Logger.LogInformation("ArcSubsystem initialized on port {Port}", Configuration.ArcSubsystem.Port);
         await _host.StartAsync(_internalCts.Token);
         SetOperatingState(SubsystemState.Operating);
-    }
-
-    private Task OnPerformanceSampleEvent(PerformanceSampleEvent e, CancellationToken token)
-    {
-        var sample = e.Sample;
-        var builder = new FlatBufferBuilder(1024);
-        var subsystemOffset = builder.CreateString(sample.Subsystem);
-        var groupOffset = builder.CreateString(sample.Group);
-        var nameOffset = builder.CreateString(sample.Name);
-        var unitOffset = builder.CreateString(sample.Unit);
-        var sampleOffset = MetricSample.CreateMetricSample(
-            builder,
-            subsystemOffset,
-            groupOffset,
-            nameOffset,
-            unitOffset,
-            (MetricAggregate)sample.Aggregate,
-            (ulong)((DateTimeOffset)sample.Timestamp).ToUnixTimeMilliseconds(),
-            sample.Value
-        );
-        builder.Finish(sampleOffset.Value);
-
-        Broadcast(MessageWrapper.From(MessageType.Metric, builder.SizedByteArray()), token);
-        return Task.CompletedTask;
     }
 
     private async Task ArcSendLoop(CancellationToken token)

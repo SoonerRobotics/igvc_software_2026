@@ -204,8 +204,15 @@ int main() {
 
         while (g_running && mSensor->verifySensorConnectivity()) {
             VN::Sensor::CompositeDataQueueReturn compositeData = mSensor->getNextMeasurement();
-            if (!compositeData) continue;
-            if (!compositeData->matchesMessage(reg.value())) continue;
+            if (!compositeData)
+            {
+                continue;
+            }
+
+            if (!compositeData->matchesMessage(reg.value()))
+            {
+                continue;
+            }
 
             // ── Extract fields safely ─────────────────────────────────────
             VectorNavReport report{};

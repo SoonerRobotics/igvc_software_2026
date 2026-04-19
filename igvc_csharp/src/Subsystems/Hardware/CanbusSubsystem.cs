@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using igvc_csharp.Core;
-using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Subsystems.Simulator;
@@ -25,24 +24,6 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
     // Layers
     public SafetyLightsLayer SafetyLights = null!;
     public MotorControlLayer MotorControl = null!;
-
-    // Metrics
-    // Emits the total bits received and written (so bus utilization) over the last second every 250ms
-    [Metric("Total Bits Per Second", "bits", Group = "Hardware", Aggregate = MetricAggregate.Sum, EmitEveryMs = 250, MaxAgeSeconds = 1)]
-    private PerformanceMetric<double> _bits;
-    
-    // Emits the total bytes written over the last second every 50ms
-    [Metric("Bytes Written", "bytes", Group = "Hardware", Aggregate = MetricAggregate.Sum, EmitEveryMs = 50, MaxAgeSeconds = 1)]
-    private PerformanceMetric<double> _bytesWritten;
-    
-    // Emits the total bytes read over the last second every 50ms
-    [Metric("Bytes Read", "bytes", Group = "Hardware", Aggregate = MetricAggregate.Sum, EmitEveryMs = 50, MaxAgeSeconds = 1)]
-    private PerformanceMetric<double> _bytesRead;
-
-    // Emits the frame size every 50ms if applicable (only runs when reading). Useful to see
-    // if we are not writing fast enough. This shouldn't happen, but it is good to log and check
-    [Metric("Frame Queue Size", "length", Group = "Hardware", EmitEveryMs = 50)]
-    private PerformanceMetric<double> _queueSize;
     
     public override Task Init(CancellationToken token)
     {
@@ -160,8 +141,6 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
                     continue;
                 }
                 
-                _bits.AddSample(bytesWritten * 8);
-                _bytesWritten.AddSample(bytesWritten);
                 Logger.LogDebug("Writing can with frame id: {FrameId}", frame.CanId);
             }
             catch (ObjectDisposedException ex)
@@ -196,9 +175,6 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
                     // Idk if this is an issue tbh
                     continue;
                 }
-                
-                _bits.AddSample(bytesRead * 8);
-                _bytesRead.AddSample(bytesRead);
                 
                 EventBus.Instance.Publish(new CanFrameEvent(frame));
             }

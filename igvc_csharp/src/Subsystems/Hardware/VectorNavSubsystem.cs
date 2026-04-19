@@ -14,13 +14,71 @@ public class VectorNavSubsystem : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
+    private ProcessManager? _vnProcessManager;
 
-    public override Task Init(CancellationToken token)
+    // Properties
+    protected SubsystemProperty<string> _pBaudRate = new("baudrate");
+    protected SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
+
+    public override async Task Init(CancellationToken token)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(token);
         _readTask = Task.Run(() => ReadLoop(_cts.Token), _cts.Token);
         SetOperatingState(SubsystemState.Idle);
-        return Task.CompletedTask;
+
+        var vnConfig = new ProcessManagerConfig
+        {
+            AutoRestart = true,
+            RestartDelayMs = 3000,
+            CrashThresholdMs = 3000,
+            GracefulShutdownTimeoutMs = 3000
+        };
+        _vnProcessManager = new ProcessManager(
+            Path.Combine(FileUtils.GetRepositoryRootDirectory(), "igvc_vectornav", "build", "igvc_vectornav"), 
+            vnConfig
+        );
+        _vnProcessManager.LogReceived += OnLogReceived;
+        await _vnProcessManager.StartAsync(token);
+    }
+
+    private void OnLogReceived(object? sender, SpdLogStructure log)
+    {
+        if (log.Message.StartsWith("VECTORNAV_STARTING"))
+        {
+            SetOperatingState(SubsystemState.Starting);
+            return;
+        }
+
+        if (log.Message.StartsWith("VECTORNAV_CONNECTION_FAILED"))
+        {
+            SetOperatingState(SubsystemState.Errored);
+            SetError("CONNECTION_FAILED");
+            return;
+        }
+
+        if (log.Message.StartsWith("SENSOR_SETUP_FAILED"))
+        {
+            SetOperatingState(SubsystemState.Errored);
+            SetError("SENSOR_SETUP_FAILED");
+            return;
+        }
+
+        if (log.Message.StartsWith("BAUD_RATE_"))
+        {
+            // strip it and extract the baudrate
+            var baudRate = log.Message.Replace("BAUD_RATE_", "");
+            _pBaudRate.Set(baudRate);
+            Logger.LogInformation("VN Connected (baudrate={})", baudRate);
+            return;
+        }
+
+        if (log.Message.StartsWith("VECTORNAV_DISCONNECTED"))
+        {
+            SetOperatingState(SubsystemState.Errored);
+            _pBaudRate.Set(null);
+            ClearError();
+            return;
+        }
     }
 
     private async Task ReadLoop(CancellationToken token)
@@ -58,7 +116,7 @@ public class VectorNavSubsystem : SubsystemBase
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
                             Logger.LogWarning("VectorNav shared memory appears stale, reconnecting...");
-                            break; // back to connect phase
+                            break;
                         }
 
                         await Task.Delay(10, token).ConfigureAwait(false);
@@ -70,7 +128,7 @@ public class VectorNavSubsystem : SubsystemBase
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
                             Logger.LogWarning("VectorNav sequence number frozen, reconnecting...");
-                            break; // back to connect phase
+                            break;
                         }
 
                         await Task.Delay(10, token).ConfigureAwait(false);
@@ -87,11 +145,10 @@ public class VectorNavSubsystem : SubsystemBase
                     }
 
                     SetOperatingState(SubsystemState.Operating);
-
                     var r = report.Value;
+                    _pLastSequence.Set(r.SequenceNum);
+
                     var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(r.TimestampUs / 1000);
-
-
                     var builder = new FlatBufferBuilder(1024);
                     var reportOffset = VectornavReport.CreateVectornavReport(
                         builder,
@@ -143,6 +200,13 @@ public class VectorNavSubsystem : SubsystemBase
 
     public override async Task Shutdown()
     {
+        // Stop the process
+        if (_vnProcessManager?.Status == ProcessStatus.Running)
+        {
+            await _vnProcessManager.StopAsync();
+        }
+
+        // Stop the read task
         if (_readTask is not null)
         {
             await _readTask.ConfigureAwait(false);

@@ -1,9 +1,8 @@
-using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
-
 namespace igvc_csharp.Core;
+
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 public enum ProcessStatus
 {
@@ -20,6 +19,26 @@ public class StatusChangedEventArgs(ProcessStatus previous, ProcessStatus curren
     public ProcessStatus Current { get; } = current;
 }
 
+public class SpdLogStructure
+{
+    [JsonProperty("timestamp")]
+    public required string Timestamp;
+
+    [JsonProperty("level")]
+    public required string Level;
+
+    [JsonProperty("name")]
+    public required string Name;
+
+    [JsonProperty("message")]
+    public required string Message;
+
+    public override string ToString()
+    {
+        return string.Format("[{0}] {1}: {3}", Timestamp, Level.ToUpperInvariant(), Name, Message);
+    }
+}
+
 public sealed class ProcessManager : IAsyncDisposable
 {
     private static ILogger Logger = Logging.From<ProcessManager>();
@@ -31,13 +50,12 @@ public sealed class ProcessManager : IAsyncDisposable
     private CancellationTokenSource? _cts;
     private Task? _monitorTask;
     private int _restartCount;
-    private int _jsonParseErrorCount;
     private DateTime _processStartTime;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     private ProcessStatus _status = ProcessStatus.Stopped;
 
-    public event EventHandler<object>? JsonReceived;
+    public event EventHandler<SpdLogStructure>? LogReceived;
     public event EventHandler<StatusChangedEventArgs>? StatusChanged;
     public event EventHandler<string>? RawOutputReceived;
     public event EventHandler<string>? ErrorOutputReceived;
@@ -226,7 +244,20 @@ public sealed class ProcessManager : IAsyncDisposable
     private void TryParseAndEmitJson(string line)
     {
         var trimmed = line.TrimStart();
-        Logger.LogTrace("[ProcessManager] {}", trimmed);
+        try
+        {
+            var obj = JsonConvert.DeserializeObject<SpdLogStructure>(trimmed);
+            if (obj == null)
+            {
+                return;
+            }
+            
+            LogReceived?.Invoke(this, obj);
+        }
+        catch
+        {
+            // ignore    
+        }
     }
 
     private async Task KillProcessAsync()

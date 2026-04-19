@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Channels;
 using igvc_csharp.Core;
-using igvc_csharp.Core.Performance;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
@@ -23,11 +22,6 @@ public class VisionSubsystem : SubsystemBase
         SingleWriter = false,
         FullMode = BoundedChannelFullMode.DropOldest
     });
-
-    // Calculates the average processing time over the last 30 seconds, emitted every 100ms to the frontend
-    [Metric("Processing Time", "ms", Group = "vision", Aggregate = MetricAggregate.Average, EmitEveryMs = 100,
-        MaxAgeSeconds = 30)]
-    private PerformanceMetric<double> _processingTime;
 
     public override Task Init(CancellationToken token)
     {
@@ -80,13 +74,11 @@ public class VisionSubsystem : SubsystemBase
 
     private async Task ImageProcessingTask(CancellationToken token)
     {
-        var watch = new Stopwatch();
         try
         {
             while (!token.IsCancellationRequested)
             {
                 var frame = await _frameChannel.Reader.ReadAsync(token);
-                watch.Start();
 
                 var mat = CvUtils.AsMat(frame);
                 mat = _filters.Aggregate(mat, (current, filter) => filter.Apply(current));
@@ -105,10 +97,6 @@ public class VisionSubsystem : SubsystemBase
                 );
 
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
-
-                watch.Stop();
-                _processingTime.AddSample(watch.ElapsedMilliseconds);
-                watch.Reset();
 
                 mat.Dispose();
             }
