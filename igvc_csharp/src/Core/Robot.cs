@@ -1,6 +1,7 @@
 namespace igvc_csharp.Core;
 
 using igvc_csharp.Core.Units;
+using igvc_csharp.Utils;
 using Microsoft.Extensions.Logging;
 
 public sealed class Robot : BaseRobot
@@ -28,6 +29,31 @@ public sealed class Robot : BaseRobot
     /// The current heading of the robot (e.g. absolute compass direction it is facing). Null if GPS is lost.
     /// </summary>
     public Angle? Heading { get; set; } = null;
+
+    /// <summary>
+    /// The process manager for the vectornav process
+    /// </summary>
+    public ProcessManager? VnProcessManager { get; set; } = null;
+
+    public override async Task Init(CancellationToken token)
+    {
+        // Handle default stuff
+        await base.Init(token);
+
+        // Handle other stuff
+        var vnConfig = new ProcessManagerConfig
+        {
+            AutoRestart = true,
+            RestartDelayMs = 3000,
+            CrashThresholdMs = 3000,
+            GracefulShutdownTimeoutMs = 3000
+        };
+        VnProcessManager = new ProcessManager(
+            Path.Combine(FileUtils.GetRepositoryRootDirectory(), "igvc_vectornav", "build", "igvc_vectornav"), 
+            vnConfig
+        );
+        await VnProcessManager.StartAsync(token);
+    }
 
     public new void Dispose()
     {

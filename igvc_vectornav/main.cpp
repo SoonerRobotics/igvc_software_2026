@@ -43,7 +43,7 @@ static const int SHM_SIZE = sizeof(VectorNavReport);
 static std::atomic<bool> g_running{true};
 
 void signalHandler(int sig) {
-    spdlog::warn("Signal {} received, shutting down...", sig);
+    spdlog::warn("RECEIVED_SIGNAL_{}", sig);
     g_running = false;
 }
 
@@ -58,12 +58,12 @@ ShmContext openSharedMemory() {
 
     ctx.fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (ctx.fd < 0) {
-        spdlog::error("shm_open failed: {}", strerror(errno));
+        spdlog::error("SHM_OPEN_FAILED_{}", strerror(errno));
         return ctx;
     }
 
     if (ftruncate(ctx.fd, SHM_SIZE) < 0) {
-        spdlog::error("ftruncate failed: {}", strerror(errno));
+        spdlog::error("FTRUNCATE_FAILED_{}", strerror(errno));
         close(ctx.fd);
         ctx.fd = -1;
         return ctx;
@@ -74,7 +74,7 @@ ShmContext openSharedMemory() {
     ctx.fd = -1;
 
     if (raw == MAP_FAILED) {
-        spdlog::error("mmap failed: {}", strerror(errno));
+        spdlog::error("NMAP_FAILED_{}", strerror(errno));
         return ctx;
     }
 
@@ -83,7 +83,7 @@ ShmContext openSharedMemory() {
 
     ctx.sem = sem_open(SEM_NAME, O_CREAT, 0666, 1);
     if (ctx.sem == SEM_FAILED) {
-        spdlog::error("sem_open failed: {}", strerror(errno));
+        spdlog::error("SEM_OPEN_FAILED_{}", strerror(errno));
         munmap(raw, SHM_SIZE);
         ctx.ptr = nullptr;
     }
@@ -132,13 +132,13 @@ std::optional<VN::Registers::System::BinaryOutput1> setupSensor(std::shared_ptr<
 
     auto cmd = mOutput.toWriteCommand();
     if (!cmd.has_value()) {
-        spdlog::error("Failed to build write command for BinaryOutput1.");
+        spdlog::error("BUILD_WRITE_FAILED");
         return std::nullopt;
     }
 
     auto writeError = sensor->sendCommand(&cmd.value(), VN::Sensor::SendCommandBlockMode::Block);
     if (writeError != VN::Error::None) {
-        spdlog::error("Failed to write BinaryOutput1. Error: {}", VN::errorCodeToString(writeError));
+        spdlog::error("WRITE_OUTPUT_FAILED_", VN::errorCodeToString(writeError));
         return std::nullopt;
     }
 
@@ -159,7 +159,7 @@ void writeReport(ShmContext &ctx, const VectorNavReport &report) {
     }
 
     if (sem_timedwait(ctx.sem, &ts) != 0) {
-        spdlog::warn("sem_timedwait timed out — skipping write");
+        spdlog::warn("SEM_TIMEDWAIT_FAILED");
         return;
     }
 
@@ -172,11 +172,11 @@ int main() {
     std::signal(SIGTERM, signalHandler);
 
     spdlog::set_pattern("{\"timestamp\": \"%Y-%m-%dT%H:%M:%S.%eZ\", \"level\": \"%l\", \"name\": \"%n\", \"message\": \"%v\"}");
-    spdlog::info("Starting IGVC VectorNav connector");
+    spdlog::info("VECTORNAV_STARTING");
 
     ShmContext shm = openSharedMemory();
     if (!shm.ptr) {
-        spdlog::error("Failed to initialize shared memory. Exiting.");
+        spdlog::error("SHARED_MEM_FAILED");
         return 1;
     }
 
@@ -187,16 +187,16 @@ int main() {
 
         VN::Error connectError = mSensor->autoConnect("/dev/autonav-vn");
         if (connectError != VN::Error::None) {
-            spdlog::error("Failed to connect to VectorNav. Error: {}", VN::errorCodeToString(connectError));
+            spdlog::error("VECTORNAV_CONNECTION_FAILED_{}", VN::errorCodeToString(connectError));
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
 
-        spdlog::info("Connected at baud rate: {}", static_cast<uint16_t>(mSensor->connectedBaudRate().value()));
+        spdlog::info("BAUD_RATE_{}", static_cast<uint16_t>(mSensor->connectedBaudRate().value()));
 
         auto reg = setupSensor(mSensor);
         if (!reg.has_value()) {
-            spdlog::error("Sensor setup failed. Reconnecting...");
+            spdlog::error("SENSOR_SETUP_FAILED");
             mSensor->disconnect();
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
@@ -216,7 +216,7 @@ int main() {
                 report.longitude = compositeData->gnss.gnss1PosLla->lon;
                 report.altitude = compositeData->gnss.gnss1PosLla->alt;
             } else {
-                spdlog::warn("gnss1PosLla missing from measurement");
+                spdlog::warn("GNSS_POS_MISSING");
                 dataValid = false;
             }
 
@@ -225,7 +225,7 @@ int main() {
                 report.velEastMs  = static_cast<float>(compositeData->ins.velNed.value()[1]);  // East
                 report.velDownMs  = static_cast<float>(compositeData->ins.velNed.value()[2]);  // Down
             } else {
-                spdlog::warn("gnss1VelNed missing from measurement");
+                spdlog::warn("GNSS_VEL_NED_MISSING");
                 dataValid = false;
             }
 
@@ -234,7 +234,7 @@ int main() {
                 report.pitch = compositeData->attitude.ypr->pitch;
                 report.roll = compositeData->attitude.ypr->roll;
             } else {
-                spdlog::warn("ypr missing from measurement");
+                spdlog::warn("YPR_MISSING");
                 dataValid = false;
             }
 
@@ -260,12 +260,12 @@ int main() {
                 report.numSats, report.gpsFix, dataValid);
         }
 
-        spdlog::warn("VectorNav disconnected. Reconnecting...");
+        spdlog::warn("VECTORNAV_DISCONNECTED");
         mSensor->disconnect();
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    spdlog::info("Shutting down cleanly.");
+    spdlog::info("VECTORNAV_SHUTDOWN");
     closeSharedMemory(shm);
     cleanupSharedMemory();
     return 0;

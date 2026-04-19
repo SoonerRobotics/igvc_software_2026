@@ -22,7 +22,7 @@ public static class FileUtils
 
     public static string GetRepositoryRootDirectory()
     {
-        var projectRoot =  GetProjectRootDirectory();
+        var projectRoot = GetProjectRootDirectory();
         return Path.Join(projectRoot, "..");
     }
 
