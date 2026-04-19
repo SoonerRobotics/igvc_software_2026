@@ -14,6 +14,7 @@ public static class Configuration
     /// <summary>
     /// Global robot periodic rate (fixed delay)
     /// </summary>
+    [Config("robot.periodic_rate")]
     public static readonly TimeSpan PeriodicRate = TimeSpan.FromMilliseconds(1000 / 10);
 
     /// <summary>
@@ -25,6 +26,7 @@ public static class Configuration
     /// <summary>
     /// A magic header for all networking nonsense
     /// </summary>
+    [Config("robot.networking_magic")]
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
     
     // Core Constants
@@ -60,11 +62,13 @@ public static class Configuration
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
+        [Config("hardware.can.interface")]
         public const string CanbusInterface = "bigcan0";
         
         /// <summary>
         /// How often to retry our connection to the Canbus.
         /// </summary>
+        [Config("hardware.can.timeout")]
         public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
     }
     
@@ -123,6 +127,7 @@ public static class Configuration
         /// <summary>
         /// How long between reconnects.
         /// </summary>
+        [Config("simulator.reconnect_delay")]
         public static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(3);
 
 
@@ -164,16 +169,37 @@ public static class Configuration
     public static class DriveSubsystem
     {
         /// <summary>
-        /// The max speed of the robot<br/>
+        /// The max forward speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
-        public static readonly LinearVelocity MaxSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+        [Config("drive.max_forward")]
+        public static readonly LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+
+        /// <summary>
+        /// The max sideways speed of the robot<br/>
+        /// <b>NOTE:</b> This defaults to 5mph as per competition rules
+        /// </summary>
+        [Config("drive.max_sideways")]
+        public static readonly LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
 
         /// <summary>
         /// The max angular speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
+        [Config("drive.max_angular")]
         public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+
+        [Config("drive.invert_forward")]
+        public static readonly bool InvertForwardVelocity = false;
+
+        [Config("drive.invert_sideways")]
+        public static readonly bool InvertSidewaysVelocity = false;
+
+        [Config("drive.invert_angular")]
+        public static readonly bool InvertAngularVelocity = false;
+
+        [Config("drive.update_frequency")]
+        public static readonly TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(100);
     }
 
     public static class CalibrationSubsystem

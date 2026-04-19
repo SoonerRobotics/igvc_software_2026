@@ -1,4 +1,5 @@
 using igvc_csharp.Core;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
 using Microsoft.Extensions.Logging;
@@ -10,12 +11,42 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
 {
     private DateTime? _dpadDepressedAt;
     private bool _dpadFlashed;
+
+    private double _angularVelocity;
+    private double _forwardVelocity;
+    private double _sidewaysVelocity;
     
     public override Task Init(CancellationToken token)
     {
         ControllerHooks(token);
-
+        _ = SendLoop(token);
         return Task.CompletedTask;
+    }
+
+    private async Task SendLoop(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(Configuration.DriveSubsystem.UpdateFrequency);
+        while (await timer.WaitForNextTickAsync(token))
+        {
+            // Only send in manual mode
+            if (Robot.Instance.State.Mode != RobotModeEnum.Manual)
+            {
+                continue;
+            }
+            
+            canbus.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
+        }
+    }
+
+    private static double ApplyDeadband(double value, double deadband = 0.05)
+    {
+        if (Math.Abs(value) < deadband)
+        {
+            return 0.0;
+        }
+
+        // Rescales such that output starts just past the deadband
+        return (value - deadband * Math.Sign(value)) / (1.0 - deadband);
     }
 
     private void ControllerHooks(CancellationToken token)
@@ -75,15 +106,26 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
         };
         
-        // Drive
+        // Rotation
         controller.Axes.LeftStick.OnChanged += (x, y) =>
         {
+            // Convert to m/s
+            _forwardVelocity = ApplyDeadband(y) * Configuration.DriveSubsystem.MaxForwardSpeed.ToMetersPerSecond();
+            _sidewaysVelocity = ApplyDeadband(x) * Configuration.DriveSubsystem.MaxSidewaysSpeed.ToMetersPerSecond();
 
+            // Invert if needed
+            _forwardVelocity *= Configuration.DriveSubsystem.InvertForwardVelocity ? -1 : 1;
+            _sidewaysVelocity *= Configuration.DriveSubsystem.InvertSidewaysVelocity ? -1 : 1;
         };
 
+        // Drive
         controller.Axes.RightStick.OnChanged += (x, y) =>
         {
+            // Convert to rad/s
+            _angularVelocity = ApplyDeadband(x) * Configuration.DriveSubsystem.MaxAngularSpeed.To(AngularVelocityUnit.RadiansPerSecond);
 
+            // Invert if needed
+            _angularVelocity *= Configuration.DriveSubsystem.InvertAngularVelocity ? -1 : 1;
         };
     }
 }

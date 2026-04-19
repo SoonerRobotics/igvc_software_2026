@@ -259,11 +259,11 @@ public class ControllerSubsystem : SubsystemBase
 
     public sealed class VariableInputAction
     {
-        private float _value;
+        private double _value;
 
-        public event Action<float>? OnChanged;
+        public event Action<double>? OnChanged;
 
-        public void Update(float value)
+        public void Update(double value)
         {
             _value = value;
             OnChanged?.Invoke(value);
@@ -277,18 +277,18 @@ public class ControllerSubsystem : SubsystemBase
 
     public sealed class MultiAxisInputAction
     {
-        private float _x;
-        private float _y;
+        private double _x;
+        private double _y;
 
-        public event Action<float, float>? OnChanged;
+        public event Action<double, double>? OnChanged;
 
-        public void UpdateX(float x)
+        public void UpdateX(double x)
         {
             _x = x;
             OnChanged?.Invoke(_x, _y);
         }
 
-        public void UpdateY(float y)
+        public void UpdateY(double y)
         {
             _y = y;
             OnChanged?.Invoke(_x, _y);
