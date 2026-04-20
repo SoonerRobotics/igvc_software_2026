@@ -43,6 +43,52 @@ struct FeelerNodeConfig
 [Subsystem("FeelerSubsystem", Disabled = true)]
 public class FeelerSubsystem : SubsystemBase
 {
+    // feelers
+    private List<Feeler> _feelers;
+    private List<Feeler> _ultrasonic_feelers;
+    private Feeler _headingArrow = Feeler(0, 0);
+
+    // PID controllers
+    private PIDController _headingPID = PIDController(0.0, 0.0, 0.0);
+
+    // config
+    FeelerNodeConfig _config;
+
+    private cv_bridge::CvImagePtr _debug_image_ptr;
+    private cv_bridge::CvImagePtr _feeler_img_ptr;
+
+    // GPS
+    private Feeler _gpsFeeler = Feeler(0, 0);
+    private GPSPoint _goalPoint;
+    private autonav_msgs::msg::Position _position;
+    private double _distToWaypoint = 0;
+    private unsigned long int _lastTime = 0;
+    private unsigned long int _gpsTime = 0;
+
+    // feedback
+    private bool _hasPlayedGps = false;
+    private bool _hasPlayedHorn = false;
+
+    // subscribers
+    //FIXME positionSubscriber;
+    //FIXME imageSubscriber;
+    //FIXME debugImageSubscriber;
+    //FIXME ultrasonicSubscriber;
+
+    // publishers FIXME
+    // motorPublisher;
+    // debugPublisher;
+    // safetyLightsPublisher;
+    // audibleFeedbackPublisher;
+    // waypointPublisher;
+    // rclcpp::TimerBase::SharedPtr publishTimer;
+
+    // stuff for file-reading code (copied and pasted from https://github.com/SoonerRobotics/autonav_software_2024/blob/feat/astar_rewrite_v3/autonav_ws/src/autonav_nav/src/astar.cpp)
+    private readonly String _WAYPOINTS_FILENAME = "./data/waypoints.csv"; // filename for the waypoints (should be CSV file with label,lat,lon,)
+    private Dictionary<String, List<GPSPoint>> _waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
+    private int _waypointIndex = 0;
+    private String _direction = ""; //FIXME make this an enum or something
+
     public FeelerSubsystem()
     {
         // configuration stuff
@@ -187,12 +233,13 @@ public class FeelerSubsystem : SubsystemBase
         // _old_state = new_state;
     }
 
-    public void on_config_updated(json &old_cfg, json &new_cfg) override {
-        auto new_config = new_cfg.get< FeelerNodeConfig > ();
+    public override void on_config_updated(json &old_cfg, json &new_cfg)
+    {
+        var new_config = new_cfg.get<FeelerNodeConfig>();
         _config = new_config;
 
         _buildFeelers();
-        }
+    }
 
     /**
      * Builds the list of feelers based on configuration parameters.
@@ -617,68 +664,4 @@ public class FeelerSubsystem : SubsystemBase
             // log("PUBLISHING AUDIBLE FEEDBACK!", AutoNav::Logging::WARN); //FIXME TODO
         }
     }
-
-private:
-    // feelers
-    List<Feeler> feelers;
-List<Feeler> ultrasonic_feelers;
-Feeler headingArrow = Feeler(0, 0);
-
-// PID controllers
-PIDController headingPID = PIDController(0.0, 0.0, 0.0);
-
-// config
-FeelerNodeConfig config;
-
-cv_bridge::CvImagePtr debug_image_ptr;
-cv_bridge::CvImagePtr feeler_img_ptr;
-
-// GPS
-Feeler gpsFeeler = Feeler(0, 0);
-GPSPoint goalPoint;
-autonav_msgs::msg::Position position;
-double distToWaypoint = 0;
-unsigned long int lastTime = 0;
-unsigned long int gpsTime = 0;
-
-// feedback
-bool hasPlayedGps = false;
-bool hasPlayedHorn = false;
-
-// subscribers
-rclcpp::Subscription<autonav_msgs::msg::Position>::SharedPtr positionSubscriber;
-rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr imageSubscriber;
-rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr debugImageSubscriber;
-rclcpp::Subscription<autonav_msgs::msg::Ultrasonic>::SharedPtr ultrasonicSubscriber;
-
-// publishers
-rclcpp::Publisher<autonav_msgs::msg::MotorInput>::SharedPtr motorPublisher;
-rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr debugPublisher;
-rclcpp::Publisher<autonav_msgs::msg::SafetyLights>::SharedPtr safetyLightsPublisher;
-rclcpp::Publisher<autonav_msgs::msg::AudibleFeedback>::SharedPtr audibleFeedbackPublisher;
-rclcpp::Publisher<autonav_msgs::msg::WaypointReached>::SharedPtr waypointPublisher;
-
-rclcpp::TimerBase::SharedPtr publishTimer;
-
-// stuff for file-reading code (copied and pasted from https://github.com/SoonerRobotics/autonav_software_2024/blob/feat/astar_rewrite_v3/autonav_ws/src/autonav_nav/src/astar.cpp)
-String WAYPOINTS_FILENAME = "./data/waypoints.csv"; // filename for the waypoints (should be CSV file with label,lat,lon,)
-std::ifstream waypointsFile; // actual C++ file object
-std::unordered_map<String, List<GPSPoint>> waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
-int waypointIndex = 0;
-String direction = "";
-double latitudeLength = 110944.21; // copied/pasted from last year's code, might need to change based on simulator
-double longitudeLength = 81978.2;
-};
-
-int main(int argc, char* argv[])
-{
-    rclcpp::init(argc, argv);
-    std::shared_ptr<FeelerNode> feeler_node = std::make_shared<FeelerNode>();
-    rclcpp::executors::MultiThreadedExecutor executor;
-    executor.add_node(feeler_node);
-    executor.spin();
-    executor.remove_node(feeler_node);
-    rclcpp::shutdown();
-    return 0;
-}
 }
