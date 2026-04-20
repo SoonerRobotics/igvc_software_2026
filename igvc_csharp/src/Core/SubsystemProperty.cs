@@ -1,25 +1,22 @@
 namespace igvc_csharp.Core;
 
-public sealed class SubsystemProperty<T>
+public sealed class SubsystemProperty<T> : AbstractSubsystemProperty
 {
     private T? value;
-    private string key;
 
-    public SubsystemProperty(string key)
+    public SubsystemProperty(string key) : base(key)
     {
-        this.key = key;
     }
 
-    public SubsystemProperty(string key, T def)
+    public SubsystemProperty(string key, T def) : base(key)
     {
         value = def;
-        this.key = key;
     }
 
     public void Set(T? val)
     {
         value = val;
-        // TODO: Broadcast
+        parent.OnPropertyUpdated(key, val);
     }
 
     public T? Get()

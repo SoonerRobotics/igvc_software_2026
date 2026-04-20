@@ -93,7 +93,6 @@ public class VectorNavSubsystem : SubsystemBase
             {
                 if (shm.TryOpen())
                 {
-                    Logger.LogInformation("VectorNav shared memory opened");
                     break;
                 }
 
@@ -115,7 +114,7 @@ public class VectorNavSubsystem : SubsystemBase
                     {
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
-                            Logger.LogWarning("VectorNav shared memory appears stale, reconnecting...");
+                            SetError("VN_NO_DATA");
                             break;
                         }
 
@@ -127,7 +126,7 @@ public class VectorNavSubsystem : SubsystemBase
                     {
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
-                            Logger.LogWarning("VectorNav sequence number frozen, reconnecting...");
+                            SetError("VN_STALE_DATA");
                             break;
                         }
 
@@ -145,6 +144,7 @@ public class VectorNavSubsystem : SubsystemBase
                     }
 
                     SetOperatingState(SubsystemState.Operating);
+                    SetError(string.Empty);
                     var r = report.Value;
                     _pLastSequence.Set(r.SequenceNum);
 

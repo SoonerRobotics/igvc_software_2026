@@ -34,14 +34,43 @@ public class SubsystemBase : ISubsystem
     protected CancellationToken LifetimeToken { get; private set; }
 
     // Properties
+    private List<AbstractSubsystemProperty> _properties = [];
     private SubsystemProperty<string> _pError = new("error");
 
     // IGVC Stuff
-    
+
     protected SubsystemBase()
     {
         Name = GetSubsystemName(GetType());
         Logger = Logging.From(GetType());
+        RegisterProperties();
+    }
+
+    private void RegisterProperties()
+    {
+        // Get all instances of AbstractSubsystemProperty in this class (and those who have extended this class) and add them to the list
+        var props = GetType()
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            .Where(f => typeof(AbstractSubsystemProperty).IsAssignableFrom(f.FieldType))
+            .Select(f => f.GetValue(this))
+            .OfType<AbstractSubsystemProperty>();
+        _properties.AddRange(props);
+
+        // Assign "Parent" of each property to this subsystem, it is protected
+        foreach (var prop in _properties)
+        {
+            var parentField = typeof(AbstractSubsystemProperty).GetField("parent", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (parentField != null)
+            {
+                parentField.SetValue(prop, this);
+            }
+        }
+    }
+
+    public void OnPropertyUpdated(string key, object? value)
+    {
+        // TODO: Broadcast property update
+        Logger.LogTrace("Subsystem({}) property updated: {} = {}", Name, key, value);
     }
 
     protected void Subscribe<TEvent>(
@@ -205,12 +234,12 @@ public class SubsystemBase : ISubsystem
     {
         return Task.CompletedTask;
     }
-    
+
     public virtual Task OnMobilityStop()
     {
         return Task.CompletedTask;
     }
-    
+
     // Setters
 
     protected void SetOperatingState(SubsystemState newState)
@@ -230,21 +259,27 @@ public class SubsystemBase : ISubsystem
 
     protected void SetRobotMode(RobotModeEnum mode)
     {
-        Robot.Instance.SetMode(mode);
+        BaseRobot.Instance?.SetMode(mode);
     }
 
     protected void SetRobotMission(MissionEnum mission)
     {
-        Robot.Instance.SetMission(mission);
+        BaseRobot.Instance?.SetMission(mission);
     }
 
     protected void SetMobility(bool mobility)
     {
-        Robot.Instance.SetMobility(mobility);
+        BaseRobot.Instance?.SetMobility(mobility);
     }
-    
+
     protected void SetError(string error)
     {
+        // Don't set the error if it is the same as the current error, to avoid spamming updates
+        if (_pError.Get() == string.Empty && error == string.Empty)
+        {
+            return;
+        }
+
         _pError.Set(error);
     }
 

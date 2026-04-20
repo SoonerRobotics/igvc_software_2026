@@ -10,7 +10,7 @@ public class RobotManager
     private static CancellationTokenSource? _gCts;
     private static Task? _periodicTask;
     private static bool _shuttingDown;
-    private static Robot? _robot;
+    private static IgvcRobot? _robot;
 
     public static async Task Run()
     {
@@ -19,8 +19,7 @@ public class RobotManager
         CreateShutdownHooks(_gCts);
 
         // Create robot
-        _robot = new Robot();
-        Robot.Instance = _robot;
+        _robot = new IgvcRobot();
         await _robot.Init(_gCts.Token);
 
         // Create periodoic task
@@ -51,7 +50,7 @@ public class RobotManager
         Logging.Shutdown();
     }
 
-    private static async Task CreatePeriodicLoop(Robot robot, CancellationToken ct)
+    private static async Task CreatePeriodicLoop(IgvcRobot robot, CancellationToken ct)
     {
         try
         {

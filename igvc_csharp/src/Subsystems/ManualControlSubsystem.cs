@@ -29,7 +29,7 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
         while (await timer.WaitForNextTickAsync(token))
         {
             // Only send in manual mode
-            if (Robot.Instance.State.Mode != RobotModeEnum.Manual)
+            if (IgvcRobot.Instance.State.Mode != RobotModeEnum.Manual)
             {
                 continue;
             }
@@ -100,10 +100,10 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             }
 
             _dpadDepressedAt = null;
-            SetRobotMission(Robot.Instance.State.Mission == MissionEnum.Autonav
+            SetRobotMission(IgvcRobot.Instance.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
                 : MissionEnum.Autonav);
-            Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
+            Logger.LogDebug("Switching Mission: {Mission}", IgvcRobot.Instance.State.Mission);
         };
         
         // Rotation

@@ -15,12 +15,18 @@ public abstract class BaseRobot : IDisposable
 {
     private static readonly ILogger Logger = Logging.From<BaseRobot>();
 
+    // Instance
+    public static BaseRobot? Instance { get; protected set; }
+
     // Subsystem stuff
     private readonly List<SubsystemBase> _subsystems = [];
     private readonly Dictionary<Type, SubsystemBase> _subsystemsByType = new();
 
+
+    // State
     private bool _initialized;
     private bool _disposed;
+    public RobotState State { get; } = new();
 
     private static List<Type> DiscoverSubsystems()
     {
@@ -87,7 +93,7 @@ public abstract class BaseRobot : IDisposable
         _subsystemsByType.TryGetValue(typeof(T), out var subsystem);
         return subsystem as T;
     }
-    
+
     public object GetSubsystem(Type type)
     {
         _subsystemsByType.TryGetValue(type, out var subsystem);
@@ -106,7 +112,7 @@ public abstract class BaseRobot : IDisposable
                 {
                     continue;
                 }
-                
+
                 method.Invoke(subsystem, pms);
             }
         }
@@ -236,5 +242,35 @@ public abstract class BaseRobot : IDisposable
 
         _disposed = true;
         _subsystems.Clear();
+    }
+
+    // State
+
+    public void SetMobility(bool mobility)
+    {
+        State.MotionAllowed = mobility;
+        CallSubsystemFunction(mobility ? "OnMobilityStart" : "OnMobilityStop");
+    }
+
+    public void SetEstopped(bool estopped)
+    {
+        State.Estopped = estopped;
+        CallSubsystemFunction("OnRobotEstopped");
+    }
+
+    public void SetMode(RobotModeEnum mode)
+    {
+        var oldMode = State.Mode;
+        State.Mode = mode;
+        CallSubsystemFunction("OnRobotModeChanged", oldMode, mode);
+        Logger.LogDebug("Robot Mode Changed -> {} to {}", oldMode.ToString(), mode.ToString());
+    }
+
+    public void SetMission(MissionEnum mission)
+    {
+        var oldMission = State.Mission;
+        State.Mission = mission;
+        CallSubsystemFunction("OnRobotModeChanged", oldMission, mission);
+        Logger.LogDebug("Robot Mission Changed -> {} to {}", oldMission.ToString(), mission.ToString());
     }
 }
