@@ -24,7 +24,6 @@ struct FeelerNodeConfig
     double end_angle; // degrees
     bool balance_feelers; // TODO FIXME whether to make feelers like, symmetrical
     double waypointPopDist; // meters?
-    double ultrasonic_contribution; // weight between 0 and 2 (or higher)
     unsigned long gpsWaitMilliseconds; // time to wait before using GPS waypoints, in milliseconds
     int gpsBiasWeight; // pixels
     int forwardBiasWeight; // pixels
@@ -33,7 +32,7 @@ struct FeelerNodeConfig
     float max_drive_speed; // meters per second
     float max_strafe_speed; // meters per second
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FeelerNodeConfig, max_length, number_of_feelers, start_angle, end_angle, balance_feelers, waypointPopDist, ultrasonic_contribution, gpsWaitMilliseconds, gpsBiasWeight, forwardBiasWeight);
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FeelerNodeConfig, max_length, number_of_feelers, start_angle, end_angle, balance_feelers, waypointPopDist, gpsWaitMilliseconds, gpsBiasWeight, forwardBiasWeight);
 };
 
 
@@ -45,7 +44,6 @@ public class FeelerSubsystem : SubsystemBase
 {
     // feelers
     private List<Feeler> _feelers;
-    private List<Feeler> _ultrasonic_feelers;
     private Feeler _headingArrow = Feeler(0, 0);
 
     // PID controllers
@@ -73,7 +71,6 @@ public class FeelerSubsystem : SubsystemBase
     //FIXME positionSubscriber;
     //FIXME imageSubscriber;
     //FIXME debugImageSubscriber;
-    //FIXME ultrasonicSubscriber;
 
     // publishers FIXME
     // motorPublisher;
@@ -99,7 +96,6 @@ public class FeelerSubsystem : SubsystemBase
         config.end_angle = 180 - config.start_angle;
         config.balance_feelers = true;
         config.waypointPopDist = 2;
-        config.ultrasonic_contribution = 1;
         config.gpsWaitMilliseconds = 5000 * 20;
         config.gpsBiasWeight = 0;
         config.forwardBiasWeight = 100;
@@ -153,23 +149,6 @@ public class FeelerSubsystem : SubsystemBase
         // make all the feelers
         _buildFeelers();
 
-        // make the feelers for the ultrasonics
-        //TODO this should be part of buildFeelers or its own function or something
-        ultrasonic_feelers = List<Feeler>();
-        for (double angle = 0.0; angle < 360; angle += 90)
-        { // these originate at the origin, which is fine because the only contribute in one axis
-            int x = _config.max_length * cos(radians(angle)); //int should truncate these to nice whole numbers
-            int y = _config.max_length * sin(radians(angle));
-
-            _ultrasonic_feelers.push_back(Feeler(x, y));
-            _ultrasonic_feelers.push_back(Feeler(x, y)); // there are 2 ultrasonic distance sensors per side
-        }
-
-        for (Feeler & feeler : ultrasonic_feelers)
-        {
-            feeler.setColor(cv::Scalar(0, 200, 100)); // ultrasonic feelers are a different color
-        }
-
         lastTime = now();
 
         // pid controllers
@@ -179,7 +158,6 @@ public class FeelerSubsystem : SubsystemBase
         positionSubscriber = create_subscription<autonav_msgs::msg::Position>("/autonav/position", 1, std::bind(&FeelerNode::onPositionReceived, this, std::placeholders::_1));
         imageSubscriber = create_subscription<sensor_msgs::msg::CompressedImage>("/autonav/vision/combined/filtered", 1, std::bind(&FeelerNode::onImageReceived, this, std::placeholders::_1));
         debugImageSubscriber = create_subscription<sensor_msgs::msg::CompressedImage>("/autonav/vision/combined/debug", 1, std::bind(&FeelerNode::onDebugImageReceived, this, std::placeholders::_1));
-        ultrasonicSubscriber = create_subscription<autonav_msgs::msg::Ultrasonic>("/autonav/ultrasonics", 1, std::bind(&FeelerNode::onUltrasonicsReceived, this, std::placeholders::_1));
 
         // publishers
         motorPublisher = create_publisher<autonav_msgs::msg::MotorInput>("/autonav/motor_input", 1);
@@ -193,52 +171,57 @@ public class FeelerSubsystem : SubsystemBase
 
         // log("FEELERS READY!", AutoNav::Logging::WARN); //FIXME TODO
         //FIXME this is for temporary debug purposes while we are minus a UI
-        // _set_system_state(AutoNav::SystemState::AUTONOMOUS, true);
+        // _set_system_state(RobotModeEnum.AUTONOMOUS, true);
 
         _hasPlayedGps = false;
         _hasPlayedHorn = false;
         // _old_state = AutoNav::DeviceState::READY;
+
+        //FIXME SHUTDOWN doesn't exist... maybe this should be an on_subsystem_state_update or something?
+        _on_system_state_updated(RobotModeEnum.Disabled, RobotModeEnum.Disabled);
     }
 
-    _on_system_state_updated(AutoNav::SystemState::SHUTDOWN, AutoNav::SystemState::DISABLED);
-    }
 
-    public void on_system_state_updated(AutoNav::SystemState old, AutoNav::SystemState new_state) override {
-        autonav_msgs::msg::SafetyLights msg;
-        msg.brightness = 200;
-        msg.blink_period = 0;
-        msg.mode = 1;
+    public override void on_system_state_updated(RobotModeEnum old, RobotModeEnum new_state)
+    {
+        SafetyLights msg = new SafetyLights
+        {
+            brightness = 200,
+            blink_period = 0,
+            mode = 1
+        };
 
-        // _log("Safety lights: " + std::to_string(msg.brightness) + ", " + std::to_string(msg.blink_period) + ", " + std::to_string(msg.mode), AutoNav::Logging::INFO);
-
-        if (old == AutoNav::SystemState::AUTONOMOUS && new_state != AutoNav::SystemState::AUTONOMOUS) {
+        if (old == RobotModeEnum.AUTONOMOUS && new_state != RobotModeEnum.AUTONOMOUS)
+        {
             // rainbow
             msg.mode = 3;
             _safetyLightsPublisher->publish(msg);
-        } else if (new_state == AutoNav::SystemState::AUTONOMOUS) {
+        }
+        else if (new_state == RobotModeEnum.AUTONOMOUS)
+        {
             msg.blink_period = 30;
             msg.red = 250;
             msg.blue = 250;
             msg.green = 250;
             msg.mode = 2; // auto
             _safetyLightsPublisher->publish(msg);
-        } else if (new_state == AutoNav::SystemState::MANUAL) {
+        }
+        else if (new_state == RobotModeEnum.MANUAL)
+        {
             msg.red = 200;
             msg.green = 200;
             msg.blue = 0;
             msg.mode = 1;
             _safetyLightsPublisher->publish(msg);
         }
-
-        // _old_state = new_state;
     }
 
-    public override void on_config_updated(json &old_cfg, json &new_cfg)
+    public override void on_config_updated(json old_cfg, json new_cfg)
     {
         var new_config = new_cfg.get<FeelerNodeConfig>();
         _config = new_config;
 
-        _buildFeelers();
+        _BuildFeelers();
     }
 
     /**
@@ -274,8 +257,6 @@ public class FeelerSubsystem : SubsystemBase
         for (int i = 0; i < _feelers.size(); i++)
         {
             _feelers.at(i).bias(_config.forwardBiasWeight * (_feelers.at(i) * forwardsFeeler));
-
-            // log("BIAS AMOUNT: " + std::to_string(_feelers.at(i).getBiasAmount()));
         }
 
         // bias backwards feelers backwards TODO FIXME this doesn't work
@@ -293,10 +274,8 @@ public class FeelerSubsystem : SubsystemBase
      * Callback for the combined image from the cameras.
      * @param image a compressedimage message with the combined transformations of all 4 cameras
      */
-    public void onImageReceived(sensor_msgs::msg::CompressedImage image)
+    public void OnImageReceived(sensor_msgs::msg::CompressedImage image)
     {
-        // log("FEELERS OPERATING!", AutoNav::Logging::WARN); //FIXME TODO
-
         // once we've actually gotten an image, we can safely say we're operating pretty well
         if (_get_device_state() != AutoNav::DeviceState::OPERATING)
         {
@@ -304,40 +283,18 @@ public class FeelerSubsystem : SubsystemBase
         }
 
         // turn the image into a format we can use
-        auto mask = cv_bridge::toCvCopy(image)->image; //TODO what encoding do we want to use?
-                                                       // _feeler_img_ptr = cv_bridge::toCvCopy(image);
+        var mask = cv_bridge::toCvCopy(image)->image; //TODO what encoding do we want to use?
 
-        // log("LOGGING REGULAR IMAGE...", AutoNav::Logging::ERROR); //FIXME TODO
-
-        //TODO TEMP HACK FIXME BUG draw on image to see if it has any effect
-        // Feeler tempFeeler = Feeler(100, 100);
-        // tempFeeler.setColor(cv::Scalar(200, 200, 100));
-        // tempFeeler.draw(mask);
-
-        // log("drew that one image", AutoNav::Logging::INFO); //FIXME TODO
-
+        // _feeler_img_ptr = cv_bridge::toCvCopy(image);
         // _perf_start("FeelerNode::update");
 
         // calculate new length of every new feeler
-        for (Feeler & feeler : _feelers)
+        foreach (var feeler in _feelers)
         {
-            feeler.update(&mask, this);
-            // log(feeler.to_string(), AutoNav::Logging::WARN); //FIXME TODO
+            feeler.update(mask, this);
         }
 
-        // log("first feeler: " + _feelers.at(0).to_string(), AutoNav::Logging::INFO);
-
         // _perf_stop("FeelerNode::update", true);
-
-        // log("FEELERS DRAWING!", AutoNav::Logging::WARN); //FIXME TODO
-        // log("FEELERS LENGTH, MASK ROWS, MASK COLS, DEBUG ROWS, DEBUG COLS", AutoNav::Logging::WARN);
-        // log(std::to_string(_feelers.size()), AutoNav::Logging::WARN);
-        // log(std::to_string(mask.cols), AutoNav::Logging::WARN);
-        // log(std::to_string(mask.rows), AutoNav::Logging::WARN);
-        // log(std::to_string(debug_image_ptr->cols), AutoNav::Logging::WARN);
-        // log(std::to_string(debug_image_ptr->rows), AutoNav::Logging::WARN);
-
-        // log("chat are we cooked", AutoNav::Logging::WARN); //FIXME TODO
 
         _calculateOutputs();
     }
@@ -354,14 +311,13 @@ public class FeelerSubsystem : SubsystemBase
     {
         _position = msg;
 
-        // log("GOT GPS!", AutoNav::Logging::INFO);
-
         // if we haven't set a timestamp yet, but have started the run
-        if (_gpsTime == 0 && _is_mobility() && _get_system_state() == AutoNav::SystemState::AUTONOMOUS)
+        if (_gpsTime == 0 && _is_mobility() && _get_system_state() == RobotModeEnum.AUTONOMOUS)
         {
             _gpsTime = now(); // then set the timestamp for the start of the run
-                              // if, however, we have set a timestamp, and it's been long enough that the particle filter should know which direction we're heading
         }
+
+        // if, however, we have set a timestamp, and it's been long enough that the particle filter should know which direction we're heading
         else if (_gpsTime != 0 && (now() - _gpsTime > _config.gpsWaitMilliseconds) && _direction == "")
         {
             // then pick a set of waypoints based on which direction we are heading
@@ -379,17 +335,16 @@ public class FeelerSubsystem : SubsystemBase
         }
 
         _distToWaypoint = 0;
+        // if we have a direction, then we are good to use it to get waypoints and go towards them
         if (_direction != "")
-        { // if we have a direction, then we are good to use it to get waypoints and go towards them
-          // if we don't have any waypoints, however
+        {
+            // if we don't have any waypoints, however
             if (_waypointsDict.size() == 0)
             {
                 //TODO do something???
                 return;
             }
             GPSPoint goalPoint = _waypointsDict.at(_direction)[_waypointIndex];
-
-            // log("biasing my robot rn", AutoNav::Logging::INFO);
 
             // make a vector pointing towards the GPS waypoint
             int latError = (goalPoint.lat - _position.latitude) * _latitudeLength * 5;
@@ -401,10 +356,6 @@ public class FeelerSubsystem : SubsystemBase
             int gps_x = (lonError * std::cos(headingError)) - (latError * std::sin(headingError));
             int gps_y = (lonError * std::sin(headingError)) + (latError * std::cos(headingError));
             _gpsFeeler = Feeler(gps_x, gps_y);
-
-            // log("GPS FEELER: " + _gpsFeeler.to_string(), AutoNav::Logging::INFO);
-            // log("ERROR: (" + std::to_string(lonError) + ", " + std::to_string(latError) + ")", AutoNav::Logging::INFO);
-            // log("Heading: " + std::to_string(_position.theta));
 
             // Feeler velocityFeeler = Feeler(_position.x_vel, _position.y_vel);
             Feeler velocityFeeler = Feeler(0, 100);
@@ -427,8 +378,6 @@ public class FeelerSubsystem : SubsystemBase
 
                 _feelers.at(i).bias(gps_bias + forward_bias);
             }
-
-            // log("ROBOT has been BIASED", AutoNav::Logging::INFO);
 
             _distToWaypoint = std::sqrt(std::pow((goalPoint.lon - _position.longitude) * _latitudeLength, 2) + std::pow((goalPoint.lat - _position.latitude) * _longitudeLength, 2));
 
@@ -453,28 +402,11 @@ public class FeelerSubsystem : SubsystemBase
     }
 
     /**
-     * Callback to get data from the ultrasonic sensors. This message does not contain the data for every sensor,
-     * but rather data for one of the sensors (each sensor will get a message sent for it). For more information,
-     * see the SCR 2025 AutoNav CAN specification
-     * @param msg an Ultrasonic message from a sensor
-     */
-    public void onUltrasonicsReceived(autonav_msgs::msg::Ultrasonic msg)
-    {
-        // log("GETTING ULTRASONICS!", AutoNav::Logging::WARN); //FIXME TODO
-
-        _ultrasonic_feelers[msg.id - 1].setLength(msg.distance * _config.ultrasonic_contribution); // minus 1 because the sensors are numbered 1-8
-
-        // log("ULTRASONICS GOT!", AutoNav::Logging::WARN); //FIXME TODO
-
-        _calculateOutputs();
-    }
-
-    /**
      * Callback to receive the color image to draw debug information on
      * All draw() calls should be in this function.
      * @param image the compressedImage message to draw the feelers on
      */
-    public void onDebugImageReceived(sensor_msgs::msg::CompressedImage image)
+    public void OnDebugImageReceived(sensor_msgs::msg::CompressedImage image)
     {
         // update the headingArrow with the most recent information
         _calculateOutputs();
@@ -490,36 +422,21 @@ public class FeelerSubsystem : SubsystemBase
             return;
         }
 
-        // log("LOGGING DEBUG IMAGE RECEIVED...", AutoNav::Logging::ERROR); //FIXME TODO
-
         // draw feelers on the debug image
         // _perf_start("FeelerNode::draw");
-        for (Feeler & feeler : _feelers)
+        foreach (var feeler in _feelers)
         {
-            // log(feeler.to_string(), AutoNav::Logging::WARN);
-            // log("==================", AutoNav::Logging::WARN);
-            // feeler.setXY(100, 100);
-
             // color biased feelers differently TODO FIXME why do we need to recalculate this every time?
+            // TODO we should change Feeler.cs to pass in 2 colors and have it lerp automatically in draw() or something...
             cv::Scalar color_ = lerp(BLUE, RED, feeler.getBiasAmount() / (_config.forwardBiasWeight));
             feeler.setColor(color_);
 
             feeler.draw(_debug_image_ptr->image);
-            // log(feeler.to_string(), AutoNav::Logging::WARN);
         }
-
-        // log("DREW FEELERS!", AutoNav::Logging::ERROR); //FIXME TODO
-
-        // draw the ultrasonic feelers on the image (on top of the vision feelers)
-        // for (Feeler feeler : _ultrasonic_feelers) {
-        //     feeler.draw(_debug_image_ptr->image);
-        // }
 
         // draw feeler towards GPS waypoint
         _gpsFeeler.setColor(cv::Scalar(50, 200, 50));
         _gpsFeeler.draw(_debug_image_ptr->image);
-
-        // log("GPS FEELER: " + _gpsFeeler.to_string(), AutoNav::Logging::INFO); // FIXME TODO
 
         // draw the heading arrow on top of everything else
         _headingArrow.draw(_debug_image_ptr->image);
@@ -536,24 +453,17 @@ public class FeelerSubsystem : SubsystemBase
      * as publishOutputMessages() runs much faster than all the sensor inputs for safety reasons, as the firmware
      * on the motor manager PCB will disable the motors if it hasn't received a motor command after a short period of time.
      */
-    public void calculateOutputs()
+    public void CalculateOutputs()
     {
         // reinitialize the heading arrow
         _headingArrow = Feeler(0, 0);
         _headingArrow.setColor(cv::Scalar(200, 200, 0));
 
         // add all the feelers together
-        for (Feeler feeler : _feelers)
+        foreach (var feeler in _feelers)
         {
             //FIXME the weight of the feelers should be configurable (outside of MAX_LENGTH), or like give them a custom response curve or something
             _headingArrow = _headingArrow + feeler;
-        }
-
-        // add all the ultrasonic feelers together
-        for (Feeler feeler : _ultrasonic_feelers)
-        {
-            // FIXME TODO use the config ultrasonics_weight to determine how much ultrasonics effect the heading arrow
-            // _headingArrow = _headingArrow + feeler;
         }
     }
 
@@ -561,15 +471,13 @@ public class FeelerSubsystem : SubsystemBase
      * Publish all the output messages (motors, audible feedback, and safety lights).
      * On a short timer so we don't fail the firmware heartbeat watchdog timer check thingamajig.
      */
-    public void publishOutputMessages()
+    public void PublishOutputMessages()
     {
         // if we aren't in autonomous
-        if ((_get_system_state() != AutoNav::SystemState::AUTONOMOUS) || (_get_device_state() != AutoNav::DeviceState::OPERATING))
+        if ((_get_system_state() != RobotModeEnum.AUTONOMOUS) || (_get_device_state() != AutoNav::DeviceState::OPERATING))
         {
             return; // return because we don't need to do anything (so as to apublic void conflicting with manual control if that's running)
         }
-
-        // log("PUBLISHING MOTOR OUTPUT!", AutoNav::Logging::WARN); //FIXME TODO
 
         // make the messages for publishing
         autonav_msgs::msg::SafetyLights safetyLightsMsg;
@@ -587,8 +495,6 @@ public class FeelerSubsystem : SubsystemBase
         // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
         if (_is_mobility())
         {
-            // log("WE ARE MOBILE!", AutoNav::Logging::WARN); //FIXME TODO
-
             // convert headingArrow to motor outputs
             //FIXME we want to be going max speed on the straightaways
             //FIXME the clamping should be configurable or something
@@ -621,8 +527,6 @@ public class FeelerSubsystem : SubsystemBase
         }
         else
         {
-            // log("NO MOBILITY!", AutoNav::Logging::WARN); //FIXME TODO
-
             // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
             msg.forward_velocity = 0.0;
             msg.sideways_velocity = 0.0;
@@ -655,13 +559,11 @@ public class FeelerSubsystem : SubsystemBase
         // publish the messages
         _motorPublisher->publish(msg);
         _safetyLightsPublisher->publish(safetyLightsMsg);
-        // log("MOTOR AND SAFETY LIGHTS PUBLISHED!", AutoNav::Logging::WARN); //FIXME TODO
 
         // if we are actually wanting to play a file
         if (publishAudible)
         {
             _audibleFeedbackPublisher->publish(feedback_msg);
-            // log("PUBLISHING AUDIBLE FEEDBACK!", AutoNav::Logging::WARN); //FIXME TODO
         }
     }
 }
