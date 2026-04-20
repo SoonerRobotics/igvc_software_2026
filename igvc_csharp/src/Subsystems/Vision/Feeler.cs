@@ -1,23 +1,8 @@
 
-/**
- * Interpolates (linearly) between two colors. For some reason openCV doesn't have a function like this?
- * At least not one I could find. Both colors should have the same number of channels.
- * https://stackoverflow.com/questions/4353525/floating-point-linear-interpolation
- * @param src the base color
- * @param dest the color to interpolate towards
- * @param percentAmount a number between 0 and 1 inclusive to represent how much each color contributes to the final color
- * @return an openCV color somewhere between the two given colors, inclusive
- */
-cv::Scalar Lerp(cv::Scalar src, cv::Scalar dest, double percentAmount)
-{
-    double ch1 = (src[0] * (1.0 - percentAmount)) + (dest[0] * percentAmount);
-    double ch2 = (src[1] * (1.0 - percentAmount)) + (dest[1] * percentAmount);
-    double ch3 = (src[2] * (1.0 - percentAmount)) + (dest[2] * percentAmount);
-    // ignore channel 4 'cause we shouldn't ever use it for Feelers (though potentially this we could use it for other things,
-    //  as this is not a class method)
-
-    return cv::Scalar(ch1, ch2, ch3);
-}
+using igvc_csharp.Core;
+using igvc_csharp.Events;
+using igvc_csharp.Utils;
+using OpenCvSharp;
 
 public class Feeler
 {
@@ -34,7 +19,7 @@ public class Feeler
     private bool _is_biased = false;
     private double _bias_amount = 0.0;
 
-    private cv::Scalar _color;
+    private Scalar _color;
 
 
     /**
@@ -45,18 +30,18 @@ public class Feeler
      * @param x the x component of the feeler
      * @param y the y component of the feeler
      */
-    public Feeler(int x, int y)
+    public Feeler(int x, int y, Scalar color)
     {
         _x = x;
         _y = y;
-        _length = _dist(x, y);
+        _length = Dist(x, y);
 
-        // this is necessary so we can remember our original size and grow back up to it in the absence of an obstacle
+        // this is necessary so we can remember our original size and grow back up to it in the Math.Absence of an obstacle
         _original_x = x;
         _original_y = y;
         _original_length = _length;
 
-        _color = cv::Scalar(0, 200, 0);
+        _color = color;
     }
 
     /**
@@ -87,7 +72,7 @@ public class Feeler
      * Set the color of the feeler. This is important if it gets drawn on an image on the UI for debugging
      * @param the color of the feeler, in BGR because OpenCV
      */
-    public void SetColor(cv::Scalar c)
+    public void SetColor(Scalar c)
     {
         _color = c;
     }
@@ -96,24 +81,25 @@ public class Feeler
      * Get the polar coordinates of the end of the feeler from its x and y coordinates in radians.
      * @return the polar coordinates of the feeler in radians
      */
-    public std::vector<double> ToPolar()
+    public List<double> ToPolar()
     {
-        std::vector<double> polar;
+        List<double> polar = [];
 
-        double length = _dist(_x, _y);
-        polar.push_back(length);
+        double length = Dist(_x, _y);
 
         double angle;
         if (_x != 0)
         {
             //TODO FIXME should this be an atan2?
-            angle = std::tan(static_cast<double>(_y) / static_cast<double>(_x));
+            angle = Math.Tan(_y / _x);
         }
         else
         {
-            angle = _y > 0 ? PI / 2 : 3 * PI / 2;
+            angle = _y > 0 ? Math.PI / 2 : 3 * Math.PI / 2;
         }
-        polar.push_back(angle);
+
+        polar.Add(length);
+        polar.Add(angle);
 
         return polar;
     }
@@ -124,12 +110,12 @@ public class Feeler
      * @param y the y coordiante to translate
      * @return the coordinates of the pixel in opencv-land
      */
-    public static std::vector<int> CenterCoordinates(int x, int y, int width, int height)
+    public static List<double> CenterCoordinates(int x, int y, int width, int height)
     {
-        std::vector<int> ret;
+        List<double> ret = [];
 
-        ret.push_back(x + width / 2);
-        ret.push_back(-y + height / 2); // flip y coordinate, because if the top-left corner of an image is the origin, then the x axis will still work like normal (left is negative, etc) but the y axis will not
+        ret.Add(x + width / 2);
+        ret.Add(-y + height / 2); // flip y coordinate, because if the top-left corner of an image is the origin, then the x axis will still work like normal (left is negative, etc) but the y axis will not
 
         return ret;
     }
@@ -174,7 +160,7 @@ public class Feeler
     /**
      * @return color of the feeler (for drawing purposes)
      */
-    public cv::Scalar GetColor()
+    public Scalar GetColor()
     {
         return _color;
     }
@@ -183,9 +169,9 @@ public class Feeler
      * TODO figure out which data we actually want to have here
      * @return a string representation of the feeler
      */
-    public String ToString()
+    public override String ToString()
     {
-        return "(" + std::to_string(_x) + ", " + std::to_string(_y) + ") | length " + std::to_string(_length) + " | original: " + std::to_string(_original_length);
+        return "(" + _x + ", " + _y + ") | length " + _length + " | original: " + _original_length;
     }
 
     /**
@@ -197,7 +183,7 @@ public class Feeler
         _x = x_;
         _y = y_;
 
-        _length = _dist(x_, y_);
+        _length = Dist(x_, y_);
     }
 
     /**
@@ -208,7 +194,7 @@ public class Feeler
         _original_x = x;
         _original_y = y;
 
-        _original_length = _dist(x, y);
+        _original_length = Dist(x, y);
     }
 
     /**
@@ -220,9 +206,9 @@ public class Feeler
     {
         double scaleFactor = newLength / _length;
 
-        _x *= scaleFactor;
-        _y *= scaleFactor;
-        _length = dist(_x, _y);
+        _x *= (int)scaleFactor;
+        _y *= (int)scaleFactor;
+        _length = Dist(_x, _y);
     }
 
     /**
@@ -246,8 +232,8 @@ public class Feeler
         _bias_amount = amount;
         double scaleFactor = (_length + amount) / _length;
 
-        _biased_x = _original_x * scaleFactor;
-        _biased_y = _original_y * scaleFactor;
+        _biased_x = (int)(_original_x * scaleFactor);
+        _biased_y = (int)(_original_y * scaleFactor);
     }
 
     /**
@@ -255,16 +241,14 @@ public class Feeler
      * It goes pixel by pixel along its length until it reaches a white pixel (obstacle)
      * or until it reaches its original length in which case it stops.
      * This was copied/pasted from feeler.py, see feeler.py for details
+     * And now it's been copied/pasted from feeler.cpp, check that one first
      * FIXME TODO we should pass this a pointer not the whole matrix so we can throw it into some threads.
      * @param the thresholded image to perform feeler on
      */
-    public void Update(cv::Mat* mask, AutoNav::Node* node)
+    public void Update(Mat mask)
     {
-        int channels = mask->channels();
-        auto pixelPtr = (uint8_t*)mask->data;
-
-        // node->log(std::to_string(*pixelPtr));
-        // node->log(std::to_string(channels));
+        int channels = mask.Channels();
+        var pixelPtr = mask.Data;
 
         int x_ = 0;
         int y_ = 0;
@@ -282,7 +266,7 @@ public class Feeler
         bool slopeIsInfinity = false;
         if (_original_y != 0)
         {
-            slope = static_cast<double>(_original_y) / static_cast<double>(_original_x);
+            slope = _original_y / _original_x;
         }
         else
         {
@@ -292,7 +276,7 @@ public class Feeler
         int pixelsChecked = 0; //FIXME remove when done debugging
 
         // loop until we hit an obstacle or max_length
-        while (1)
+        while (true)
         {
             // vertical line, just need to move along the y-axis
             if (slopeIsInfinity)
@@ -303,11 +287,11 @@ public class Feeler
             {
                 x_ += 1;
             }
-            else if (abs(slope) <= 1)
+            else if (Math.Abs(slope) <= 1)
             {
                 // if slope is shallow, make x the independent variable
                 // get the y as a function of x
-                new_y = abs(slope) * x_;
+                new_y = Math.Abs(slope) * x_;
 
                 // if the new y is higher than the previous one
                 if ((new_y - prev_y) > 0)
@@ -321,7 +305,7 @@ public class Feeler
             else
             { // slope is steep, do y as independent variable
               // get x as a function of y
-                new_x = abs(1 / slope) * y_;
+                new_x = Math.Abs(1 / slope) * y_;
 
                 // and then if the new x is larger than the old one
                 if ((new_x - prev_x) > 0)
@@ -333,40 +317,34 @@ public class Feeler
                 prev_x = x_;
             }
 
-            auto coords = _centerCoordinates(x_ * x_dir, y_ * y_dir, mask->cols, mask->rows);
-
-            // node->log("Checking pixel: (" + std::to_string(coords[0]) + ", " + std::to_string(coords[1]) + ")", AutoNav::Logging::LogLevel::INFO);
-            // node->log("Pixel value is (" + std::to_string(pixelPtr[coords[1]*mask->cols*channels + coords[0]*channels + 0]) + ", " + std::to_string(pixelPtr[coords[1]*mask->cols*channels + coords[0]*channels + 1]) + "," + std::to_string(pixelPtr[coords[1]*mask->cols*channels + coords[0]*channels + 2]) + ")");
+            var coords = CenterCoordinates(x_ * x_dir, y_ * y_dir, mask.Cols, mask.Rows);
 
             // for every one of the pixel's values (out of blue, green, and red as per openCV standard)
             pixelsChecked++;
             for (int i = 0; i < 3; i++)
             {
                 //reference https://stackoverflow.com/questions/7899108/opencv-get-pixel-channel-value-from-mat-image
-                if (pixelPtr[coords[1] * mask->cols * channels + coords[0] * channels + i] > 0)
+                if (pixelPtr[coords[1] * mask.Cols * channels + coords[0] * channels + i] > 0)
                 {
                     // that is our new length
-                    // node->log("OBSTACLE FOUND! Pixels checked: " + std::to_string(pixelsChecked), AutoNav::Logging::ERROR);
-                    // node->log(_to_string(), AutoNav::Logging::ERROR);
-                    _setXY(x_ * x_dir, y_ * y_dir);
-                    // node->log(_to_string(), AutoNav::Logging::ERROR);
+                    SetXY(x_ * x_dir, y_ * y_dir);
                     return; // and quit so we don't keep looping 'cause we found an obstacle
                 }
-                else if (abs(x_) > abs(_original_x) || abs(y_) > abs(_original_y))
-                { // if we're past our original farthest point
+                // if we're past our original farthest point
+                else if (Math.Abs(x_) > Math.Abs(_original_x) || Math.Abs(y_) > Math.Abs(_original_y))
+                {
                   // check if we have a farther point (aka if we're biased)
                     if (_is_biased)
                     {
-                        if (abs(x_) > abs(_biased_x) || abs(y_) > abs(_biased_y))
+                        if (Math.Abs(x_) > Math.Abs(_biased_x) || Math.Abs(y_) > Math.Abs(_biased_y))
                         {
-                            _setXY(_biased_x, _biased_y); // then we found no obstacle, and should stop looping
+                            SetXY(_biased_x, _biased_y); // then we found no obstacle, and should stop looping
                             return;
                         }
                     }
                     else
                     {
-                        _setXY(_original_x, _original_y); // then we found no obstacle, and should stop looping
-                                                          // node->log("NO OBSTACLE FOUND! Pixels checked: " + std::to_string(pixelsChecked), AutoNav::Logging::ERROR);
+                        SetXY(_original_x, _original_y); // then we found no obstacle, and should stop looping
                         return;
                     }
                 }
@@ -378,19 +356,43 @@ public class Feeler
      * Draw the feeler using its color on the provided image.
      * @param image an image that the feeler can be drawn on
      */
-    void draw(cv::Mat image)
+    void Draw(Mat image)
     {
-        cv::Point startPt, endPt;
-        auto startCoords = _centerCoordinates(0, 0, image.cols, image.rows);
-        startPt.x = startCoords[0];
-        startPt.y = startCoords[1];
+        Point startPt = new();
+        Point endPt = new();
 
-        auto endCoords = _centerCoordinates(_x, _y, image.cols, image.rows);
-        endPt.x = std::clamp(endCoords[0], 0, image.cols);
-        endPt.y = std::clamp(endCoords[1], 0, image.rows);
+        var startCoords = CenterCoordinates(0, 0, image.Cols, image.Rows);
+        startPt.X = (int)startCoords[0];
+        startPt.Y = (int)startCoords[1];
 
-        cv::line(image, startPt, endPt, _color, 5); // thickness of 5
+        var endCoords = CenterCoordinates(_x, _y, image.Cols, image.Rows);
+        endPt.X = (int)Math.Clamp(endCoords[0], 0, image.Cols);
+        endPt.Y = (int)Math.Clamp(endCoords[1], 0, image.Rows);
+
+        Line(image, startPt, endPt, _color, 5); // thickness of 5
     }
+
+
+    /**
+     * Interpolates (linearly) between two colors. For some reason openCV doesn't have a function like this?
+     * At least not one I could find. Both colors should have the same number of channels.
+     * https://stackoverflow.com/questions/4353525/floating-point-linear-interpolation
+     * @param src the base color
+     * @param dest the color to interpolate towards
+     * @param percentAmount a number between 0 and 1 inclusive to represent how much each color contributes to the final color
+     * @return an openCV color somewhere between the two given colors, inclusive
+     */
+    Scalar Lerp(Scalar src, Scalar dest, double percentAmount)
+    {
+        double ch1 = (src[0] * (1.0 - percentAmount)) + (dest[0] * percentAmount);
+        double ch2 = (src[1] * (1.0 - percentAmount)) + (dest[1] * percentAmount);
+        double ch3 = (src[2] * (1.0 - percentAmount)) + (dest[2] * percentAmount);
+        // ignore channel 4 'cause we shouldn't ever use it for Feelers (though potentially this we could use it for other things,
+        //  as this is not a class method)
+
+        return new Scalar(ch1, ch2, ch3);
+    }
+
 
     /**
      * Add a feeler to another feeler
@@ -415,7 +417,7 @@ public class Feeler
      * @param scalarNum an integer to multiply by
      * @return a new feeler with values copied from the old one
      */
-    public static Feeler operator *(Feeler self, double scalar) => new(self.GetX() * scalar, self.GetY() * scalar, self.GetColor());
+    public static Feeler operator *(Feeler self, double scalar) => new((int)(self.GetX() * scalar), (int)(self.GetY() * scalar), self.GetColor());
 
     /**
      * Dot product a feeler with another feeler.
@@ -436,7 +438,7 @@ public class Feeler
      */
     public static double operator *(Feeler self, Feeler other)
     {
-        if (other.getX() == 0 && other.getY() == 0)
+        if (other.GetX() == 0 && other.GetY() == 0)
         {
             return 0.0;
         }
