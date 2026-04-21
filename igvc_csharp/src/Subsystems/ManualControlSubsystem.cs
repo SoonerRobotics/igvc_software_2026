@@ -1,4 +1,5 @@
 using igvc_csharp.Core;
+using igvc_csharp.Core.Chronos;
 using igvc_csharp.Core.Units;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
@@ -6,8 +7,15 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
 
-[Subsystem("ManualControlSubsystem", DependsOn=[typeof(ControllerSubsystem)])]
-public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsystem canbus) : SubsystemBase
+[Subsystem("ManualControlSubsystem", DependsOn=[
+    typeof(ControllerSubsystem),
+    typeof(ChronosSubsystem)
+])]
+public class ManualControlSubsystem(
+    ControllerSubsystem controller,
+    ChronosSubsystem chronos,
+    CanbusSubsystem? canbus
+) : SubsystemBase
 {
     private DateTime? _dpadDepressedAt;
     private bool _dpadFlashed;
@@ -29,12 +37,12 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
         while (await timer.WaitForNextTickAsync(token))
         {
             // Only send in manual mode
-            if (IgvcRobot.Instance.State.Mode != RobotModeEnum.Manual)
+            if (IgvcRobot.Instance?.State.Mode != RobotModeEnum.Manual)
             {
                 continue;
             }
             
-            canbus.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
+            canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
         }
     }
 
@@ -52,22 +60,42 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
     private void ControllerHooks(CancellationToken token)
     {
         // System Mode
-        controller.Buttons.Menu.OnReleased += () =>
+        controller.Buttons.Menu.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Manual);
-            canbus.SafetyLights.SetManual();
+            canbus?.SafetyLights.SetManual();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
+            chronos.StartRun(SessionType.Manual);
         };
 
-        controller.Buttons.Xbox.OnReleased += () =>
+        controller.Buttons.Xbox.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Autonomous);
-            canbus.SafetyLights.SetAutonomous();
+            canbus?.SafetyLights.SetAutonomous();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
+            chronos.StartRun(SessionType.Autonomous);
         };
 
-        controller.Buttons.View.OnReleased += () =>
+        controller.Buttons.View.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Disabled);
-            canbus.SafetyLights.SetDisabled();
+            canbus?.SafetyLights.SetDisabled();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
         };
         
         // System Mission
@@ -85,7 +113,7 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             }
             
             _dpadFlashed = true;
-            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
+            canbus?.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
             Logger.LogDebug("Flashing DPad for mission switch");
         };
         controller.Dpad.DpadRight.OnReleased += () =>
@@ -100,10 +128,10 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             }
 
             _dpadDepressedAt = null;
-            SetRobotMission(IgvcRobot.Instance.State.Mission == MissionEnum.Autonav
+            SetRobotMission(IgvcRobot.Instance?.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
                 : MissionEnum.Autonav);
-            Logger.LogDebug("Switching Mission: {Mission}", IgvcRobot.Instance.State.Mission);
+            Logger.LogDebug("Switching Mission: {Mission}", IgvcRobot.Instance?.State.Mission);
         };
         
         // Rotation

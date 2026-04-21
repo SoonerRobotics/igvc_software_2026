@@ -1,6 +1,7 @@
 using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
@@ -9,8 +10,12 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem")]
-public class VectorNavSubsystem : SubsystemBase
+[Subsystem("VectorNavSubsystem", DependsOn = [
+    typeof(ChronosSubsystem)
+])]
+public class VectorNavSubsystem(
+    ChronosSubsystem chronos
+) : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
@@ -171,17 +176,21 @@ public class VectorNavSubsystem : SubsystemBase
                         new MessageWrapperEvent(reportMessage)
                     );
 
-                    Logger.LogTrace(
-                        "[#{Seq}] {Time} | " +
-                        "Lat: {Lat:F6}, Lon: {Lon:F6}, Alt: {Alt:F2}m | " +
-                        "Yaw: {Yaw:F2}, Pitch: {Pitch:F2}, Roll: {Roll:F2} | " +
-                        "Vel N/E/D: {VN:F2}/{VE:F2}/{VD:F2} m/s | " +
-                        "Sats: {Sats}, Fix: {Fix}",
-                        r.SequenceNum, timestamp,
-                        r.Latitude, r.Longitude, r.Altitude,
-                        r.Yaw, r.Pitch, r.Roll,
-                        r.VelNorthMs, r.VelEastMs, r.VelDownMs,
-                        r.NumSats, r.GpsFix);
+                    // Chronos
+                    chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
+                    chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
+
+                    // Logger.LogTrace(
+                    //     "[#{Seq}] {Time} | " +
+                    //     "Lat: {Lat:F6}, Lon: {Lon:F6}, Alt: {Alt:F2}m | " +
+                    //     "Yaw: {Yaw:F2}, Pitch: {Pitch:F2}, Roll: {Roll:F2} | " +
+                    //     "Vel N/E/D: {VN:F2}/{VE:F2}/{VD:F2} m/s | " +
+                    //     "Sats: {Sats}, Fix: {Fix}",
+                    //     r.SequenceNum, timestamp,
+                    //     r.Latitude, r.Longitude, r.Altitude,
+                    //     r.Yaw, r.Pitch, r.Roll,
+                    //     r.VelNorthMs, r.VelEastMs, r.VelDownMs,
+                    //     r.NumSats, r.GpsFix);
                 }
             }
             catch (OperationCanceledException)
