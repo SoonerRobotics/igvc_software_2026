@@ -58,7 +58,7 @@ public abstract class AbstractChronosSubsystem : SubsystemBase
                 throw new InvalidOperationException(
                     "A run is already in progress. Call StopRunAsync() before starting a new one.");
 
-            _session = new ChronosSession(_outputDirectory, sessionType);
+            _session = new ChronosSession(_outputDirectory, sessionType, LifetimeToken);
         }
 
         OnRunStarted(_session.RunId, sessionType);

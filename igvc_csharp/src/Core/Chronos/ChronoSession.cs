@@ -37,8 +37,9 @@ internal sealed class ChronosSession : IAsyncDisposable
     public bool IsActive { get; private set; } = true;
 
     // ------------------------------------------------------------------
-    internal ChronosSession(string outputDirectory, ushort sessionType)
+    internal ChronosSession(string outputDirectory, ushort sessionType, CancellationToken ct)
     {
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         OutputDirectory = outputDirectory;
         Directory.CreateDirectory(outputDirectory);
 
