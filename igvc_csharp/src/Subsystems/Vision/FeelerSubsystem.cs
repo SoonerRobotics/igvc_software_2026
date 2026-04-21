@@ -1,13 +1,15 @@
 using System.Threading.Channels;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Events;
-using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
+using igvc_csharp.Subsystems.Tools;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
 
-namespace igvc_csharp.Subsystems.Feeler;
+namespace igvc_csharp.Subsystems.FeelerSubsystem;
 
 
 /**
@@ -18,21 +20,21 @@ namespace igvc_csharp.Subsystems.Feeler;
  */
 struct FeelerNodeConfig
 {
-    int max_length; // pixels
-    int number_of_feelers;
-    double start_angle; // degrees
-    double end_angle; // degrees
-    bool balance_feelers; // TODO FIXME whether to make feelers like, symmetrical
-    double waypointPopDist; // meters?
-    unsigned long gpsWaitMilliseconds; // time to wait before using GPS waypoints, in milliseconds
-    int gpsBiasWeight; // pixels
-    int forwardBiasWeight; // pixels
-    int backwardsBiasWeight; // pixels
-    float max_turn_speed; // meters per second, probably (check sparkmax_node.py)
-    float max_drive_speed; // meters per second
-    float max_strafe_speed; // meters per second
+    public int max_length; // pixels
+    public int number_of_feelers;
+    public double start_angle; // degrees
+    public double end_angle; // degrees
+    public bool balance_feelers; // TODO FIXME whether to make feelers like, symmetrical
+    public double waypointPopDist; // meters?
+    public ulong gpsWaitMilliseconds; // time to wait before using GPS waypoints, in milliseconds
+    public int gpsBiasWeight; // pixels
+    public int forwardBiasWeight; // pixels
+    public int backwardsBiasWeight; // pixels
+    public double max_turn_speed; // meters per second, probably (check sparkmax_node.py)
+    public double max_drive_speed; // meters per second
+    public double max_strafe_speed; // meters per second
 
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(FeelerNodeConfig, max_length, number_of_feelers, start_angle, end_angle, balance_feelers, waypointPopDist, gpsWaitMilliseconds, gpsBiasWeight, forwardBiasWeight);
+    // NLOHMANN_DEFINE_TYPE_INTRUSIVE(FeelerNodeConfig, max_length, number_of_feelers, start_angle, end_angle, balance_feelers, waypointPopDist, gpsWaitMilliseconds, gpsBiasWeight, forwardBiasWeight);
 };
 
 
@@ -44,24 +46,25 @@ public class FeelerSubsystem : SubsystemBase
 {
     // feelers
     private List<Feeler> _feelers;
-    private Feeler _headingArrow = Feeler(0, 0);
+    private Feeler _headingArrow = new Feeler(0, 0, new Scalar(0, 0, 0)); //FIXME default color
 
     // PID controllers
-    private PIDController _headingPID = PIDController(0.0, 0.0, 0.0);
+    private Tools.PIDController _headingPID = new(0.0, 0.0, 0.0);
 
     // config
     FeelerNodeConfig _config;
 
-    private cv_bridge::CvImagePtr _debug_image_ptr;
-    private cv_bridge::CvImagePtr _feeler_img_ptr;
+    // FIXME these should be pointers or something???
+    private OpenCvSharp.Mat _debug_image_ptr;
+    private OpenCvSharp.Mat _feeler_img_ptr;
 
     // GPS
-    private Feeler _gpsFeeler = Feeler(0, 0);
-    private GPSPoint _goalPoint;
+    private Feeler _gpsFeeler = new Feeler(0, 0, new Scalar(0, 0, 0)); //FIXME fix default color
+    private LatLng _goalPoint;
     private autonav_msgs::msg::Position _position;
     private double _distToWaypoint = 0;
-    private unsigned long int _lastTime = 0;
-    private unsigned long int _gpsTime = 0;
+    private ulong _lastTime = 0;
+    private ulong _gpsTime = 0;
 
     // feedback
     private bool _hasPlayedGps = false;
@@ -82,77 +85,75 @@ public class FeelerSubsystem : SubsystemBase
 
     // stuff for file-reading code (copied and pasted from https://github.com/SoonerRobotics/autonav_software_2024/blob/feat/astar_rewrite_v3/autonav_ws/src/autonav_nav/src/astar.cpp)
     private readonly String _WAYPOINTS_FILENAME = "./data/waypoints.csv"; // filename for the waypoints (should be CSV file with label,lat,lon,)
-    private Dictionary<String, List<GPSPoint>> _waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
+    private Dictionary<String, List<LatLng>> _waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
     private int _waypointIndex = 0;
     private String _direction = ""; //FIXME make this an enum or something
 
     public FeelerSubsystem()
     {
         // configuration stuff
-        var config = FeelerNodeConfig();
-        config.max_length = 100;
-        config.number_of_feelers = 16;
-        config.start_angle = 25;
-        config.end_angle = 180 - config.start_angle;
-        config.balance_feelers = true;
-        config.waypointPopDist = 2;
-        config.gpsWaitMilliseconds = 5000 * 20;
-        config.gpsBiasWeight = 0;
-        config.forwardBiasWeight = 100;
-        config.backwardsBiasWeight = 200;
-        config.max_turn_speed = 1.25;
-        config.max_drive_speed = 2.0;
-        config.max_strafe_speed = 0.0;
+        var config = new FeelerNodeConfig
+        {
+            max_length = 100,
+            number_of_feelers = 16,
+            start_angle = 2,
+            end_angle = 180 - 2, //FIXME make this automatically always 180 out of phase?
+            balance_feelers = true,
+            waypointPopDist = 2,
+            gpsWaitMilliseconds = 5000 * 20,
+            gpsBiasWeight = 0,
+            forwardBiasWeight = 100,
+            backwardsBiasWeight = 200,
+            max_turn_speed = 1.25,
+            max_drive_speed = 2.0,
+            max_strafe_speed = 0.0,
+        };
 
-        __config = config;
+        // __config = config;
         _config = config;
     }
 
     public override Task Init(CancellationToken token)
     {
-        return Task.CompletedTask;
-
+        int numWaypoints = 0;
         // === read waypoints from file === (copied and pasted from last year's feat/astar_rewrite_v3 branch)
         String line;
-        _waypointsFile.open(_WAYPOINTS_FILENAME);
-        getline(waypointsFile, line); // skip the first line
-        int numWaypoints = 0;
-        while (getline(waypointsFile, line))
+
+        using (StreamReader waypointsFile = new(_WAYPOINTS_FILENAME))
         {
-            List<String> tokens; // https://www.geeksforgeeks.org/tokenizing-a-string-cpp/
-            Stringstream strstream(line);
-            String intermediate;
-            while (getline(strstream, intermediate, ','))
+            // skip the first line
+            line = waypointsFile.ReadLine();
+            while ((line = waypointsFile.ReadLine()) != null)
             {
-                tokens.push_back(intermediate);
+                var tokens = line.Split(",");
+
+                LatLng point = new(
+                    double.Parse(tokens[1]),
+                    double.Parse(tokens[2])
+                );
+
+                // waypoints are stored like {"north":[GPSPoint, GPSPoint]}
+                _waypointsDict[tokens[0]].Add(point);
+                numWaypoints++;
             }
-
-            GPSPoint point;
-            point.lat = std::stod(tokens[1]); //https://cplusplus.com/reference/string/stod/
-            point.lon = std::stod(tokens[2]);
-
-            // waypoints are stored like {"north":[GPSPoint, GPSPoint]}
-            waypointsDict[tokens[0]].push_back(point);
-            numWaypoints++;
         }
-        waypointsFile.close();
         _waypointIndex = 0;
         // === /read waypoints ===
 
-        log("Number of waypoints read: " + std::to_string(numWaypoints), AutoNav::Logging::INFO);
+        // log("Number of waypoints read: " + numWaypoints, AutoNav::Logging::INFO);
 
         if (numWaypoints < 1)
         {
-            log("No waypoints read! GPS Feeler will not work", AutoNav::Logging::WARN);
+            // log("No waypoints read! GPS Feeler will not work", AutoNav::Logging::WARN);
         }
 
         // make all the feelers
-        _buildFeelers();
+        BuildFeelers();
 
-        lastTime = now();
+        _lastTime = TimeUtils.Now();
 
         // pid controllers
-        _headingPID = PIDController(.002, 0.0, 0.0);
+        _headingPID = new Tools.PIDController(.002, 0.0, 0.0);
 
         // subscribers
         positionSubscriber = create_subscription<autonav_msgs::msg::Position>("/autonav/position", 1, std::bind(&FeelerNode::onPositionReceived, this, std::placeholders::_1));
@@ -169,20 +170,18 @@ public class FeelerSubsystem : SubsystemBase
 
         set_device_state(AutoNav::DeviceState::READY);
 
-        // log("FEELERS READY!", AutoNav::Logging::WARN); //FIXME TODO
-        //FIXME this is for temporary debug purposes while we are minus a UI
-        // _set_system_state(RobotModeEnum.AUTONOMOUS, true);
-
         _hasPlayedGps = false;
         _hasPlayedHorn = false;
         // _old_state = AutoNav::DeviceState::READY;
 
         //FIXME SHUTDOWN doesn't exist... maybe this should be an on_subsystem_state_update or something?
-        _on_system_state_updated(RobotModeEnum.Disabled, RobotModeEnum.Disabled);
+        OnSystemStateUpdated(RobotModeEnum.Disabled, RobotModeEnum.Disabled);
+
+        return Task.CompletedTask;
     }
 
 
-    public override void on_system_state_updated(RobotModeEnum old, RobotModeEnum new_state)
+    public override void OnSystemStateUpdated(RobotModeEnum old, RobotModeEnum new_state)
     {
         SafetyLights msg = new SafetyLights
         {
@@ -191,28 +190,28 @@ public class FeelerSubsystem : SubsystemBase
             mode = 1
         };
 
-        if (old == RobotModeEnum.AUTONOMOUS && new_state != RobotModeEnum.AUTONOMOUS)
+        if (old == RobotModeEnum.Autonomous && new_state != RobotModeEnum.Autonomous)
         {
             // rainbow
             msg.mode = 3;
-            _safetyLightsPublisher->publish(msg);
+            _safetyLightsPublisher.publish(msg);
         }
-        else if (new_state == RobotModeEnum.AUTONOMOUS)
+        else if (new_state == RobotModeEnum.Autonomous)
         {
             msg.blink_period = 30;
             msg.red = 250;
             msg.blue = 250;
             msg.green = 250;
             msg.mode = 2; // auto
-            _safetyLightsPublisher->publish(msg);
+            _safetyLightsPublisher.publish(msg);
         }
-        else if (new_state == RobotModeEnum.MANUAL)
+        else if (new_state == RobotModeEnum.Manual)
         {
             msg.red = 200;
             msg.green = 200;
             msg.blue = 0;
             msg.mode = 1;
-            _safetyLightsPublisher->publish(msg);
+            _safetyLightsPublisher.publish(msg);
         }
     }
 
@@ -221,7 +220,7 @@ public class FeelerSubsystem : SubsystemBase
         var new_config = new_cfg.get<FeelerNodeConfig>();
         _config = new_config;
 
-        _BuildFeelers();
+        BuildFeelers();
     }
 
     /**
@@ -231,13 +230,13 @@ public class FeelerSubsystem : SubsystemBase
      */
     public void BuildFeelers()
     {
-        _feelers = List<Feeler>();
+        _feelers = [];
         for (double angle = _config.start_angle; angle < _config.end_angle; angle += ((_config.end_angle - _config.start_angle) / _config.number_of_feelers))
         {
-            int x = _config.max_length * cos(radians(angle)); //int should truncate these to nice whole numbers
-            int y = _config.max_length * sin(radians(angle));
+            int x = _config.max_length * Math.Cos(radians(angle)); //int should truncate these to nice whole numbers
+            int y = _config.max_length * Math.Sin(radians(angle));
 
-            _feelers.push_back(Feeler(x, y));
+            _feelers.Add(new Feeler(x, y, new Scalar(0, 0, 0))); //FIXME default color
         }
 
         // build some feelers on the other side of the cone/arc formed from start_angle to end_angle
@@ -245,29 +244,29 @@ public class FeelerSubsystem : SubsystemBase
         {
             for (double angle = wrapAngle(_config.start_angle + 180); angle < wrapAngle(_config.end_angle + 180); angle += ((_config.end_angle - _config.start_angle) / _config.number_of_feelers))
             {
-                int x = _config.max_length * cos(radians(angle)); //int should truncate these to nice whole numbers
-                int y = _config.max_length * sin(radians(angle));
+                int x = _config.max_length * Math.Cos(Radians(angle)); //int should truncate these to nice whole numbers
+                int y = _config.max_length * Math.Sin(Radians(angle));
 
-                _feelers.push_back(Feeler(x, y));
+                _feelers.Add(new Feeler(x, y, new Scalar(0, 0, 0))); //FIXME default color
             }
         }
 
         // bias feelers forwards
-        Feeler forwardsFeeler = Feeler(10, 100); // positive (?!) y is upwards in an image
-        for (int i = 0; i < _feelers.size(); i++)
+        var forwardsFeeler = new Feeler(10, 100, new Scalar(0, 0, 0)); // positive (?!) y is upwards in an image
+        for (int i = 0; i < _feelers.Count(); i++)
         {
-            _feelers.at(i).bias(_config.forwardBiasWeight * (_feelers.at(i) * forwardsFeeler));
+            _feelers[i].Bias(_config.forwardBiasWeight * (_feelers[i] * forwardsFeeler));
         }
 
         // bias backwards feelers backwards TODO FIXME this doesn't work
         // Feeler backwardsFeeler = Feeler(10, -50);
-        // for (int i = 0; i < _feelers.size(); i++) {
+        // for (int i = 0; i < _feelers.Count(); i++) {
         //     _feelers.at(i).bias(_config.backwardsBiasWeight * (_feelers.at(i) * backwardsFeeler));
 
         //     // log("BIAS AMOUNT: " + std::to_string(_feelers.at(i).getBiasAmount()));
         // }
 
-        log("FEELERS BUILT! NUMBER OF FEELERS: " + std::to_string(_feelers.size()), AutoNav::Logging::INFO);
+        // log("FEELERS BUILT! NUMBER OF FEELERS: " + std::to_string(_feelers.Count()), AutoNav::Logging::INFO);
     }
 
     /**
@@ -283,7 +282,7 @@ public class FeelerSubsystem : SubsystemBase
         }
 
         // turn the image into a format we can use
-        var mask = cv_bridge::toCvCopy(image)->image; //TODO what encoding do we want to use?
+        var mask = cv_bridge::toCvCopy(image).image; //TODO what encoding do we want to use?
 
         // _feeler_img_ptr = cv_bridge::toCvCopy(image);
         // _perf_start("FeelerNode::update");
@@ -291,12 +290,12 @@ public class FeelerSubsystem : SubsystemBase
         // calculate new length of every new feeler
         foreach (var feeler in _feelers)
         {
-            feeler.update(mask, this);
+            feeler.Update(mask);
         }
 
         // _perf_stop("FeelerNode::update", true);
 
-        _calculateOutputs();
+        CalculateOutputs();
     }
 
     /**
@@ -312,25 +311,25 @@ public class FeelerSubsystem : SubsystemBase
         _position = msg;
 
         // if we haven't set a timestamp yet, but have started the run
-        if (_gpsTime == 0 && _is_mobility() && _get_system_state() == RobotModeEnum.AUTONOMOUS)
+        if (_gpsTime == 0 && _is_mobility() && _get_system_state() == RobotModeEnum.Autonomous)
         {
-            _gpsTime = now(); // then set the timestamp for the start of the run
+            _gpsTime = TimeUtils.Now(); // then set the timestamp for the start of the run
         }
 
-        // if, however, we have set a timestamp, and it's been long enough that the particle filter should know which direction we're heading
-        else if (_gpsTime != 0 && (now() - _gpsTime > _config.gpsWaitMilliseconds) && _direction == "")
+        // if, however, we have set a timestamp, and it's been long enough that the particle filter should kTimeUtils.Now which direction we're heading
+        else if (_gpsTime != 0 && (TimeUtils.Now() - _gpsTime > _config.gpsWaitMilliseconds) && _direction == "")
         {
             // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = abs(_position.theta * 180 / PI);
+            double heading_degrees = Math.Abs(_position.theta * 180 / Math.PI);
             if (120 < heading_degrees && heading_degrees < 240)
             {
                 _direction = "compSouth";
-                log("PICKING SOUTH WAYPOINTS", AutoNav::Logging::INFO);
+                // log("PICKING SOUTH WAYPOINTS", AutoNav::Logging::INFO);
             }
             else
             {
                 _direction = "compNorth";
-                log("PICKING NORTH WAYPOINTS", AutoNav::Logging::INFO);
+                // log("PICKING NORTH WAYPOINTS", AutoNav::Logging::INFO);
             }
         }
 
@@ -339,32 +338,32 @@ public class FeelerSubsystem : SubsystemBase
         if (_direction != "")
         {
             // if we don't have any waypoints, however
-            if (_waypointsDict.size() == 0)
+            if (_waypointsDict.Count() == 0)
             {
                 //TODO do something???
                 return;
             }
-            GPSPoint goalPoint = _waypointsDict.at(_direction)[_waypointIndex];
+            LatLng goalPoint = _waypointsDict[_direction][_waypointIndex];
 
             // make a vector pointing towards the GPS waypoint
-            int latError = (goalPoint.lat - _position.latitude) * _latitudeLength * 5;
-            int lonError = (goalPoint.lon - _position.longitude) * _longitudeLength * 5;
+            int latError = (goalPoint.Latitude - _position.latitude) * _latitudeLength * 5;
+            int lonError = (goalPoint.Longitude - _position.longitude) * _longitudeLength * 5;
             double angleToWaypoint = std::atan2(latError, lonError); // all in radians, don't worry
 
             // account for rotation of the robot (aka translate the gps error into camera/robot-relative coordinates, where (0, 0) is the center of the camera frame)
             double headingError = (angleToWaypoint - _position.theta); //TODO FIXME double check this
-            int gps_x = (lonError * std::cos(headingError)) - (latError * std::sin(headingError));
-            int gps_y = (lonError * std::sin(headingError)) + (latError * std::cos(headingError));
-            _gpsFeeler = Feeler(gps_x, gps_y);
+            int gps_x = (int)((lonError * Math.Cos(headingError)) - (latError * Math.Sin(headingError)));
+            int gps_y = (int)((lonError * Math.Sin(headingError)) + (latError * Math.Cos(headingError)));
+            _gpsFeeler = new Feeler(gps_x, gps_y);
 
             // Feeler velocityFeeler = Feeler(_position.x_vel, _position.y_vel);
-            Feeler velocityFeeler = Feeler(0, 100);
+            Feeler velocityFeeler = new(0, 100);
 
             // calculate bias for every feeler
-            for (int i = 0; i < _feelers.size(); i++)
+            for (int i = 0; i < _feelers.Count(); i++)
             {
-                double gps_bias = _config.gpsBiasWeight * (_feelers.at(i) * _gpsFeeler); // dot product (normalized, don't worry)
-                double forward_bias = _config.forwardBiasWeight * (_feelers.at(i) * velocityFeeler); // dot product
+                double gps_bias = _config.gpsBiasWeight * (_feelers[i] * _gpsFeeler); // dot product (normalized, don't worry)
+                double forward_bias = _config.forwardBiasWeight * (_feelers[i] * velocityFeeler); // dot product
 
                 if (gps_bias < 0.0)
                 {
@@ -376,13 +375,13 @@ public class FeelerSubsystem : SubsystemBase
                     forward_bias = 0.0;
                 }
 
-                _feelers.at(i).bias(gps_bias + forward_bias);
+                _feelers[i].Bias(gps_bias + forward_bias);
             }
 
-            _distToWaypoint = std::sqrt(std::pow((goalPoint.lon - _position.longitude) * _latitudeLength, 2) + std::pow((goalPoint.lat - _position.latitude) * _longitudeLength, 2));
+            _distToWaypoint = Math.Sqrt(Math.Pow((goalPoint.lon - _position.longitude) * _latitudeLength, 2) + Math.Pow((goalPoint.lat - _position.latitude) * _longitudeLength, 2));
 
             // if we are close enough to the waypoint, and we aren't going to cause an out-of-bounds index error
-            if (_distToWaypoint < config.waypointPopDist && _waypointIndex < (_waypointsDict[_direction].size() - 2))
+            if (_distToWaypoint < _config.waypointPopDist && _waypointIndex < (_waypointsDict[_direction].Count() - 2))
             {
                 // then go to the next waypoint
                 _waypointIndex++;
@@ -392,13 +391,13 @@ public class FeelerSubsystem : SubsystemBase
                 msg.longitude = goalPoint.lon;
                 msg.tag = "feelers";
 
-                _waypointPublisher->publish(msg);
+                _waypointPublisher.publish(msg);
 
-                log("NEXT WAYPOINT!", AutoNav::Logging::WARN);
+                // log("NEXT WAYPOINT!", AutoNav::Logging::WARN);
             }
         }
 
-        _calculateOutputs();
+        CalculateOutputs();
     }
 
     /**
@@ -409,7 +408,7 @@ public class FeelerSubsystem : SubsystemBase
     public void OnDebugImageReceived(sensor_msgs::msg::CompressedImage image)
     {
         // update the headingArrow with the most recent information
-        _calculateOutputs();
+        CalculateOutputs();
 
         // log("GETTING DEBUG IMAGE!", AutoNav::Logging::WARN); //FIXME TODO
 
@@ -417,7 +416,7 @@ public class FeelerSubsystem : SubsystemBase
         _debug_image_ptr = cv_bridge::toCvCopy(image); //TODO figure out what encoding we want to use
 
         // don't publish or draw on the image if it doesn't exist
-        if (_debug_image_ptr == nullptr)
+        if (_debug_image_ptr == null)
         {
             return;
         }
@@ -428,22 +427,22 @@ public class FeelerSubsystem : SubsystemBase
         {
             // color biased feelers differently TODO FIXME why do we need to recalculate this every time?
             // TODO we should change Feeler.cs to pass in 2 colors and have it lerp automatically in draw() or something...
-            cv::Scalar color_ = lerp(BLUE, RED, feeler.getBiasAmount() / (_config.forwardBiasWeight));
+            Scalar color_ = Feeler.Lerp(BLUE, RED, feeler.getBiasAmount() / (_config.forwardBiasWeight));
             feeler.setColor(color_);
 
-            feeler.draw(_debug_image_ptr->image);
+            feeler.Draw(_debug_image_ptr);
         }
 
         // draw feeler towards GPS waypoint
-        _gpsFeeler.setColor(cv::Scalar(50, 200, 50));
-        _gpsFeeler.draw(_debug_image_ptr->image);
+        _gpsFeeler.SetColor(new Scalar(50, 200, 50));
+        _gpsFeeler.Draw(_debug_image_ptr);
 
         // draw the heading arrow on top of everything else
-        _headingArrow.draw(_debug_image_ptr->image);
+        _headingArrow.Draw(_debug_image_ptr);
         // _perf_stop("FeelerNode::draw", true);
 
         // publish the debug image
-        _debugPublisher->publish(*(debug_image_ptr->toCompressedImageMsg()));
+        _debugPublisher.publish(*(debug_image_ptr.toCompressedImageMsg()));
     }
 
     /**
@@ -456,8 +455,8 @@ public class FeelerSubsystem : SubsystemBase
     public void CalculateOutputs()
     {
         // reinitialize the heading arrow
-        _headingArrow = Feeler(0, 0);
-        _headingArrow.setColor(cv::Scalar(200, 200, 0));
+        _headingArrow = new Feeler(0, 0);
+        _headingArrow.SetColor(new Scalar(200, 200, 0));
 
         // add all the feelers together
         foreach (var feeler in _feelers)
@@ -474,7 +473,7 @@ public class FeelerSubsystem : SubsystemBase
     public void PublishOutputMessages()
     {
         // if we aren't in autonomous
-        if ((_get_system_state() != RobotModeEnum.AUTONOMOUS) || (_get_device_state() != AutoNav::DeviceState::OPERATING))
+        if ((_get_system_state() != RobotModeEnum.Autonomous) || (_get_device_state() != AutoNav::DeviceState::OPERATING))
         {
             return; // return because we don't need to do anything (so as to apublic void conflicting with manual control if that's running)
         }
@@ -503,13 +502,13 @@ public class FeelerSubsystem : SubsystemBase
             {
                 multiplier = 5.0;
             }
-            msg.forward_velocity = std::clamp(static_cast<float>(_headingArrow.getY()) * multiplier, -_config.max_drive_speed, _config.max_drive_speed); //FIXME configure divider number thingy
+            msg.forward_velocity = Math.Clamp(_headingArrow.GetY() * multiplier, -_config.max_drive_speed, _config.max_drive_speed); //FIXME configure divider number thingy
             msg.sideways_velocity = 0.0;
-            msg.angular_velocity = std::clamp(static_cast<float>(_headingPID.calculate(_headingArrow.getX())), -_config.max_turn_speed, _config.max_turn_speed); // one camera for now so always turn, no strafe
+            msg.angular_velocity = Math.Clamp(_headingPID.calculate(_headingArrow.GetX()), -_config.max_turn_speed, _config.max_turn_speed); // one camera for TimeUtils.Now so always turn, no strafe
 
             //TODO FIXME these are like, kinda jank hacks to get it to work, it should not be like this in the final version
             // if feelers doesn't produce any motor command (if it's in a symmetrical position)
-            if (abs(msg.forward_velocity) < 0.1 && abs(msg.angular_velocity) < 0.1)
+            if (Math.Abs(msg.forward_velocity) < 0.1 && Math.Abs(msg.angular_velocity) < 0.1)
             {
                 // then assume something is bad and go backwards and to the left
                 msg.forward_velocity = -0.5;
@@ -517,10 +516,10 @@ public class FeelerSubsystem : SubsystemBase
 
                 // if we are going backwards and not really turning
             }
-            else if (msg.forward_velocity < 0.0 && abs(msg.angular_velocity) < 0.1)
+            else if (msg.forward_velocity < 0.0 && Math.Abs(msg.angular_velocity) < 0.1)
             {
                 msg.angular_velocity *= 3; // then go faster
-                msg.angular_velocity = std::clamp(msg.angular_velocity, -_config.max_turn_speed, _config.max_turn_speed);
+                msg.angular_velocity = Math.Clamp(msg.angular_velocity, -_config.max_turn_speed, _config.max_turn_speed);
             }
 
             //TODO safety lights need to change to other colors and stuff for debug information
@@ -535,7 +534,7 @@ public class FeelerSubsystem : SubsystemBase
 
         //TODO figure out what sounds we actually want to play and when
         bool publishAudible = true;
-        if (distToWaypoint < config.waypointPopDist && _direction != "" && !_hasPlayedGps)
+        if (distToWaypoint < _config.waypointPopDist && _direction != "" && !_hasPlayedGps)
         {
             feedback_msg.filename = "~/autonav_software_2025/music/mine_xp.mp3";
 
@@ -557,13 +556,13 @@ public class FeelerSubsystem : SubsystemBase
         }
 
         // publish the messages
-        _motorPublisher->publish(msg);
-        _safetyLightsPublisher->publish(safetyLightsMsg);
+        _motorPublisher.publish(msg);
+        _safetyLightsPublisher.publish(safetyLightsMsg);
 
         // if we are actually wanting to play a file
         if (publishAudible)
         {
-            _audibleFeedbackPublisher->publish(feedback_msg);
+            _audibleFeedbackPublisher.publish(feedback_msg);
         }
     }
 }

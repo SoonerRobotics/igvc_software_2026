@@ -4,6 +4,8 @@ using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using OpenCvSharp;
 
+// FIXME: add a "using namespace" or something here
+
 public class Feeler
 {
     private int _x = 0;
@@ -29,6 +31,26 @@ public class Feeler
      * length is autocalulated and should never be manually set
      * @param x the x component of the feeler
      * @param y the y component of the feeler
+     */
+    public Feeler(int x, int y)
+    {
+        _x = x;
+        _y = y;
+        _length = Dist(x, y);
+
+        // this is necessary so we can remember our original size and grow back up to it in the Math.Absence of an obstacle
+        _original_x = x;
+        _original_y = y;
+        _original_length = _length;
+
+        _color = new Scalar(100, 100, 100); //FIXME default color
+    }
+
+    /**
+     * Feeler constructor with customizable color
+     * @param x the x component of the feeler
+     * @param y the y component of the feeler
+     * @param color the color (as an OpenCv Scalar, in RGB) to use for the Feeler
      */
     public Feeler(int x, int y, Scalar color)
     {
@@ -356,7 +378,7 @@ public class Feeler
      * Draw the feeler using its color on the provided image.
      * @param image an image that the feeler can be drawn on
      */
-    void Draw(Mat image)
+    public void Draw(Mat image)
     {
         Point startPt = new();
         Point endPt = new();
@@ -382,7 +404,7 @@ public class Feeler
      * @param percentAmount a number between 0 and 1 inclusive to represent how much each color contributes to the final color
      * @return an openCV color somewhere between the two given colors, inclusive
      */
-    Scalar Lerp(Scalar src, Scalar dest, double percentAmount)
+    public static Scalar Lerp(Scalar src, Scalar dest, double percentAmount)
     {
         double ch1 = (src[0] * (1.0 - percentAmount)) + (dest[0] * percentAmount);
         double ch2 = (src[1] * (1.0 - percentAmount)) + (dest[1] * percentAmount);
