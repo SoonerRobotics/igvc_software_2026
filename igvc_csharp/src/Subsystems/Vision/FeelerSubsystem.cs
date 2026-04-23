@@ -8,6 +8,7 @@ using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using igvc_csharp.Subsystems.Hardware;
 
 namespace igvc_csharp.Subsystems.FeelerSubsystem;
 
@@ -40,9 +41,10 @@ struct FeelerNodeConfig
 
 
 // Subsystem to do the actual reactive image feelering
-// other actual path planning / motor / state management will be done by separate class
-[Subsystem("FeelerSubsystem", Disabled = true)]
-public class FeelerSubsystem : SubsystemBase
+// other actual path planning / motor / state management will be done by separate class FIXME TODO will it actually tho?
+[Subsystem("FeelerSubsystem", Disabled = true, DependsOn=[typeof(ControllerSubsystem)])]
+
+public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // feelers
     private List<Feeler> _feelers;
@@ -78,7 +80,6 @@ public class FeelerSubsystem : SubsystemBase
     // publishers FIXME
     // motorPublisher;
     // debugPublisher;
-    // safetyLightsPublisher;
     // audibleFeedbackPublisher;
     // waypointPublisher;
     // rclcpp::TimerBase::SharedPtr publishTimer;
@@ -163,7 +164,6 @@ public class FeelerSubsystem : SubsystemBase
         // publishers
         motorPublisher = create_publisher<autonav_msgs::msg::MotorInput>("/autonav/motor_input", 1);
         debugPublisher = create_publisher<sensor_msgs::msg::CompressedImage>("/autonav/feelers/debug", 1);
-        safetyLightsPublisher = create_publisher<autonav_msgs::msg::SafetyLights>("/autonav/safety_lights", 1);
         audibleFeedbackPublisher = create_publisher<autonav_msgs::msg::AudibleFeedback>("/autonav/audible_feedback", 1);
         waypointPublisher = _create_publisher<autonav_msgs::msg::WaypointReached>("/autonav/waypoint_reached", 1);
         publishTimer = _create_wall_timer(std::chrono::milliseconds(50), std::bind(&FeelerNode::publishOutputMessages, this));
@@ -181,15 +181,9 @@ public class FeelerSubsystem : SubsystemBase
     }
 
 
+    //FIXME shouldn't this get handled by like... Robot.cs or something?
     public override void OnSystemStateUpdated(RobotModeEnum old, RobotModeEnum new_state)
     {
-        SafetyLights msg = new SafetyLights
-        {
-            brightness = 200,
-            blink_period = 0,
-            mode = 1
-        };
-
         if (old == RobotModeEnum.Autonomous && new_state != RobotModeEnum.Autonomous)
         {
             // rainbow
@@ -479,17 +473,11 @@ public class FeelerSubsystem : SubsystemBase
         }
 
         // make the messages for publishing
-        autonav_msgs::msg::SafetyLights safetyLightsMsg;
         autonav_msgs::msg::MotorInput msg;
         autonav_msgs::msg::AudibleFeedback feedback_msg;
 
-        // default in auto should be red
-        safetyLightsMsg.red = 250;
-        safetyLightsMsg.blue = 250;
-        safetyLightsMsg.green = 250;
-        safetyLightsMsg.brightness = 200;
-        safetyLightsMsg.mode = 1; // if we passed the system state check at the beginning of the function and reach this line of code then we're in auto
-        safetyLightsMsg.blink_period = 20;
+        // but if we ARE in autonomous,
+        canbus.SafetyLights.SetAutonomous();
 
         // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
         if (_is_mobility())
@@ -497,14 +485,14 @@ public class FeelerSubsystem : SubsystemBase
             // convert headingArrow to motor outputs
             //FIXME we want to be going max speed on the straightaways
             //FIXME the clamping should be configurable or something
-            float multiplier = 1.0;
+            double multiplier = 1.0;
             if (!_config.balance_feelers)
             {
                 multiplier = 5.0;
             }
             msg.forward_velocity = Math.Clamp(_headingArrow.GetY() * multiplier, -_config.max_drive_speed, _config.max_drive_speed); //FIXME configure divider number thingy
             msg.sideways_velocity = 0.0;
-            msg.angular_velocity = Math.Clamp(_headingPID.calculate(_headingArrow.GetX()), -_config.max_turn_speed, _config.max_turn_speed); // one camera for TimeUtils.Now so always turn, no strafe
+            msg.angular_velocity = Math.Clamp(_headingPID.Calculate(_headingArrow.GetX()), -_config.max_turn_speed, _config.max_turn_speed); // one camera for TimeUtils.Now so always turn, no strafe
 
             //TODO FIXME these are like, kinda jank hacks to get it to work, it should not be like this in the final version
             // if feelers doesn't produce any motor command (if it's in a symmetrical position)
@@ -534,17 +522,16 @@ public class FeelerSubsystem : SubsystemBase
 
         //TODO figure out what sounds we actually want to play and when
         bool publishAudible = true;
+        // if we reached a waypoint
         if (distToWaypoint < _config.waypointPopDist && _direction != "" && !_hasPlayedGps)
         {
             feedback_msg.filename = "~/autonav_software_2025/music/mine_xp.mp3";
 
-            // green for a little bit
-            safetyLightsMsg.red = 10;
-            safetyLightsMsg.blue = 10;
-            safetyLightsMsg.green = 240;
+            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, length: 2000);
 
             _hasPlayedGps = true;
         }
+        // if we've found the direction ??? FIXME
         else if (_direction != "" && !_hasPlayedHorn)
         {
             feedback_msg.filename = "~/autonav_software_2025/music/windows-xp-startup.mp3";
@@ -557,7 +544,6 @@ public class FeelerSubsystem : SubsystemBase
 
         // publish the messages
         _motorPublisher.publish(msg);
-        _safetyLightsPublisher.publish(safetyLightsMsg);
 
         // if we are actually wanting to play a file
         if (publishAudible)
