@@ -6,10 +6,31 @@ namespace igvc_csharp.Core.Units;
 public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
 {
     private double Radians { get; set; }
-    
-    internal Angle(double radians)
+
+    internal Angle(double radians, bool isRadians = true)
     {
-        Radians = radians;
+        if (isRadians)
+        {
+            Radians = radians;
+        }
+        else
+        {
+            Radians = radians * (Math.PI / 180);
+        }
+    }
+
+    public Angle WrapAngle()
+    {
+        if (Radians > Math.Tau)
+        {
+            Radians -= Math.PI;
+        }
+        else if (Radians < 0)
+        {
+            Radians += Math.PI;
+        }
+
+        return this; //FIXME does this even work???
     }
 
     public double To(AngleUnit unit) => unit.FromRadians(Radians);
@@ -43,7 +64,7 @@ public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
     public static Angle operator /(Angle a, double scalar) => new(a.Radians / scalar);
 
     public override string ToString() => $"{Radians} rad";
-    
+
     public object Serialize() => new { radians = Radians };
     public object Deserialize(object value)
     {

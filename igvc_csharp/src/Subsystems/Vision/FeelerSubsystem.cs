@@ -9,6 +9,7 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using igvc_csharp.Subsystems.Hardware;
+using igvc_csharp.Core.Hardware;
 
 namespace igvc_csharp.Subsystems.FeelerSubsystem;
 
@@ -19,35 +20,35 @@ namespace igvc_csharp.Subsystems.FeelerSubsystem;
  * @param number_of_feelers controls how many feelers there are, distributed uniformly in a circle
  * @param start_angle the starting angle offset when building the feelers, in degrees
  */
+//FIXME I think this got superseded by Configuration.cs???
 struct FeelerNodeConfig
 {
     public int max_length; // pixels
     public int number_of_feelers;
-    public double start_angle; // degrees
-    public double end_angle; // degrees
-    public bool balance_feelers; // TODO FIXME whether to make feelers like, symmetrical
-    public double waypointPopDist; // meters?
+    public double angle_offset; // degrees at which the first feeler starts, 0 degrees is the positive X-axis
+    public double angular_width; // how many degrees from the angle_offset is the last feeler
+    public bool balance_feelers; // whether to build backwards feelers or not (feelers behind/180-degrees offset from the initial feelers)
+    //FIXME add a waypointPopWaitTime???
+    public double waypointPopDist; // how close to a waypoint do we have to be, in meters, to consider it reached
     public ulong gpsWaitMilliseconds; // time to wait before using GPS waypoints, in milliseconds
     public int gpsBiasWeight; // pixels
     public int forwardBiasWeight; // pixels
     public int backwardsBiasWeight; // pixels
-    public double max_turn_speed; // meters per second, probably (check sparkmax_node.py)
+    public double max_turn_speed; // meters per second
     public double max_drive_speed; // meters per second
     public double max_strafe_speed; // meters per second
-
-    // NLOHMANN_DEFINE_TYPE_INTRUSIVE(FeelerNodeConfig, max_length, number_of_feelers, start_angle, end_angle, balance_feelers, waypointPopDist, gpsWaitMilliseconds, gpsBiasWeight, forwardBiasWeight);
 };
 
 
 
 // Subsystem to do the actual reactive image feelering
 // other actual path planning / motor / state management will be done by separate class FIXME TODO will it actually tho?
-[Subsystem("FeelerSubsystem", Disabled = true, DependsOn=[typeof(ControllerSubsystem)])]
+[Subsystem("FeelerSubsystem", Disabled = true, DependsOn = [typeof(ControllerSubsystem)])]
 
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // feelers
-    private List<Feeler> _feelers;
+    private List<Feeler>? _feelers;
     private Feeler _headingArrow = new Feeler(0, 0, new Scalar(0, 0, 0)); //FIXME default color
 
     // PID controllers
@@ -57,13 +58,13 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     FeelerNodeConfig _config;
 
     // FIXME these should be pointers or something???
-    private OpenCvSharp.Mat _debug_image_ptr;
-    private OpenCvSharp.Mat _feeler_img_ptr;
+    private readonly Channel<byte[]> _maskChannel = Channel.CreateBounded<byte[]>(1);
+    private readonly Channel<byte[]> _debugChannel = Channel.CreateBounded<byte[]>(1);
 
     // GPS
     private Feeler _gpsFeeler = new Feeler(0, 0, new Scalar(0, 0, 0)); //FIXME fix default color
-    private LatLng _goalPoint;
-    private autonav_msgs::msg::Position _position;
+    private LatLng? _goalPoint;
+    private VectorNavReport _position; //????? FIXME
     private double _distToWaypoint = 0;
     private ulong _lastTime = 0;
     private ulong _gpsTime = 0;
@@ -72,33 +73,21 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private bool _hasPlayedGps = false;
     private bool _hasPlayedHorn = false;
 
-    // subscribers
-    //FIXME positionSubscriber;
-    //FIXME imageSubscriber;
-    //FIXME debugImageSubscriber;
-
-    // publishers FIXME
-    // motorPublisher;
-    // debugPublisher;
-    // audibleFeedbackPublisher;
-    // waypointPublisher;
-    // rclcpp::TimerBase::SharedPtr publishTimer;
-
     // stuff for file-reading code (copied and pasted from https://github.com/SoonerRobotics/autonav_software_2024/blob/feat/astar_rewrite_v3/autonav_ws/src/autonav_nav/src/astar.cpp)
     private readonly String _WAYPOINTS_FILENAME = "./data/waypoints.csv"; // filename for the waypoints (should be CSV file with label,lat,lon,)
-    private Dictionary<String, List<LatLng>> _waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
+    private Dictionary<String, List<LatLng>>? _waypointsDict; // dictionairy of lists containing the GPS waypoints we could PID to, choose the waypoints for the correct direction from here
     private int _waypointIndex = 0;
     private String _direction = ""; //FIXME make this an enum or something
 
-    public FeelerSubsystem()
+    public override Task Init(CancellationToken token)
     {
         // configuration stuff
         var config = new FeelerNodeConfig
         {
             max_length = 100,
             number_of_feelers = 16,
-            start_angle = 2,
-            end_angle = 180 - 2, //FIXME make this automatically always 180 out of phase?
+            angle_offset = 2,
+            angular_width = 180 - 4,
             balance_feelers = true,
             waypointPopDist = 2,
             gpsWaitMilliseconds = 5000 * 20,
@@ -110,12 +99,9 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             max_strafe_speed = 0.0,
         };
 
-        // __config = config;
         _config = config;
-    }
 
-    public override Task Init(CancellationToken token)
-    {
+
         int numWaypoints = 0;
         // === read waypoints from file === (copied and pasted from last year's feat/astar_rewrite_v3 branch)
         String line;
@@ -149,6 +135,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
 
         // make all the feelers
+        _feelers = [];
         BuildFeelers();
 
         _lastTime = TimeUtils.Now();
@@ -157,56 +144,42 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         _headingPID = new Tools.PIDController(.002, 0.0, 0.0);
 
         // subscribers
-        positionSubscriber = create_subscription<autonav_msgs::msg::Position>("/autonav/position", 1, std::bind(&FeelerNode::onPositionReceived, this, std::placeholders::_1));
-        imageSubscriber = create_subscription<sensor_msgs::msg::CompressedImage>("/autonav/vision/combined/filtered", 1, std::bind(&FeelerNode::onImageReceived, this, std::placeholders::_1));
-        debugImageSubscriber = create_subscription<sensor_msgs::msg::CompressedImage>("/autonav/vision/combined/debug", 1, std::bind(&FeelerNode::onDebugImageReceived, this, std::placeholders::_1));
+        SubscribeMessage<VectorNavReport>(MessageType.Gps, OnPositionReceived, token);
+        SubscribeImage("front_view", OnImageReceived, token);
+        SubscribeImage("front_view_debug", OnDebugImageReceived, token);
 
         // publishers
-        motorPublisher = create_publisher<autonav_msgs::msg::MotorInput>("/autonav/motor_input", 1);
-        debugPublisher = create_publisher<sensor_msgs::msg::CompressedImage>("/autonav/feelers/debug", 1);
-        audibleFeedbackPublisher = create_publisher<autonav_msgs::msg::AudibleFeedback>("/autonav/audible_feedback", 1);
-        waypointPublisher = _create_publisher<autonav_msgs::msg::WaypointReached>("/autonav/waypoint_reached", 1);
-        publishTimer = _create_wall_timer(std::chrono::milliseconds(50), std::bind(&FeelerNode::publishOutputMessages, this));
+        _ = Task.Run(() => PublishOutputMessages(token), token);
 
-        set_device_state(AutoNav::DeviceState::READY);
+        SetOperatingState(SubsystemState.Ready);
 
         _hasPlayedGps = false;
         _hasPlayedHorn = false;
-        // _old_state = AutoNav::DeviceState::READY;
-
-        //FIXME SHUTDOWN doesn't exist... maybe this should be an on_subsystem_state_update or something?
-        OnSystemStateUpdated(RobotModeEnum.Disabled, RobotModeEnum.Disabled);
 
         return Task.CompletedTask;
     }
 
 
-    //FIXME shouldn't this get handled by like... Robot.cs or something?
-    public override void OnSystemStateUpdated(RobotModeEnum old, RobotModeEnum new_state)
+    public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
     {
-        if (old == RobotModeEnum.Autonomous && new_state != RobotModeEnum.Autonomous)
+        if (old == RobotModeEnum.Autonomous && current != RobotModeEnum.Autonomous)
         {
-            // rainbow
-            msg.mode = 3;
-            _safetyLightsPublisher.publish(msg);
+            canbus.SafetyLights.SetAutonomous();
         }
-        else if (new_state == RobotModeEnum.Autonomous)
+        else if (current == RobotModeEnum.Autonomous)
         {
-            msg.blink_period = 30;
-            msg.red = 250;
-            msg.blue = 250;
-            msg.green = 250;
-            msg.mode = 2; // auto
-            _safetyLightsPublisher.publish(msg);
+            canbus.SafetyLights.SetAutonomous();
         }
-        else if (new_state == RobotModeEnum.Manual)
+        else if (current == RobotModeEnum.Manual)
         {
-            msg.red = 200;
-            msg.green = 200;
-            msg.blue = 0;
-            msg.mode = 1;
-            _safetyLightsPublisher.publish(msg);
+            canbus.SafetyLights.SetManual();
         }
+        else
+        {
+            canbus.SafetyLights.SetDisabled(); //FIXME ???
+        }
+
+        return Task.CompletedTask;
     }
 
     public override void on_config_updated(json old_cfg, json new_cfg)
@@ -224,32 +197,46 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
      */
     public void BuildFeelers()
     {
-        _feelers = [];
-        for (double angle = _config.start_angle; angle < _config.end_angle; angle += ((_config.end_angle - _config.start_angle) / _config.number_of_feelers))
-        {
-            int x = _config.max_length * Math.Cos(radians(angle)); //int should truncate these to nice whole numbers
-            int y = _config.max_length * Math.Sin(radians(angle));
+        // reset feelers
+        _feelers ??= [];
+        _feelers.Clear();
 
-            _feelers.Add(new Feeler(x, y, new Scalar(0, 0, 0))); //FIXME default color
+        var start_angle = new Angle(_config.angle_offset, false);
+        var end_angle = new Angle(_config.angle_offset + _config.angular_width, false);
+        var angle_increment = new Angle(_config.angular_width / _config.number_of_feelers, false);
+
+        // default to blue FIXME we want lerp to be automatic right?
+        var defaultColor = new Scalar(100, 100, 200);
+
+        for (var angle = start_angle; angle < end_angle; angle += angle_increment)
+        {
+            int x = (int)(_config.max_length * Math.Cos(angle.To(AngleUnit.Radians)));
+            int y = (int)(_config.max_length * Math.Sin(angle.To(AngleUnit.Radians)));
+
+            _feelers.Add(new Feeler(x, y, defaultColor));
         }
 
         // build some feelers on the other side of the cone/arc formed from start_angle to end_angle
         if (_config.balance_feelers)
         {
-            for (double angle = wrapAngle(_config.start_angle + 180); angle < wrapAngle(_config.end_angle + 180); angle += ((_config.end_angle - _config.start_angle) / _config.number_of_feelers))
-            {
-                int x = _config.max_length * Math.Cos(Radians(angle)); //int should truncate these to nice whole numbers
-                int y = _config.max_length * Math.Sin(Radians(angle));
+            var flipped_start = (start_angle + new Angle(180, false)).WrapAngle();
+            var flipped_end = (flipped_start + new Angle(_config.angular_width, false)).WrapAngle();
 
-                _feelers.Add(new Feeler(x, y, new Scalar(0, 0, 0))); //FIXME default color
+            for (var angle = flipped_start; angle < flipped_end; angle += angle_increment)
+            {
+                int x = (int)(_config.max_length * Math.Cos(angle.To(AngleUnit.Radians)));
+                int y = (int)(_config.max_length * Math.Sin(angle.To(AngleUnit.Radians)));
+
+                _feelers.Add(new Feeler(x, y, defaultColor));
             }
         }
 
         // bias feelers forwards
-        var forwardsFeeler = new Feeler(10, 100, new Scalar(0, 0, 0)); // positive (?!) y is upwards in an image
-        for (int i = 0; i < _feelers.Count(); i++)
+        var forwardsFeeler = new Feeler(0, 100, defaultColor); // positive y is upwards in an image
+        foreach (var feeler in _feelers)
         {
-            _feelers[i].Bias(_config.forwardBiasWeight * (_feelers[i] * forwardsFeeler));
+            //FIXME this biases the revers feelers as well right??? shouldn't we NOT DO THIS???
+            feeler.Bias(_config.forwardBiasWeight * (feeler * forwardsFeeler));
         }
 
         // bias backwards feelers backwards TODO FIXME this doesn't work
@@ -267,18 +254,17 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
      * Callback for the combined image from the cameras.
      * @param image a compressedimage message with the combined transformations of all 4 cameras
      */
-    public void OnImageReceived(sensor_msgs::msg::CompressedImage image)
+    private Task OnImageReceived(ImageFrame frame, CancellationToken token)
     {
         // once we've actually gotten an image, we can safely say we're operating pretty well
-        if (_get_device_state() != AutoNav::DeviceState::OPERATING)
+        if (State != SubsystemState.Operating)
         {
-            set_device_state(AutoNav::DeviceState::OPERATING);
+            SetOperatingState(SubsystemState.Operating);
         }
 
         // turn the image into a format we can use
-        var mask = cv_bridge::toCvCopy(image).image; //TODO what encoding do we want to use?
+        var mask = _maskChannel.Writer.TryWrite(frame.GetImageDataArray());
 
-        // _feeler_img_ptr = cv_bridge::toCvCopy(image);
         // _perf_start("FeelerNode::update");
 
         // calculate new length of every new feeler
@@ -290,6 +276,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // _perf_stop("FeelerNode::update", true);
 
         CalculateOutputs();
+
+        return Task.CompletedTask;
     }
 
     /**
@@ -300,12 +288,12 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
      * No output, but does updates GPS feeler, which is added to headingArrow later to drive us towards the waypoint
      * @param msg the Postion message from the particle filter
      */
-    public void onPositionReceived(autonav_msgs::msg::Position msg)
+    public void OnPositionReceived(autonav_msgs::msg::Position msg)
     {
         _position = msg;
 
         // if we haven't set a timestamp yet, but have started the run
-        if (_gpsTime == 0 && _is_mobility() && _get_system_state() == RobotModeEnum.Autonomous)
+        if (_gpsTime == 0 && Robot.Instance.State.MotionAllowed && Robot.Instance.State.Mode == RobotModeEnum.Autonomous)
         {
             _gpsTime = TimeUtils.Now(); // then set the timestamp for the start of the run
         }
@@ -399,15 +387,15 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
      * All draw() calls should be in this function.
      * @param image the compressedImage message to draw the feelers on
      */
-    public void OnDebugImageReceived(sensor_msgs::msg::CompressedImage image)
+    private Task OnDebugImageReceived(sensor_msgs::msg::CompressedImage image)
     {
         // update the headingArrow with the most recent information
         CalculateOutputs();
 
-        // log("GETTING DEBUG IMAGE!", AutoNav::Logging::WARN); //FIXME TODO
+        // log("GETTING DEBUG IMAGE!", AutoNav::Logging::WARN);
 
         // get the debug image
-        _debug_image_ptr = cv_bridge::toCvCopy(image); //TODO figure out what encoding we want to use
+        _debugChannel.Writer.TryWrite(FrameSource.GetImageDataArray());
 
         // don't publish or draw on the image if it doesn't exist
         if (_debug_image_ptr == null)
@@ -421,14 +409,13 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         {
             // color biased feelers differently TODO FIXME why do we need to recalculate this every time?
             // TODO we should change Feeler.cs to pass in 2 colors and have it lerp automatically in draw() or something...
-            Scalar color_ = Feeler.Lerp(BLUE, RED, feeler.getBiasAmount() / (_config.forwardBiasWeight));
-            feeler.setColor(color_);
+            Scalar color_ = Feeler.Lerp(BLUE, RED, feeler.GetBiasAmount() / (_config.forwardBiasWeight));
+            feeler.SetColor(color_);
 
             feeler.Draw(_debug_image_ptr);
         }
 
         // draw feeler towards GPS waypoint
-        _gpsFeeler.SetColor(new Scalar(50, 200, 50));
         _gpsFeeler.Draw(_debug_image_ptr);
 
         // draw the heading arrow on top of everything else
@@ -436,7 +423,14 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // _perf_stop("FeelerNode::draw", true);
 
         // publish the debug image
-        _debugPublisher.publish(*(debug_image_ptr.toCompressedImageMsg()));
+
+        var detections = _detector!.Detect(jpeg);
+        var annotated = OpenCvDetectionRenderer.RenderDetections(jpeg, detections);
+        var frame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
+        var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer.ToFullArray());
+        EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+
+        return Task.CompletedTask;
     }
 
     /**
@@ -467,9 +461,9 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     public void PublishOutputMessages()
     {
         // if we aren't in autonomous
-        if ((_get_system_state() != RobotModeEnum.Autonomous) || (_get_device_state() != AutoNav::DeviceState::OPERATING))
+        if ((Robot.Instance.State.Mode != RobotModeEnum.Autonomous) || (State != SubsystemState.Operating))
         {
-            return; // return because we don't need to do anything (so as to apublic void conflicting with manual control if that's running)
+            return; // return because we don't need to do anything (so as to avoid conflicting with manual control if that's running)
         }
 
         // make the messages for publishing
@@ -480,7 +474,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         canbus.SafetyLights.SetAutonomous();
 
         // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
-        if (_is_mobility())
+        if (Robot.Instance.State.MotionAllowed)
         {
             // convert headingArrow to motor outputs
             //FIXME we want to be going max speed on the straightaways
