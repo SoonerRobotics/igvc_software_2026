@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Core.Hardware;
+using System.Linq.Expressions;
+using System.Diagnostics;
 
 namespace igvc_csharp.Subsystems.FeelerSubsystem;
 
@@ -51,8 +53,9 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private List<Feeler>? _feelers;
     private Feeler _headingArrow = new Feeler(0, 0, new Scalar(0, 0, 0)); //FIXME default color
 
-    // PID controllers
-    private Tools.PIDController _headingPID = new(0.0, 0.0, 0.0);
+    // PID controllers FIXME these need to be tunable / configurable
+    private PIDController _headingPID = new(0.001, 0.0, 0.00001);
+    private PIDController _drivingPID = new(0.01, 0.0, 0.0);
 
     // config
     FeelerNodeConfig _config;
@@ -145,11 +148,11 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         // subscribers
         SubscribeMessage<VectorNavReport>(MessageType.Gps, OnPositionReceived, token);
-        SubscribeImage("front_view", OnImageReceived, token);
-        SubscribeImage("front_view_debug", OnDebugImageReceived, token);
+        SubscribeImage("front_transformed", OnImageReceived, token);
+        SubscribeImage("front_view", OnDebugImageReceived, token);
 
         // publishers
-        _ = Task.Run(() => PublishOutputMessages(token), token);
+        _ = Task.Run(() => PerformFeelers(token), token);
 
         SetOperatingState(SubsystemState.Ready);
 
@@ -195,7 +198,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
      * Evenly distributes a num_feelers number of feelers in a circle of radius max_length
      * starting with an offset of start_angle (in degrees).
      */
-    public void BuildFeelers()
+    private Task BuildFeelers()
     {
         // reset feelers
         _feelers ??= [];
@@ -248,12 +251,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // }
 
         // log("FEELERS BUILT! NUMBER OF FEELERS: " + std::to_string(_feelers.Count()), AutoNav::Logging::INFO);
+
+        return Task.CompletedTask;
     }
 
-    /**
-     * Callback for the combined image from the cameras.
-     * @param image a compressedimage message with the combined transformations of all 4 cameras
-     */
     private Task OnImageReceived(ImageFrame frame, CancellationToken token)
     {
         // once we've actually gotten an image, we can safely say we're operating pretty well
@@ -262,20 +263,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             SetOperatingState(SubsystemState.Operating);
         }
 
-        // turn the image into a format we can use
         var mask = _maskChannel.Writer.TryWrite(frame.GetImageDataArray());
-
-        // _perf_start("FeelerNode::update");
-
-        // calculate new length of every new feeler
-        foreach (var feeler in _feelers)
-        {
-            feeler.Update(mask);
-        }
-
-        // _perf_stop("FeelerNode::update", true);
-
-        CalculateOutputs();
 
         return Task.CompletedTask;
     }
@@ -382,167 +370,121 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         CalculateOutputs();
     }
 
-    /**
-     * Callback to receive the color image to draw debug information on
-     * All draw() calls should be in this function.
-     * @param image the compressedImage message to draw the feelers on
-     */
-    private Task OnDebugImageReceived(sensor_msgs::msg::CompressedImage image)
+    private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
     {
-        // update the headingArrow with the most recent information
-        CalculateOutputs();
-
-        // log("GETTING DEBUG IMAGE!", AutoNav::Logging::WARN);
-
-        // get the debug image
-        _debugChannel.Writer.TryWrite(FrameSource.GetImageDataArray());
-
-        // don't publish or draw on the image if it doesn't exist
-        if (_debug_image_ptr == null)
-        {
-            return;
-        }
-
-        // draw feelers on the debug image
-        // _perf_start("FeelerNode::draw");
-        foreach (var feeler in _feelers)
-        {
-            // color biased feelers differently TODO FIXME why do we need to recalculate this every time?
-            // TODO we should change Feeler.cs to pass in 2 colors and have it lerp automatically in draw() or something...
-            Scalar color_ = Feeler.Lerp(BLUE, RED, feeler.GetBiasAmount() / (_config.forwardBiasWeight));
-            feeler.SetColor(color_);
-
-            feeler.Draw(_debug_image_ptr);
-        }
-
-        // draw feeler towards GPS waypoint
-        _gpsFeeler.Draw(_debug_image_ptr);
-
-        // draw the heading arrow on top of everything else
-        _headingArrow.Draw(_debug_image_ptr);
-        // _perf_stop("FeelerNode::draw", true);
-
-        // publish the debug image
-
-        var detections = _detector!.Detect(jpeg);
-        var annotated = OpenCvDetectionRenderer.RenderDetections(jpeg, detections);
-        var frame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
-        var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer.ToFullArray());
-        EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+        _debugChannel.Writer.TryWrite(frame.GetImageDataArray());
 
         return Task.CompletedTask;
     }
 
     /**
-     * Calculate what the motor output should be, based on all available sensor inputs.
-     * Main feeler node function, called in every sensor callback, as new sensor data = new motor outputs.
-     * Motor outputs (aka _headingArrow) calculated here will be read by publishOutputMessages() to be put into message form and sent,
-     * as publishOutputMessages() runs much faster than all the sensor inputs for safety reasons, as the firmware
-     * on the motor manager PCB will disable the motors if it hasn't received a motor command after a short period of time.
+     * TODO FIXME
      */
-    public void CalculateOutputs()
+    private async Task PerformFeelers(CancellationToken token)
     {
-        // reinitialize the heading arrow
-        _headingArrow = new Feeler(0, 0);
-        _headingArrow.SetColor(new Scalar(200, 200, 0));
+        // make the master Feeler that will actually dictate the robot's direction
+        _headingArrow = new Feeler(0, 0, new Scalar(200, 200, 0));
 
-        // add all the feelers together
-        foreach (var feeler in _feelers)
+        var maskReader = _maskChannel.Reader;
+
+        // calculate new length of every new feeler
+        await foreach (var mask in maskReader.ReadAllAsync(token))
         {
-            //FIXME the weight of the feelers should be configurable (outside of MAX_LENGTH), or like give them a custom response curve or something
-            _headingArrow = _headingArrow + feeler;
+            //FIXME do performance timings to figure out how intensive this is
+            foreach (var feeler in _feelers)
+            {
+                feeler.Update(mask);
+                _headingArrow += feeler; //FIXME make feelers have nonlinear response curves??
+            }
         }
-    }
 
-    /**
-     * Publish all the output messages (motors, audible feedback, and safety lights).
-     * On a short timer so we don't fail the firmware heartbeat watchdog timer check thingamajig.
-     */
-    public void PublishOutputMessages()
-    {
+        var debugReader = _debugChannel.Reader;
+
+        // draw feelers on the debug image
+        await foreach (var debugImage in debugReader.ReadAllAsync(token))
+        {
+            foreach (var feeler in _feelers)
+            {
+                // color biased feelers differently TODO FIXME why do we need to recalculate this every time?
+                // TODO we should change Feeler.cs to pass in 2 colors and have it lerp automatically in draw() or something...
+                Scalar color_ = Feeler.Lerp(BLUE, RED, feeler.GetBiasAmount() / (_config.forwardBiasWeight));
+                feeler.SetColor(color_);
+
+                feeler.Draw(debugImage);
+            }
+
+            // draw feeler towards GPS waypoint
+            _gpsFeeler.Draw(debugImage);
+
+            // draw the heading arrow on top of everything else
+            _headingArrow.Draw(debugImage);
+
+            // publish the debug image
+            var frame = MessageConstructor.CreateImageFrame(640, 480, "feeler_debug", debugImage); //FIXME configurable / not hard-codeed size
+            var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer.ToFullArray());
+            EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+        }
+
         // if we aren't in autonomous
         if ((Robot.Instance.State.Mode != RobotModeEnum.Autonomous) || (State != SubsystemState.Operating))
         {
-            return; // return because we don't need to do anything (so as to avoid conflicting with manual control if that's running)
-        }
-
-        // make the messages for publishing
-        autonav_msgs::msg::MotorInput msg;
-        autonav_msgs::msg::AudibleFeedback feedback_msg;
-
-        // but if we ARE in autonomous,
-        canbus.SafetyLights.SetAutonomous();
-
-        // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
-        if (Robot.Instance.State.MotionAllowed)
-        {
-            // convert headingArrow to motor outputs
-            //FIXME we want to be going max speed on the straightaways
-            //FIXME the clamping should be configurable or something
-            double multiplier = 1.0;
-            if (!_config.balance_feelers)
-            {
-                multiplier = 5.0;
-            }
-            msg.forward_velocity = Math.Clamp(_headingArrow.GetY() * multiplier, -_config.max_drive_speed, _config.max_drive_speed); //FIXME configure divider number thingy
-            msg.sideways_velocity = 0.0;
-            msg.angular_velocity = Math.Clamp(_headingPID.Calculate(_headingArrow.GetX()), -_config.max_turn_speed, _config.max_turn_speed); // one camera for TimeUtils.Now so always turn, no strafe
-
-            //TODO FIXME these are like, kinda jank hacks to get it to work, it should not be like this in the final version
-            // if feelers doesn't produce any motor command (if it's in a symmetrical position)
-            if (Math.Abs(msg.forward_velocity) < 0.1 && Math.Abs(msg.angular_velocity) < 0.1)
-            {
-                // then assume something is bad and go backwards and to the left
-                msg.forward_velocity = -0.5;
-                msg.angular_velocity = 0.2;
-
-                // if we are going backwards and not really turning
-            }
-            else if (msg.forward_velocity < 0.0 && Math.Abs(msg.angular_velocity) < 0.1)
-            {
-                msg.angular_velocity *= 3; // then go faster
-                msg.angular_velocity = Math.Clamp(msg.angular_velocity, -_config.max_turn_speed, _config.max_turn_speed);
-            }
-
-            //TODO safety lights need to change to other colors and stuff for debug information
+            return Task.CompletedTask; // return because we don't need to do anything (so as to avoid conflicting with manual control if that's running)
         }
         else
         {
-            // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
-            msg.forward_velocity = 0.0;
-            msg.sideways_velocity = 0.0;
-            msg.angular_velocity = 0.0;
-        }
+            // but if we ARE in autonomous,
+            canbus.SafetyLights.SetAutonomous();
 
-        //TODO figure out what sounds we actually want to play and when
-        bool publishAudible = true;
-        // if we reached a waypoint
-        if (distToWaypoint < _config.waypointPopDist && _direction != "" && !_hasPlayedGps)
-        {
-            feedback_msg.filename = "~/autonav_software_2025/music/mine_xp.mp3";
+            // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
+            if (Robot.Instance.State.MotionAllowed)
+            {
+                // convert headingArrow to motor output
+                canbus.MotorControl.SendCommand(
+                    (float)Math.Clamp(_drivingPID.Calculate(_headingArrow.GetY()), -_config.max_drive_speed, _config.max_drive_speed),
+                    (float)0.0, //FIXME we need to figure out strafing
+                    (float)Math.Clamp(_headingPID.Calculate(_headingArrow.GetX()), -_config.max_turn_speed, _config.max_turn_speed);
+            );
+            }
+            else
+            {
+                // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
+                canbus.MotorControl.SendCommand(
+                    0f,
+                    0f,
+                    0f
+                );
+            }
 
-            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, length: 2000);
+            //TODO figure out what sounds we actually want to play and when
+            bool publishAudible = true;
+            // if we reached a waypoint
+            //FIXME this should be in the OnPositionReceived callback
+            if (distToWaypoint < _config.waypointPopDist && _direction != "" && !_hasPlayedGps)
+            {
+                feedback_msg.filename = "~/autonav_software_2025/music/mine_xp.mp3";
 
-            _hasPlayedGps = true;
-        }
-        // if we've found the direction ??? FIXME
-        else if (_direction != "" && !_hasPlayedHorn)
-        {
-            feedback_msg.filename = "~/autonav_software_2025/music/windows-xp-startup.mp3";
-            _hasPlayedHorn = true;
-        }
-        else
-        {
-            publishAudible = false;
-        }
+                canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, length: 2000);
 
-        // publish the messages
-        _motorPublisher.publish(msg);
+                _hasPlayedGps = true;
+            }
+            // if we've found the direction ??? FIXME
+            else if (_direction != "" && !_hasPlayedHorn)
+            {
+                feedback_msg.filename = "~/autonav_software_2025/music/windows-xp-startup.mp3";
+                _hasPlayedHorn = true;
+            }
+            else
+            {
+                publishAudible = false;
+            }
 
-        // if we are actually wanting to play a file
-        if (publishAudible)
-        {
-            _audibleFeedbackPublisher.publish(feedback_msg);
+            // if we are actually wanting to play a file
+            if (publishAudible)
+            {
+                _audibleFeedbackPublisher.publish(feedback_msg);
+            }
+
+            return Task.CompletedTask;
         }
     }
 }
