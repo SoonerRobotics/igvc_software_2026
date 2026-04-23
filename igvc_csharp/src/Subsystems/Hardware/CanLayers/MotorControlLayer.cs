@@ -21,11 +21,11 @@ public class MotorControlLayer(CanbusSubsystem canbus)
         [FieldOffset(2)] public float DeltaTheta = deltaTheta * 0.001f;
     }
 
-    private void SendCommand(float forwardVelocity, float sidewaysVelocity, float angularVelocity)
+    public void SendCommand(float forwardVelocity, float sidewaysVelocity, float angularVelocity)
     {
         var fv = (byte)(forwardVelocity / 0.0001f);
-        var sv = (byte)(forwardVelocity / 0.0001f);
-        var av = (byte)(forwardVelocity / 0.001f);
+        var sv = (byte)(sidewaysVelocity / 0.0001f);
+        var av = (byte)(angularVelocity / 0.001f);
         var packet = new MotorControlPacket(fv, sv, av);
         var bytes = CanbusSubsystem.PacketToBytes(packet);
         canbus.SendCanFrame(new CanFrame(
