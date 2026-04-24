@@ -9,6 +9,7 @@ public enum MessageType : ushort
     Metric = 0x04,
     MetricHistory = 0x05,
     DepthFrame = 0x06,
+    AudibleFeedback = 0x07,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
