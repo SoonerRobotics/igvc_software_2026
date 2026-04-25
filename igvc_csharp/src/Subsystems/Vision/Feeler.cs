@@ -241,6 +241,8 @@ public class Feeler
      */
     public void Bias(double amount)
     {
+        //FIXME THIS SHOULD BE ADDITIVE!! AND THERE SHOULD BE A .ResetBias() METHOD!!!
+
         // unbias by setting it to 0
         if (amount <= 0.0)
         {

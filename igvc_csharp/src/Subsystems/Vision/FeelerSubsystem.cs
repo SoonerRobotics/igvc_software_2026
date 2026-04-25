@@ -193,11 +193,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         BuildFeelers();
     }
 
-    /**
-     * Builds the list of feelers based on configuration parameters.
-     * Evenly distributes a num_feelers number of feelers in a circle of radius max_length
-     * starting with an offset of start_angle (in degrees).
-     */
     private Task BuildFeelers()
     {
         // reset feelers
@@ -268,15 +263,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    /**
-     * Callback to receive the position of the robot from the particle filter
-     * Uses the position to calculate what direction we need to move in to get to next waypoint, as well as popping waypoints once we get close enough
-     * Also automatically calculates if we're going north or south
-     * All code that is related to position-based stuff is located here, as it doesn't get updated anywhere else
-     * No output, but does updates GPS feeler, which is added to headingArrow later to drive us towards the waypoint
-     * @param msg the Postion message from the particle filter
-     */
-    public void OnPositionReceived(autonav_msgs::msg::Position msg)
+    public void OnPositionReceived(VectorNavReport msg, CancellationToken token)
     {
         _position = msg;
 
@@ -286,11 +273,11 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             _gpsTime = TimeUtils.Now(); // then set the timestamp for the start of the run
         }
 
-        // if, however, we have set a timestamp, and it's been long enough that the particle filter should kTimeUtils.Now which direction we're heading
-        else if (_gpsTime != 0 && (TimeUtils.Now() - _gpsTime > _config.gpsWaitMilliseconds) && _direction == "")
+        // if, however, we have set a timestamp, and we're past the GPS wait time
+        else if (_gpsTime != 0 && ((TimeUtils.Now() - _gpsTime) > _config.gpsWaitMilliseconds) && _direction == "")
         {
             // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = Math.Abs(_position.theta * 180 / Math.PI);
+            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.latitude, msg.longitude)).To(AngleUnit.Degrees);
             if (120 < heading_degrees && heading_degrees < 240)
             {
                 _direction = "compSouth";
@@ -302,38 +289,43 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // log("PICKING NORTH WAYPOINTS", AutoNav::Logging::INFO);
             }
         }
+    }
 
+    private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
+    {
+        _debugChannel.Writer.TryWrite(frame.GetImageDataArray());
+
+        return Task.CompletedTask;
+    }
+
+    /**
+     * TODO FIXME
+     */
+    private async Task PerformFeelers(CancellationToken token)
+    {
+        // make the master Feeler that will actually dictate the robot's direction
+        _headingArrow = new Feeler(0, 0, new Scalar(200, 200, 0));
+
+        // bias all Feelers forwards
+        var forwardFeeler = new Feeler(0, 100); //TODO FIXME make this configurable
+
+        // bias towards GPS
         _distToWaypoint = 0;
-        // if we have a direction, then we are good to use it to get waypoints and go towards them
-        if (_direction != "")
+        if (_direction != "" && _waypointsDict.Count() != 0)
         {
-            // if we don't have any waypoints, however
-            if (_waypointsDict.Count() == 0)
-            {
-                //TODO do something???
-                return;
-            }
-            LatLng goalPoint = _waypointsDict[_direction][_waypointIndex];
+            var current_gps = new LatLng(_position.Latitude, _position.Longitude);
+            _goalPoint = _waypointsDict[_direction][_waypointIndex];
 
-            // make a vector pointing towards the GPS waypoint
-            int latError = (goalPoint.Latitude - _position.latitude) * _latitudeLength * 5;
-            int lonError = (goalPoint.Longitude - _position.longitude) * _longitudeLength * 5;
-            double angleToWaypoint = std::atan2(latError, lonError); // all in radians, don't worry
+            var dist = current_gps.Distance(_goalPoint);
+            var headingError = GeoUtils.EstimateHeading(current_gps, _goalPoint);
 
-            // account for rotation of the robot (aka translate the gps error into camera/robot-relative coordinates, where (0, 0) is the center of the camera frame)
-            double headingError = (angleToWaypoint - _position.theta); //TODO FIXME double check this
-            int gps_x = (int)((lonError * Math.Cos(headingError)) - (latError * Math.Sin(headingError)));
-            int gps_y = (int)((lonError * Math.Sin(headingError)) + (latError * Math.Cos(headingError)));
-            _gpsFeeler = new Feeler(gps_x, gps_y);
-
-            // Feeler velocityFeeler = Feeler(_position.x_vel, _position.y_vel);
-            Feeler velocityFeeler = new(0, 100);
+            _gpsFeeler = Feeler.FromPolar(dist, headingError);
 
             // calculate bias for every feeler
-            for (int i = 0; i < _feelers.Count(); i++)
+            foreach (var feeler in _feelers)
             {
-                double gps_bias = _config.gpsBiasWeight * (_feelers[i] * _gpsFeeler); // dot product (normalized, don't worry)
-                double forward_bias = _config.forwardBiasWeight * (_feelers[i] * velocityFeeler); // dot product
+                double gps_bias = _config.gpsBiasWeight * (feeler * _gpsFeeler); // dot product
+                double forward_bias = _config.forwardBiasWeight * (feeler * forwardFeeler); // dot product
 
                 if (gps_bias < 0.0)
                 {
@@ -366,24 +358,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // log("NEXT WAYPOINT!", AutoNav::Logging::WARN);
             }
         }
-
-        CalculateOutputs();
-    }
-
-    private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
-    {
-        _debugChannel.Writer.TryWrite(frame.GetImageDataArray());
-
-        return Task.CompletedTask;
-    }
-
-    /**
-     * TODO FIXME
-     */
-    private async Task PerformFeelers(CancellationToken token)
-    {
-        // make the master Feeler that will actually dictate the robot's direction
-        _headingArrow = new Feeler(0, 0, new Scalar(200, 200, 0));
 
         var maskReader = _maskChannel.Reader;
 
