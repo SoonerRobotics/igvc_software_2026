@@ -1,7 +1,7 @@
 using System.Drawing;
 using OpenCvSharp;
 
-namespace igvc_csharp.Subsystems.Feelers;
+namespace igvc_csharp.src.Subsystems.Feelers;
 
 public class Feeler
 {
@@ -148,6 +148,7 @@ public class Feeler
         Max *= amount;
     }
 
+    //FIXME if we are only doing 1 forward camera and no others then we should change this to only center the x coordinate and have the y coordinates be elsewhere
     public static Point CenterCoordinates(Point p, int width, int height)
     {
         return new Point(
@@ -168,12 +169,16 @@ public class Feeler
     //FIXME should these operate on CURRENT or MAX?
     public static Feeler operator +(Feeler a, Feeler b) => new(a.Current + b.Current, a.Color);
     public static Feeler operator -(Feeler a, Feeler b) => new(a.Current - b.Current, a.Color);
-    public static Feeler operator *(Feeler a, Feeler b)
+    // public static Feeler operator *(Feeler a, Feeler b)
+    // {
+    //     return new(
+    //         new Point(a.Current.X * b.Current.X, a.Current.Y * b.Current.Y), // dot product
+    //         a.Color
+    //     );
+    // }
+    public static double operator *(Feeler a, Feeler b)
     {
-        return new(
-            new Point(a.Current.X * b.Current.X, a.Current.Y * b.Current.Y), // dot product
-            a.Color
-        );
+        return (a.Current.X * b.Current.X) + (a.Current.Y * b.Current.Y); // dot product
     }
 
     public static Feeler operator *(Feeler a, double scalar) => new(a.Current * scalar, a.Color);

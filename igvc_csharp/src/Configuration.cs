@@ -247,7 +247,7 @@ public static class Configuration
         public const double WaypointPopDist = 1.5;
 
         /// <summary>
-        /// How long we have to be within the WaypointPopDist 
+        /// How long we have to be within the WaypointPopDist, in milliseconds
         /// </summary>
         [Config("feelers.waypoint_pop_time")]
         public const ulong WaypointPopTime = 500;
@@ -268,7 +268,7 @@ public static class Configuration
         /// The maximum amount each feeler should be biased by the forward feeler, in pixels
         /// </summary>
         [Config("feelers.forward_bias_weight")]
-        public const int forwardBiasWeight = 75;
+        public const int ForwardBiasWeight = 75;
 
 
         // control-related config

@@ -1,8 +1,7 @@
-
 using igvc_csharp.Core.Units;
 using igvc_csharp.Utils;
 
-namespace igvc_csharp.Subsystems.Feelers;
+namespace igvc_csharp.src.Subsystems.Feelers;
 
 public struct Point : IEquatable<Point>, IComparable<Point>
 {
