@@ -149,6 +149,7 @@ public class Feeler
     }
 
     //FIXME if we are only doing 1 forward camera and no others then we should change this to only center the x coordinate and have the y coordinates be elsewhere
+    // or make it configurable or something is probably the better answer...
     public static Point CenterCoordinates(Point p, int width, int height)
     {
         return new Point(
@@ -169,17 +170,13 @@ public class Feeler
     //FIXME should these operate on CURRENT or MAX?
     public static Feeler operator +(Feeler a, Feeler b) => new(a.Current + b.Current, a.Color);
     public static Feeler operator -(Feeler a, Feeler b) => new(a.Current - b.Current, a.Color);
-    // public static Feeler operator *(Feeler a, Feeler b)
-    // {
-    //     return new(
-    //         new Point(a.Current.X * b.Current.X, a.Current.Y * b.Current.Y), // dot product
-    //         a.Color
-    //     );
-    // }
+
+    // dot product
     public static double operator *(Feeler a, Feeler b)
     {
-        return (a.Current.X * b.Current.X) + (a.Current.Y * b.Current.Y); // dot product
+        return (a.Max.X * b.Max.X) + (a.Max.Y * b.Max.Y);
     }
 
+    // scalar multiplication
     public static Feeler operator *(Feeler a, double scalar) => new(a.Current * scalar, a.Color);
 }
