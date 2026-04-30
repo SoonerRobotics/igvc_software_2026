@@ -10,9 +10,12 @@ sudo apt install git unzip curl cmake build-essential -y
 sudo apt install -y libopencv-dev
 
 # Bluetooth
-sudo apt install --reinstall \
-  bluez \
-  bluez-tools \
-  linux-firmware \
-  xboxdrv \
-  steam-devices
+#sudo apt install --reinstall \
+#  bluez \
+#  bluez-tools \
+#  linux-firmware
+#  xboxdrv \
+#  steam-devices
+
+# Xbox
+#sudo apt install -y xboxdrv
