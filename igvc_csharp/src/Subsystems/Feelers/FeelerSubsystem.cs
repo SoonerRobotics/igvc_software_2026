@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
-using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
@@ -14,8 +13,6 @@ using igvc_csharp.Core.Hardware;
 using OpenCvSharp;
 using igvc_csharp.src.Subsystems.Feelers;
 using FeelerConfig = igvc_csharp.Configuration.FeelerSubsystem;
-using Microsoft.VisualBasic;
-using igvc_csharp.Subsystems.Hardware.CanLayers;
 
 
 namespace igvc_csharp.scr.Subsystems.Feelers;
@@ -165,7 +162,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             int x = (int)(FeelerConfig.MaxLength * Math.Cos(angle.To(AngleUnit.Radians)));
             int y = (int)(FeelerConfig.MaxLength * Math.Sin(angle.To(AngleUnit.Radians)));
 
-            _feelers.Add(new Feeler(new Point(x, y), defaultColor));
+            _feelers.Add(new Feeler(new SCR_Point(x, y), defaultColor));
         }
 
         // build some feelers on the other side of the cone/arc formed from start_angle to end_angle
@@ -179,7 +176,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 int x = (int)(FeelerConfig.MaxLength * Math.Cos(angle.To(AngleUnit.Radians)));
                 int y = (int)(FeelerConfig.MaxLength * Math.Sin(angle.To(AngleUnit.Radians)));
 
-                _feelers.Add(new Feeler(new Point(x, y), defaultColor));
+                _feelers.Add(new Feeler(new SCR_Point(x, y), defaultColor));
             }
         }
 
@@ -243,7 +240,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             // or make it part of the vectornav subsystem. I don't know if I like it being part of Feelers, because I think it leads to
             // identical code duplication in like, whenever we write Smellification/A*
 
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).To(AngleUnit.Degrees);
+            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).Value.To(AngleUnit.Degrees);
             if (120 < heading_degrees && heading_degrees < 240)
             {
                 _direction = "compSouth";
@@ -316,10 +313,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         var mask = CvUtils.AsMat(maskFrame);
 
                         // make the master Feeler that will actually dictate the robot's direction
-                        var controlFeeler = new Feeler(new Point(), new Scalar(200, 200, 0));
+                        var controlFeeler = new Feeler(new SCR_Point(), new Scalar(200, 200, 0));
 
                         // bias all Feelers forwards
-                        var forwardFeeler = new Feeler(new Point(0, FeelerConfig.ForwardBiasWeight));
+                        var forwardFeeler = new Feeler(new SCR_Point(0, FeelerConfig.ForwardBiasWeight));
                         foreach (var feeler in _feelers)
                         {
                             feeler.Bias(forwardFeeler * feeler);
@@ -333,7 +330,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                             var dist = current_gps.Distance(_goalPoint).To(DistanceUnit.Meters);
                             var headingError = GeoUtils.EstimateHeading(current_gps, _goalPoint).Value.To(AngleUnit.Degrees);
 
-                            _gpsFeeler = new Feeler(new Point(dist, headingError), new Scalar(150, 235, 150));
+                            _gpsFeeler = new Feeler(new SCR_Point(dist, headingError), new Scalar(150, 235, 150));
 
                             // calculate gps bias for every feeler
                             foreach (var feeler in _feelers)

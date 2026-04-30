@@ -5,24 +5,24 @@ namespace igvc_csharp.src.Subsystems.Feelers;
 
 public class Feeler
 {
-    public Point Current;
-    public Point Max;
+    public SCR_Point Current;
+    public SCR_Point Max;
 
     public Scalar Color { get; set; } = new(100, 100, 100);
 
     public Feeler()
     {
-        Current = new Point(0, 0);
-        Max = new Point(0, 0);
+        Current = new SCR_Point(0, 0);
+        Max = new SCR_Point(0, 0);
     }
 
-    public Feeler(Point p)
+    public Feeler(SCR_Point p)
     {
         Current = p;
         Max = p;
     }
 
-    public Feeler(Point p, Scalar color) : this(p)
+    public Feeler(SCR_Point p, Scalar color) : this(p)
     {
         Color = color;
     }
@@ -30,7 +30,7 @@ public class Feeler
     public void Draw(Mat image)
     {
         image.Line(
-            CenterCoordinates(new Point(0, 0), image.Rows, image.Cols).GetOpenCvPoint(),
+            CenterCoordinates(new SCR_Point(0, 0), image.Rows, image.Cols).GetOpenCvPoint(),
             CenterCoordinates(Current, image.Rows, image.Cols).GetOpenCvPoint(),
             Lerp(Color), //FIXME who do we want to control color interpolation???
             2 //FIXME line width
@@ -109,7 +109,7 @@ public class Feeler
             }
 
             // then center the coordinates
-            var coords = CenterCoordinates(new Point(x * x_dir, y * y_dir), image.Rows, image.Cols);
+            var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), image.Rows, image.Cols);
 
             // check for out-of-bounds
             if (coords.X < 0 || coords.X > image.Rows || coords.Y < 0 || coords.Y > image.Cols)
@@ -150,9 +150,9 @@ public class Feeler
 
     //FIXME if we are only doing 1 forward camera and no others then we should change this to only center the x coordinate and have the y coordinates be elsewhere
     // or make it configurable or something is probably the better answer...
-    public static Point CenterCoordinates(Point p, int width, int height)
+    public static SCR_Point CenterCoordinates(SCR_Point p, int width, int height)
     {
-        return new Point(
+        return new SCR_Point(
             p.X + width / 2,
             p.Y + height / 2
         );
