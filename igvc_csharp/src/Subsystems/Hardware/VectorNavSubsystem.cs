@@ -10,12 +10,8 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem", DependsOn = [
-    typeof(ChronosSubsystem)
-])]
-public class VectorNavSubsystem(
-    ChronosSubsystem chronos
-) : SubsystemBase
+[Subsystem("VectorNavSubsystem", Disabled = true)]
+public class VectorNavSubsystem() : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
@@ -177,8 +173,8 @@ public class VectorNavSubsystem(
                     );
 
                     // Chronos
-                    chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
-                    chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
+                    // chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
+                    // chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
 
                     // Logger.LogTrace(
                     //     "[#{Seq}] {Time} | " +

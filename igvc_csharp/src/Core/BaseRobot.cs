@@ -28,6 +28,16 @@ public abstract class BaseRobot : IDisposable
     private bool _disposed;
     public RobotState State { get; } = new();
 
+    protected BaseRobot()
+    {
+        if (Instance != null)
+        {
+            throw new InvalidOperationException("BaseRobot instance already exists");
+        }
+
+        Instance = this;
+    }
+
     private static List<Type> DiscoverSubsystems()
     {
         return Assembly.GetExecutingAssembly()

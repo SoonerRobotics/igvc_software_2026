@@ -44,10 +44,10 @@ public abstract class AbstractChronosSubsystem : SubsystemBase
     // ------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------
-    protected AbstractChronosSubsystem(string outputDirectory)
+    protected AbstractChronosSubsystem()
     {
-        _outputDirectory = outputDirectory;
-        Directory.CreateDirectory(outputDirectory);
+        _outputDirectory = Configuration.ChronosOutputDirectory.Replace("~", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        Directory.CreateDirectory(_outputDirectory);
     }
 
     public void StartRun(ushort sessionType)

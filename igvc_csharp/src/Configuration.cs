@@ -28,6 +28,8 @@ public static class Configuration
     /// </summary>
     [Config("robot.networking_magic")]
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
+
+    public static readonly string ChronosOutputDirectory = "~/.scr/chronos";
     
     // Core Constants
 

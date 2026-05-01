@@ -8,6 +8,10 @@ public sealed class IgvcRobot : BaseRobot
 {
     private static readonly ILogger Logger = Logging.From<IgvcRobot>();
 
+    public IgvcRobot() : base()
+    {
+    }
+
     public override async Task Init(CancellationToken token)
     {
         // Handle default stuff
