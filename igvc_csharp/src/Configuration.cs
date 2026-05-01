@@ -326,4 +326,12 @@ public static class Configuration
         [Config("feelers.heading_kd")]
         public const double HeadingKd = 0.0001;
     }
+
+    public static class FakeCameraSubsystemConfig
+    {
+        /// <summary>
+        /// Filename of video to send as raw camera frames
+        /// </summary>
+        public const string Filename = "";
+    }
 }
