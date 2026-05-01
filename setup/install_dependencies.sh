@@ -6,19 +6,14 @@ sudo apt update
 # Dependencies
 sudo apt install git unzip curl cmake build-essential -y
 
+# Audible Feedback
+sudo apt install -y ffmpeg
+
 # OpenCV
 sudo apt install -y libopencv-dev
 
 # SDL
-sudo apt install libsdl2-dev
+sudo apt install -y libsdl2-dev
 
-# Bluetooth
-#sudo apt install --reinstall \
-#  bluez \
-#  bluez-tools \
-#  linux-firmware
-#  xboxdrv \
-#  steam-devices
-
-# Xbox
-#sudo apt install -y xboxdrv
+# TODO: Automatically add systemd services
+# TODO: Automatically add udev rules

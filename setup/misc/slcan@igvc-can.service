@@ -1,0 +1,11 @@
+[Unit]
+Description=slcan on /dev/%i
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/slcand -f -o -c -s6 /dev/%i can0
+ExecStartPost=/bin/sh -c 'until ip link show can0 >/dev/null 2>&1; do sleep 0.1; done; ip link set can0 up txqueuelen 1000'
+ExecStopPost=-/sbin/ip link set can0 down
+Restart=on-failure
