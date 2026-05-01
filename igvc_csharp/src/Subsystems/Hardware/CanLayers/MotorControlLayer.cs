@@ -5,29 +5,35 @@ namespace igvc_csharp.Subsystems.Hardware.CanLayers;
 
 public class MotorControlLayer(CanbusSubsystem canbus)
 {
-    [StructLayout(LayoutKind.Explicit, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MotorControlPacket(short forwardVelocity, short sidewaysVelocity, short angularVelocity)
     {
-        [FieldOffset(0)] public short ForwardVelocity = forwardVelocity;
-        [FieldOffset(1)] public short SidewaysVelocity = sidewaysVelocity;
-        [FieldOffset(2)] public short AngularVelocity = angularVelocity;
+        public short ForwardVelocity = forwardVelocity;
+        public short SidewaysVelocity = sidewaysVelocity;
+        public short AngularVelocity = angularVelocity;
     }
 
-    [StructLayout(LayoutKind.Explicit, Pack = 1)]
-    public struct MotorOdometryPacket(short deltaX, short deltaY, short deltaTheta)
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct MotorOdometryPacket
     {
-        [FieldOffset(0)] public float DeltaX = deltaX * 0.0001f;
-        [FieldOffset(1)] public float DeltaY = deltaY * 0.0001f;
-        [FieldOffset(2)] public float DeltaTheta = deltaTheta * 0.001f;
+        public short RawDeltaX;
+        public short RawDeltaY;
+        public short RawDeltaTheta;
+
+        public float DeltaX => RawDeltaX * 0.0001f;
+        public float DeltaY => RawDeltaY * 0.0001f;
+        public float DeltaTheta => RawDeltaTheta * 0.001f;
     }
 
     public void SetVelocities(double forwardVelocity, double sidewaysVelocity, double angularVelocity)
     {
-        var fv = (byte)(forwardVelocity / 0.0001f);
-        var sv = (byte)(forwardVelocity / 0.0001f);
-        var av = (byte)(forwardVelocity / 0.001f);
+        var fv = (short)(forwardVelocity / 0.0001);
+        var sv = (short)(sidewaysVelocity / 0.0001);
+        var av = (short)(angularVelocity / 0.001);
+
         var packet = new MotorControlPacket(fv, sv, av);
         var bytes = CanbusSubsystem.PacketToBytes(packet);
+
         canbus.SendCanFrame(new CanFrame(
             (uint)CanId.MotorCommand,
             bytes
@@ -37,11 +43,8 @@ public class MotorControlLayer(CanbusSubsystem canbus)
     public static MotorOdometryPacket? ParseFeedback(CanFrame frame)
     {
         if (frame.CanId != (uint)CanId.MotorOdometry)
-        {
             return null;
-        }
 
-        var packet = CanbusSubsystem.PacketFromBytes<MotorOdometryPacket>(frame.Data);
-        return packet;
+        return CanbusSubsystem.PacketFromBytes<MotorOdometryPacket>(frame.Data);
     }
 }
