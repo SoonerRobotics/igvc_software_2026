@@ -1,0 +1,21 @@
+SetOperatingStatenamespace {NAMESPACE_PLACEHOLDER};
+
+table Waypoint {
+    // The timestamp of the message in microseconds
+    timestamp: ulong;
+
+    // which waypoints set is being used (north, south, practice, etc.)
+    set: string;
+
+    // index of current waypoint in the waypoint set
+    index: int;
+
+    // total number of waypoints in the waypoint set
+    num_waypoints: uint;
+
+    // The GPS coords of the next waypoint
+    latitude: double;
+    longitude: double;
+}
+
+root_type Waypoint;
