@@ -44,8 +44,7 @@ public class WaypointsSubsystem() : SubsystemBase
         // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
         string line;
 
-        //FIXME does this need to be like a .GetFileRelativeToRoot() or something?
-        using (StreamReader waypointsFile = new(WaypointConfig.WaypointsFilename))
+        using (StreamReader waypointsFile = new(FileUtils.GetFileRelativeToRoot(WaypointConfig.WaypointsFilename)))
         {
             // skip the first line
             line = waypointsFile.ReadLine();
@@ -54,7 +53,7 @@ public class WaypointsSubsystem() : SubsystemBase
                 var tokens = line.Split(",");
 
                 LatLng point = new(
-                    double.Parse(tokens[1]),
+                    double.Parse(tokens[1]), //FIXME we should add a .strip() or something here
                     double.Parse(tokens[2])
                 );
 
@@ -66,11 +65,12 @@ public class WaypointsSubsystem() : SubsystemBase
         _waypointIndex = 0;
         // === /read waypoints ===
 
+        //TODO add like, per-label waypoint counts? theoreticlly we don't have to modify them that much but also idk
         Logger.LogInformation("Number of waypoints read: " + numWaypoints);
 
         if (numWaypoints < 1)
         {
-            Logger.LogWarning("No waypoints read! Control algorithms will not use GPS data!");
+            Logger.LogWarning("No waypoints read! Waypoint messages will not be published!");
         }
 
         return Task.CompletedTask;
@@ -111,6 +111,7 @@ public class WaypointsSubsystem() : SubsystemBase
         {
 
             //FIXME add a set of practice waypoints too, and even like OU e-quad waypoints we can can switch too based on the lat/lon of _startPos
+            // ALSO SELF-DRIVE COURSE WAYPOINTS (idk if those are allowed though but we can have a .IsRobotInSelfDriveMode() check)
 
             // then pick a set of waypoints based on which direction we are heading
             double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(_position.Latitude, _position.Longitude)).Value.To(AngleUnit.Degrees);

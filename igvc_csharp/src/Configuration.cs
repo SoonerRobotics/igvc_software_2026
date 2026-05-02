@@ -233,7 +233,7 @@ public static class Configuration
         /// <summary> 
         /// filename for the waypoints (should be CSV file with label,lat,lon,)
         /// </summary>
-        public const string WaypointsFilename = "./data/waypoints.csv";
+        public const string WaypointsFilename = "resources/waypoints.csv";
 
         /// <summary>
         /// How close we have to be for a GPS waypoint to be considered 'reached,' in meters
