@@ -1,9 +1,13 @@
 
-using System.Data;
-using System.Threading.Channels;
+using igvc_csharp.Core;
+using igvc_csharp.Core.Hardware;
+using igvc_csharp.Core.Units;
+using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
+using Microsoft.Extensions.Logging;
 using WaypointConfig = igvc_csharp.Configuration.WaypointSubsystem;
 
-namespace igvc_csharp.scr.Subsystems.Control;
+namespace igvc_csharp.src.Subsystems.Control;
 
 [Subsystem("WaypointsSubsystem", Disabled = false)]
 public class WaypointsSubsystem() : SubsystemBase
@@ -83,14 +87,14 @@ public class WaypointsSubsystem() : SubsystemBase
             {
                 _runStartTime = TimeUtils.Now();
                 _startGpsPos = new LatLng(_position.Latitude, _position.Longitude);
-                SetOperatingMode(SubsystemState.Operating);
+                SetOperatingState(SubsystemState.Operating);
             }
         }
         else
         {
             if (State != SubsystemState.Ready)
             {
-                SetOperatingMode(SubsystemState.Ready);
+                SetOperatingState(SubsystemState.Ready);
             }
 
             //FIXME do we need to reset it here? I feel like we should... I can see accidentally forgetting to and then doing a run
@@ -109,7 +113,7 @@ public class WaypointsSubsystem() : SubsystemBase
             //FIXME add a set of practice waypoints too, and even like OU e-quad waypoints we can can switch too based on the lat/lon of _startPos
 
             // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).Value.To(AngleUnit.Degrees);
+            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(_position.Latitude, _position.Longitude)).Value.To(AngleUnit.Degrees);
             if (120 < heading_degrees && heading_degrees < 240)
             {
                 _direction = "compSouth";
@@ -124,6 +128,7 @@ public class WaypointsSubsystem() : SubsystemBase
             //TODO: we should flash safety lights to let operator know that the GPS waypoints are working / have been selected
         }
 
+        return Task.CompletedTask;
     }
 
     private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
@@ -147,9 +152,9 @@ public class WaypointsSubsystem() : SubsystemBase
             //TODO if we haven't published the first waypoint, we should publish it here after waypoint wait time or whatever
 
             var current_gps = new LatLng(msg.Latitude, msg.Longitude);
-            _goalPoint = _waypointsDict[_direction][_waypointIndex];
+            var goalPoint = _waypointsDict[_direction][_waypointIndex];
 
-            var dist = current_gps.Distance(_goalPoint);
+            var dist = current_gps.Distance(goalPoint);
 
             // if we are close enough to the waypoint, and we aren't going to cause an out-of-bounds index error
             if (dist.To(DistanceUnit.Meters) < WaypointConfig.WaypointPopDist && _waypointIndex < (_waypointsDict[_direction].Count - 2))
