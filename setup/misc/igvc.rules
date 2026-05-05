@@ -1,8 +1,14 @@
-# Candlelight CAN
-SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", NAME="igvc-can0", RUN+="/sbin/ip link set igvc-can0 type can bitrate 100000", RUN+="/sbin/ip link set igvc-can0 up"
+SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", \
+    RUN+="/usr/sbin/ip link set can0 type can bitrate 100000", \
+    RUN+="/usr/sbin/ip link set can0 up"
+    
+# slcan — pass the real kernel name (ttyACM0), not the symlink
+KERNEL=="ttyACM*", ATTRS{idVendor}=="ad50", ATTRS{idProduct}=="60c4", \
+    MODE:="0666", GROUP:="dialout", SYMLINK+="igvc-slcan0", \
+    ACTION=="add", RUN+="/bin/systemctl start igvc-can-slcan@%k.service"
 
-# SlCAN
-KERNEL=="ttyACM*", ATTRS{idVendor}=="ad50", ATTRS{idProduct}=="60c4", MODE:="0666", GROUP:="dialout", SYMLINK+="autonav-can-scr", TAG+="systemd", ENV{SYSTEMD_WANTS}+="slcan@igvc-can.service"
+KERNEL=="ttyACM*", ATTRS{idVendor}=="ad50", ATTRS{idProduct}=="60c4", \
+    ACTION=="remove", RUN+="/bin/systemctl stop igvc-can-slcan@%k.service"
 
 # IMU/GPS
 KERNEL=="ttyUSB*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="AU057VHW", MODE:="0666", GROUP:="dialout", SYMLINK+="igvc-vn"

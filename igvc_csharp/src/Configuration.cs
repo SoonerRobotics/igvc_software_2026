@@ -65,7 +65,7 @@ public static class Configuration
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
         [Config("hardware.can.interface")]
-        public const string CanbusInterface = "bigcan0";
+        public const string CanbusInterface = "can0";
         
         /// <summary>
         /// How often to retry our connection to the Canbus.
@@ -189,7 +189,7 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
 
         [Config("drive.invert_forward")]
         public static readonly bool InvertForwardVelocity = false;
