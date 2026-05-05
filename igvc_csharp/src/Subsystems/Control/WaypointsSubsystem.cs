@@ -63,6 +63,11 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     double.Parse(tokens[2])
                 );
 
+                if (!_waypointsDict.ContainsKey(tokens[0]))
+                {
+                    _waypointsDict[tokens[0]] = [];
+                }
+
                 // waypoints are stored like {"north":[GPSPoint, GPSPoint]}
                 _waypointsDict[tokens[0]].Add(point);
                 numWaypoints++;
