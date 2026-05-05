@@ -1,4 +1,4 @@
-SetOperatingStatenamespace {NAMESPACE_PLACEHOLDER};
+namespace {NAMESPACE_PLACEHOLDER};
 
 table Waypoint {
     // The timestamp of the message in microseconds

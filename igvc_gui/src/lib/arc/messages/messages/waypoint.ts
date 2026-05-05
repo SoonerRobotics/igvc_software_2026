@@ -4,6 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+
+
 export class Waypoint {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
@@ -13,29 +15,96 @@ export class Waypoint {
   return this;
 }
 
-identifier():number {
-  return this.bb!.readUint32(this.bb_pos);
+static getRootAsWaypoint(bb:flatbuffers.ByteBuffer, obj?:Waypoint):Waypoint {
+  return (obj || new Waypoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+}
+
+static getSizePrefixedRootAsWaypoint(bb:flatbuffers.ByteBuffer, obj?:Waypoint):Waypoint {
+  bb.setPosition(bb.position() + flatbuffers.SIZE_PREFIX_LENGTH);
+  return (obj || new Waypoint()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+}
+
+timestamp():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 4);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+set():string|null
+set(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+set(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+index():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
+}
+
+numWaypoints():number {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
 latitude():number {
-  return this.bb!.readFloat64(this.bb_pos + 8);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readFloat64(this.bb_pos + offset) : 0.0;
 }
 
 longitude():number {
-  return this.bb!.readFloat64(this.bb_pos + 16);
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.readFloat64(this.bb_pos + offset) : 0.0;
 }
 
-static sizeOf():number {
-  return 24;
+static startWaypoint(builder:flatbuffers.Builder) {
+  builder.startObject(6);
 }
 
-static createWaypoint(builder:flatbuffers.Builder, identifier: number, latitude: number, longitude: number):flatbuffers.Offset {
-  builder.prep(8, 24);
-  builder.writeFloat64(longitude);
-  builder.writeFloat64(latitude);
-  builder.pad(4);
-  builder.writeInt32(identifier);
-  return builder.offset();
+static addTimestamp(builder:flatbuffers.Builder, timestamp:bigint) {
+  builder.addFieldInt64(0, timestamp, BigInt('0'));
 }
 
+static addSet(builder:flatbuffers.Builder, setOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, setOffset, 0);
+}
+
+static addIndex(builder:flatbuffers.Builder, index:number) {
+  builder.addFieldInt32(2, index, 0);
+}
+
+static addNumWaypoints(builder:flatbuffers.Builder, numWaypoints:number) {
+  builder.addFieldInt32(3, numWaypoints, 0);
+}
+
+static addLatitude(builder:flatbuffers.Builder, latitude:number) {
+  builder.addFieldFloat64(4, latitude, 0.0);
+}
+
+static addLongitude(builder:flatbuffers.Builder, longitude:number) {
+  builder.addFieldFloat64(5, longitude, 0.0);
+}
+
+static endWaypoint(builder:flatbuffers.Builder):flatbuffers.Offset {
+  const offset = builder.endObject();
+  return offset;
+}
+
+static finishWaypointBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
+  builder.finish(offset);
+}
+
+static finishSizePrefixedWaypointBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
+  builder.finish(offset, undefined, true);
+}
+
+static createWaypoint(builder:flatbuffers.Builder, timestamp:bigint, setOffset:flatbuffers.Offset, index:number, numWaypoints:number, latitude:number, longitude:number):flatbuffers.Offset {
+  Waypoint.startWaypoint(builder);
+  Waypoint.addTimestamp(builder, timestamp);
+  Waypoint.addSet(builder, setOffset);
+  Waypoint.addIndex(builder, index);
+  Waypoint.addNumWaypoints(builder, numWaypoints);
+  Waypoint.addLatitude(builder, latitude);
+  Waypoint.addLongitude(builder, longitude);
+  return Waypoint.endWaypoint(builder);
+}
 }

@@ -11,24 +11,74 @@ using global::Google.FlatBuffers;
 
 public struct Waypoint : IFlatbufferObject
 {
-  private Struct __p;
+  private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public void __init(int _i, ByteBuffer _bb) { __p = new Struct(_i, _bb); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
+  public static Waypoint GetRootAsWaypoint(ByteBuffer _bb) { return GetRootAsWaypoint(_bb, new Waypoint()); }
+  public static Waypoint GetRootAsWaypoint(ByteBuffer _bb, Waypoint obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyWaypoint(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, WaypointVerify.Verify); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public Waypoint __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public uint Identifier { get { return __p.bb.GetUint(__p.bb_pos + 0); } }
-  public double Latitude { get { return __p.bb.GetDouble(__p.bb_pos + 8); } }
-  public double Longitude { get { return __p.bb.GetDouble(__p.bb_pos + 16); } }
+  public ulong Timestamp { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
+  public string Set { get { int o = __p.__offset(6); return o != 0 ? __p.__string(o + __p.bb_pos) : null; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetSetBytes() { return __p.__vector_as_span<byte>(6, 1); }
+#else
+  public ArraySegment<byte>? GetSetBytes() { return __p.__vector_as_arraysegment(6); }
+#endif
+  public byte[] GetSetArray() { return __p.__vector_as_array<byte>(6); }
+  public int Index { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetInt(o + __p.bb_pos) : (int)0; } }
+  public uint NumWaypoints { get { int o = __p.__offset(10); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
+  public double Latitude { get { int o = __p.__offset(12); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)0.0; } }
+  public double Longitude { get { int o = __p.__offset(14); return o != 0 ? __p.bb.GetDouble(o + __p.bb_pos) : (double)0.0; } }
 
-  public static Offset<Messages.Waypoint> CreateWaypoint(FlatBufferBuilder builder, uint Identifier, double Latitude, double Longitude) {
-    builder.Prep(8, 24);
-    builder.PutDouble(Longitude);
-    builder.PutDouble(Latitude);
-    builder.Pad(4);
-    builder.PutUint(Identifier);
-    return new Offset<Messages.Waypoint>(builder.Offset);
+  public static Offset<Messages.Waypoint> CreateWaypoint(FlatBufferBuilder builder,
+      ulong timestamp = 0,
+      StringOffset setOffset = default(StringOffset),
+      int index = 0,
+      uint num_waypoints = 0,
+      double latitude = 0.0,
+      double longitude = 0.0) {
+    builder.StartTable(6);
+    Waypoint.AddLongitude(builder, longitude);
+    Waypoint.AddLatitude(builder, latitude);
+    Waypoint.AddTimestamp(builder, timestamp);
+    Waypoint.AddNumWaypoints(builder, num_waypoints);
+    Waypoint.AddIndex(builder, index);
+    Waypoint.AddSet(builder, setOffset);
+    return Waypoint.EndWaypoint(builder);
   }
+
+  public static void StartWaypoint(FlatBufferBuilder builder) { builder.StartTable(6); }
+  public static void AddTimestamp(FlatBufferBuilder builder, ulong timestamp) { builder.AddUlong(0, timestamp, 0); }
+  public static void AddSet(FlatBufferBuilder builder, StringOffset setOffset) { builder.AddOffset(1, setOffset.Value, 0); }
+  public static void AddIndex(FlatBufferBuilder builder, int index) { builder.AddInt(2, index, 0); }
+  public static void AddNumWaypoints(FlatBufferBuilder builder, uint numWaypoints) { builder.AddUint(3, numWaypoints, 0); }
+  public static void AddLatitude(FlatBufferBuilder builder, double latitude) { builder.AddDouble(4, latitude, 0.0); }
+  public static void AddLongitude(FlatBufferBuilder builder, double longitude) { builder.AddDouble(5, longitude, 0.0); }
+  public static Offset<Messages.Waypoint> EndWaypoint(FlatBufferBuilder builder) {
+    int o = builder.EndTable();
+    return new Offset<Messages.Waypoint>(o);
+  }
+  public static void FinishWaypointBuffer(FlatBufferBuilder builder, Offset<Messages.Waypoint> offset) { builder.Finish(offset.Value); }
+  public static void FinishSizePrefixedWaypointBuffer(FlatBufferBuilder builder, Offset<Messages.Waypoint> offset) { builder.FinishSizePrefixed(offset.Value); }
 }
 
+
+static public class WaypointVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Timestamp*/, 8 /*ulong*/, 8, false)
+      && verifier.VerifyString(tablePos, 6 /*Set*/, false)
+      && verifier.VerifyField(tablePos, 8 /*Index*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 10 /*NumWaypoints*/, 4 /*uint*/, 4, false)
+      && verifier.VerifyField(tablePos, 12 /*Latitude*/, 8 /*double*/, 8, false)
+      && verifier.VerifyField(tablePos, 14 /*Longitude*/, 8 /*double*/, 8, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
