@@ -252,5 +252,25 @@ public static class Configuration
         /// </summary>
         [Config("waypoints.gps_wait_time")]
         public const ulong GpsWaitTime = 1000 * 30;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the practice autonav field
+        /// </summary>
+        public const double PracticeLongitude = -83.218909;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the autonav competition field
+        /// </summary>
+        public const double AutonavLongitude = -83.219584;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the selfdrive course
+        /// </summary>
+        public const double SelfdriveLongitude = -83.217515;
+
+        /// <summary>
+        /// Latitude of the northern edge of the engineering quadrangle on OU campus.
+        /// </summary>
+        public const double EquadLatitude = 35.211160;
     }
 }

@@ -2,6 +2,7 @@
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
 using igvc_csharp.Core.Units;
+using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Microsoft.Extensions.Logging;
@@ -10,22 +11,25 @@ using WaypointConfig = igvc_csharp.Configuration.WaypointSubsystem;
 namespace igvc_csharp.src.Subsystems.Control;
 
 [Subsystem("WaypointsSubsystem", Disabled = false)]
-public class WaypointsSubsystem() : SubsystemBase
+public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // GPS stuff
-    private VectorNavReport _position;
+    private VectorNavReport? _position;
     private ulong _runStartTime = 0;
     private ulong _waypointTimeStart = 0;
     private LatLng? _startGpsPos;
     private Dictionary<string, List<LatLng>> _waypointsDict = [];
     private int _waypointIndex = 0;
-    private string _direction = ""; //FIXME make this an enum or something
+    private string _waypointSet = ""; //FIXME make this an enum or something?
+    private int _waypointDirection = 0;
+    private bool _hasPublished = false;
+    private bool _waypointsFinished = false;
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
 
-        ReadWaypointsFile();
+        ReadWaypointsFile(token);
 
         SubscribeMessage<VectorNavReport>(
             MessageType.Gps,
@@ -38,7 +42,7 @@ public class WaypointsSubsystem() : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task ReadWaypointsFile()
+    private Task ReadWaypointsFile(CancellationToken token)
     {
         int numWaypoints = 0;
         // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
@@ -78,16 +82,22 @@ public class WaypointsSubsystem() : SubsystemBase
 
     public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
     {
-        //FIXME do we want this to be able to run in manual too? for testing purposes?
-        // also FIXME what about how this works in the simulator how is it going to work in the simulator?
         if (current == RobotModeEnum.Autonomous)
         {
             // this will get called when mobility gets updated too, so we can check it here
-            if (Robot.Instance.State.MotionAllowed && _runStartTime == 0)
+            if (BaseRobot.Instance.State.MotionAllowed && _runStartTime == 0)
             {
-                _runStartTime = TimeUtils.Now();
-                _startGpsPos = new LatLng(_position.Latitude, _position.Longitude);
-                SetOperatingState(SubsystemState.Operating);
+                if (_position.HasValue)
+                {
+                    _runStartTime = TimeUtils.Now();
+                    _startGpsPos = new LatLng(_position.Value.Latitude, _position.Value.Longitude);
+                    _waypointsFinished = false;
+                    SetOperatingState(SubsystemState.Operating);
+                }
+                else
+                {
+                    Logger.LogError("GPS Subsystem is not running! WaypointSubsystem cannot start operating!");
+                }
             }
         }
         else
@@ -97,36 +107,61 @@ public class WaypointsSubsystem() : SubsystemBase
                 SetOperatingState(SubsystemState.Ready);
             }
 
-            //FIXME do we need to reset it here? I feel like we should... I can see accidentally forgetting to and then doing a run
-            // but the robot thinks the starting position is over on the practice course
             _runStartTime = 0;
+            _startGpsPos = null;
+            _waypointSet = "";
+            _waypointDirection = 0;
+            _waypointsFinished = false;
+            _waypointTimeStart = 0;
         }
 
         return Task.CompletedTask;
     }
 
-    private Task CheckDirection()
+    private Task CheckDirection(VectorNavReport msg, CancellationToken token)
     {
         if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
         {
-
-            //FIXME add a set of practice waypoints too, and even like OU e-quad waypoints we can can switch too based on the lat/lon of _startPos
-            // ALSO SELF-DRIVE COURSE WAYPOINTS (idk if those are allowed though but we can have a .IsRobotInSelfDriveMode() check)
-
-            // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(_position.Latitude, _position.Longitude)).Value.To(AngleUnit.Degrees);
-            if (120 < heading_degrees && heading_degrees < 240)
+            // pick the set of waypoints based on robot state and GPS position information
+            if (BaseRobot.Instance.State.Mission == MissionEnum.Selfdrive)
             {
-                _direction = "compSouth";
-                Logger.LogInformation("Picking south waypoints!");
+                _waypointSet = "selfdrive";
+            }
+            else if (msg.Latitude < Configuration.WaypointSubsystem.EquadLatitude)
+            {
+                _waypointSet = "equad";
+            }
+            else if (msg.Longitude > Configuration.WaypointSubsystem.PracticeLongitude)
+            {
+                _waypointSet = "practice";
             }
             else
             {
-                _direction = "compNorth";
-                Logger.LogInformation("Picking north waypoints!");
+                _waypointSet = "autonav";
             }
 
-            //TODO: we should flash safety lights to let operator know that the GPS waypoints are working / have been selected
+
+            // then pick a set of waypoints based on which direction we are heading
+            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).Value.To(AngleUnit.Degrees);
+            if (120 < heading_degrees && heading_degrees < 240)
+            {
+                _waypointDirection = -1; // south
+                // if we are going south, make the index the last element in the list and we will work backwards
+                _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
+            }
+            else
+            {
+                _waypointDirection = 1; // north
+            }
+
+
+            Logger.LogInformation("Picked {} waypoint set with direction {}!", _waypointSet, _waypointDirection.ToString());
+
+            _waypointsFinished = false;
+            _waypointTimeStart = 0;
+
+            //FIXME should we publish the first waypoint message here then? instead of in OnPositionReceived? I think I like that better actually...
+            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Blue, token, 2000);
         }
 
         return Task.CompletedTask;
@@ -142,23 +177,29 @@ public class WaypointsSubsystem() : SubsystemBase
             return Task.CompletedTask;
         }
 
-        if (_direction == "")
+        if (_waypointSet == "")
         {
-            CheckDirection();
+            CheckDirection(msg, token);
         }
 
         // waypoint reach detection
-        else if (_waypointsDict.Count() != 0)
+        else if (_waypointsDict.Count() != 0 && !_waypointsFinished) //FIXME I think this needs to be an if and not an else if so that it runs on first message?
         {
-            //TODO if we haven't published the first waypoint, we should publish it here after waypoint wait time or whatever
+            if (!_hasPublished)
+            {
+                //TODO publish first waypoint message
+
+                _hasPublished = true;
+                SetOperatingState(SubsystemState.Operating);
+            }
 
             var current_gps = new LatLng(msg.Latitude, msg.Longitude);
-            var goalPoint = _waypointsDict[_direction][_waypointIndex];
+            var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
 
             var dist = current_gps.Distance(goalPoint);
 
-            // if we are close enough to the waypoint, and we aren't going to cause an out-of-bounds index error
-            if (dist.To(DistanceUnit.Meters) < WaypointConfig.WaypointPopDist && _waypointIndex < (_waypointsDict[_direction].Count - 2))
+            // if we are close enough to the waypoint
+            if (dist.To(DistanceUnit.Meters) < WaypointConfig.WaypointPopDist)
             {
                 if (_waypointTimeStart == 0)
                 {
@@ -170,12 +211,22 @@ public class WaypointsSubsystem() : SubsystemBase
                     //FIXME we should add like, waypoint pass detection to just go to the next one if we've gone past it maybe? so we don't get stuck in a loop of death or something
 
                     // then go to the next waypoint
-                    _waypointIndex++;
+                    _waypointIndex += _waypointDirection;
 
-                    Logger.LogInformation("Waypoint Reached! Heading to next...");
+                    if (_waypointIndex < 0 || _waypointIndex+1 > _waypointsDict[_waypointSet].Count())
+                    {
+                        // we've reached the end of the list, publish no more
+                        _waypointsFinished = true;
+                        Logger.LogInformation("Reached end of waypoints list!");
+                    } 
+                    else
+                    {
+                        Logger.LogInformation("Waypoint Reached! Heading to next...");
+                    }
+
                     _waypointTimeStart = 0;
 
-                    //TODO: flash safety lights green here for visual debug information n stuff
+                    canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, 2000, 500);
 
                     //TODO: publish a Waypoint message for the next waypoint
                 }
