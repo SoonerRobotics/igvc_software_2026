@@ -1,10 +1,13 @@
 
+using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
 using igvc_csharp.Core.Units;
+using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
+using Messages;
 using Microsoft.Extensions.Logging;
 using WaypointConfig = igvc_csharp.Configuration.WaypointSubsystem;
 
@@ -22,7 +25,6 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private int _waypointIndex = 0;
     private string _waypointSet = ""; //FIXME make this an enum or something?
     private int _waypointDirection = 0;
-    private bool _hasPublished = false;
     private bool _waypointsFinished = false;
 
     public override Task Init(CancellationToken token)
@@ -152,6 +154,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             else
             {
                 _waypointDirection = 1; // north
+                _waypointIndex = 0;
             }
 
 
@@ -160,7 +163,8 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             _waypointsFinished = false;
             _waypointTimeStart = 0;
 
-            //FIXME should we publish the first waypoint message here then? instead of in OnPositionReceived? I think I like that better actually...
+            //FIXME should we publish the first waypoint message here then? instead of waiting for OnPositionReceived?
+
             canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Blue, token, 2000);
         }
 
@@ -185,14 +189,6 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // waypoint reach detection
         else if (_waypointsDict.Count() != 0 && !_waypointsFinished) //FIXME I think this needs to be an if and not an else if so that it runs on first message?
         {
-            if (!_hasPublished)
-            {
-                //TODO publish first waypoint message
-
-                _hasPublished = true;
-                SetOperatingState(SubsystemState.Operating);
-            }
-
             var current_gps = new LatLng(msg.Latitude, msg.Longitude);
             var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
 
@@ -213,12 +209,12 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     // then go to the next waypoint
                     _waypointIndex += _waypointDirection;
 
-                    if (_waypointIndex < 0 || _waypointIndex+1 > _waypointsDict[_waypointSet].Count())
+                    if (_waypointIndex < 0 || _waypointIndex + 1 > _waypointsDict[_waypointSet].Count())
                     {
                         // we've reached the end of the list, publish no more
                         _waypointsFinished = true;
                         Logger.LogInformation("Reached end of waypoints list!");
-                    } 
+                    }
                     else
                     {
                         Logger.LogInformation("Waypoint Reached! Heading to next...");
@@ -228,7 +224,22 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                     canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, 2000, 500);
 
-                    //TODO: publish a Waypoint message for the next waypoint
+                    // publish a Waypoint message for the next waypoint
+                    var builder = new FlatBufferBuilder(128);
+                    var msgOffset = Waypoint.CreateWaypoint(
+                        builder,
+                        TimeUtils.Now(),
+                        new StringOffset(_waypointSet.Length), //FIXME does this actually put the string in there or is like... this not gonna work.
+                        _waypointIndex,
+                        (uint)_waypointsDict[_waypointSet].Count,
+                        goalPoint.Latitude,
+                        goalPoint.Longitude
+                    );
+                    builder.Finish(msgOffset.Value);
+                    var waypointMsg = MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray());
+                    EventBus.Instance.Publish(
+                        new MessageWrapperEvent(waypointMsg)
+                    );
                 }
             }
         }
