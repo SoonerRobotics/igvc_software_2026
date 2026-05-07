@@ -1,6 +1,6 @@
 namespace {NAMESPACE_PLACEHOLDER};
 
-table CanFrame {
+table CanMessage {
     // The timestamp of the can frame in microseconds
     timestamp: ulong;
 
@@ -14,4 +14,4 @@ table CanFrame {
     can_data: [ubyte];
 }
 
-root_type CanFrame;
+root_type CanMessage;

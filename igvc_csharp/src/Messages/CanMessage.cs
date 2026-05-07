@@ -9,16 +9,16 @@ using global::System;
 using global::System.Collections.Generic;
 using global::Google.FlatBuffers;
 
-public struct CanFrame : IFlatbufferObject
+public struct CanMessage : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
   public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_25_2_10(); }
-  public static CanFrame GetRootAsCanFrame(ByteBuffer _bb) { return GetRootAsCanFrame(_bb, new CanFrame()); }
-  public static CanFrame GetRootAsCanFrame(ByteBuffer _bb, CanFrame obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public static bool VerifyCanFrame(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, CanFrameVerify.Verify); }
+  public static CanMessage GetRootAsCanMessage(ByteBuffer _bb) { return GetRootAsCanMessage(_bb, new CanMessage()); }
+  public static CanMessage GetRootAsCanMessage(ByteBuffer _bb, CanMessage obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
+  public static bool VerifyCanMessage(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, CanMessageVerify.Verify); }
   public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
-  public CanFrame __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public CanMessage __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   public ulong Timestamp { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
   public uint SequenceNumber { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
@@ -32,20 +32,20 @@ public struct CanFrame : IFlatbufferObject
 #endif
   public byte[] GetCanDataArray() { return __p.__vector_as_array<byte>(10); }
 
-  public static Offset<Messages.CanFrame> CreateCanFrame(FlatBufferBuilder builder,
+  public static Offset<Messages.CanMessage> CreateCanMessage(FlatBufferBuilder builder,
       ulong timestamp = 0,
       uint sequence_number = 0,
       uint can_id = 0,
       VectorOffset can_dataOffset = default(VectorOffset)) {
     builder.StartTable(4);
-    CanFrame.AddTimestamp(builder, timestamp);
-    CanFrame.AddCanData(builder, can_dataOffset);
-    CanFrame.AddCanId(builder, can_id);
-    CanFrame.AddSequenceNumber(builder, sequence_number);
-    return CanFrame.EndCanFrame(builder);
+    CanMessage.AddTimestamp(builder, timestamp);
+    CanMessage.AddCanData(builder, can_dataOffset);
+    CanMessage.AddCanId(builder, can_id);
+    CanMessage.AddSequenceNumber(builder, sequence_number);
+    return CanMessage.EndCanMessage(builder);
   }
 
-  public static void StartCanFrame(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartCanMessage(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddTimestamp(FlatBufferBuilder builder, ulong timestamp) { builder.AddUlong(0, timestamp, 0); }
   public static void AddSequenceNumber(FlatBufferBuilder builder, uint sequenceNumber) { builder.AddUint(1, sequenceNumber, 0); }
   public static void AddCanId(FlatBufferBuilder builder, uint canId) { builder.AddUint(2, canId, 0); }
@@ -55,16 +55,16 @@ public struct CanFrame : IFlatbufferObject
   public static VectorOffset CreateCanDataVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
   public static VectorOffset CreateCanDataVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartCanDataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
-  public static Offset<Messages.CanFrame> EndCanFrame(FlatBufferBuilder builder) {
+  public static Offset<Messages.CanMessage> EndCanMessage(FlatBufferBuilder builder) {
     int o = builder.EndTable();
-    return new Offset<Messages.CanFrame>(o);
+    return new Offset<Messages.CanMessage>(o);
   }
-  public static void FinishCanFrameBuffer(FlatBufferBuilder builder, Offset<Messages.CanFrame> offset) { builder.Finish(offset.Value); }
-  public static void FinishSizePrefixedCanFrameBuffer(FlatBufferBuilder builder, Offset<Messages.CanFrame> offset) { builder.FinishSizePrefixed(offset.Value); }
+  public static void FinishCanMessageBuffer(FlatBufferBuilder builder, Offset<Messages.CanMessage> offset) { builder.Finish(offset.Value); }
+  public static void FinishSizePrefixedCanMessageBuffer(FlatBufferBuilder builder, Offset<Messages.CanMessage> offset) { builder.FinishSizePrefixed(offset.Value); }
 }
 
 
-static public class CanFrameVerify
+static public class CanMessageVerify
 {
   static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
   {

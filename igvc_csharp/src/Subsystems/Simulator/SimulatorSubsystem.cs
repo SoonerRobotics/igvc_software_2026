@@ -3,6 +3,7 @@ using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils.Messages;
+using Messages;
 using Messages.Arc;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;
@@ -114,7 +115,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
     {
         if (wrapper.Type == MessageType.CanFrame)
         {
-            var arcFrame = wrapper.As<ArcCanFrame>();
+            var arcFrame = wrapper.As<CanMessage>();
             var canId = arcFrame.CanId;
             var canData = arcFrame.GetCanDataArray();
             var canFrame = new CanFrame(canId, canData);
@@ -127,7 +128,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
 
     public async Task SendCanFrame(CanFrame frame)
     {
-        var arcFrame = MessageConstructor.CreateArcCanFrame(frame);
+        var arcFrame = MessageConstructor.CreateCanMessage(frame);
         var wrapper = MessageWrapper.From(MessageType.CanFrame, arcFrame.ByteBuffer.ToFullArray());
         await SendWrapper(wrapper);
     }

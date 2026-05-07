@@ -83,11 +83,11 @@ public static class MessageConstructor
         return MessageWrapper.From(MessageType.CommandAck, cmd.ByteBuffer.ToSizedArray());
     }
 
-    public static ArcCanFrame CreateArcCanFrame(CanFrame frame)
+    public static CanMessage CreateCanMessage(CanFrame frame)
     {
         var builder = new FlatBufferBuilder(1024);
-        var dataOffset = ArcCanFrame.CreateCanDataVector(builder, frame.Data);
-        var arcCanFrameOffset = ArcCanFrame.CreateArcCanFrame(
+        var dataOffset = CanMessage.CreateCanDataVector(builder, frame.Data);
+        var arcCanFrameOffset = CanMessage.CreateCanMessage(
             builder,
             TimeUtils.Now(),
             0,
@@ -96,7 +96,7 @@ public static class MessageConstructor
         );
         builder.Finish(arcCanFrameOffset.Value);
         
-        return ArcCanFrame.GetRootAsArcCanFrame(new ByteBuffer(builder.SizedByteArray()));
+        return CanMessage.GetRootAsCanMessage(new ByteBuffer(builder.SizedByteArray()));
     }
 
     public static ArcHistogram CreateHistogram(ColorUtils.ColorRange range, int padding = 0)
