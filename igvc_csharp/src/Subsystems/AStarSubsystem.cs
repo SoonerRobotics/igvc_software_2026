@@ -24,12 +24,39 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private List<SCR_Point> _path = [];
     private SCR_Point _robotStartPoint = new(48, 78); //FIXME rewrite in terms of config space dimensions / make configurable
     private LatLng _waypoint;
+    private LatLng _position;
+    private int[][] _configSpace; //TODO FIXME
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
 
-        //TODO: subscribers / publishers
+        // subscribers
+        SubscribeMessage<VectorNavReport>(
+            MessageType.Gps,
+            OnPositionReceived,
+            token
+        );
+
+        SubscribeMessage<Waypoint>(
+            MessageType.Waypoint,
+            OnWaypointReceived,
+            token
+        );
+
+        SubscribeMessage<ConfigSpace>(
+            MessageType.ConfigSpace,
+            OnConfigSpaceReceived,
+            token
+        );
+
+        // publishers
+        _ = Task.Factory.StartNew(
+            () => FindPath(token),
+            token,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default
+        );
 
         SetOperatingState(SubsystemState.Ready);
 
@@ -61,11 +88,34 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    public void FindGoalPoint()
+    private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
+    {
+        //FIXME don't we need the heading too?
+        _position = new LatLng(msg.Latitude, msg.Longitude);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
+    {
+        _goalPoint = new(msg.Latitude, msg.Longitude);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnConfigSpaceReceived(ConfigSpace msg, CancellationToken token)
+    {
+        //TODO FIXME
+        _configSpace = msg.data;
+
+        return Task.CompletedTask;
+    }
+
+    //FIXME actually use cancellation token
+    private Task FindGoalPoint(CancellationToken token)
     {
         // self.performance.start("Smellification")
 
-        // grid_data = msg.data
         var workingGoalPoint = new SCR_Point(40, 78); //TODO rewrite in terms of config space dimensions
         double workingCost = -1000;
 
@@ -124,19 +174,19 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                 //REALLY BIG FIXME: these !explored.Contains(point) need to be like, !explored.Contains(point.X + 1) typa thing y'know what I'm sayin?
 
-                if (point.Y > 0 && configSpace[point] < 50 && !explored.Contains(point))
+                if (point.Y > 0 && _configSpace[point] < 50 && !explored.Contains(point))
                 {
                     // we're in image coordinates, so negative Y means upwards in the image, means forwards for the robot
                     frontier.Add(new SCR_Point(point.X, point.Y - 1));
                 }
 
                 //FIXME rewrite in terms of config space dimensions
-                if (point.X < 79 && configSpace[point] < 50 && !explored.Contains(point))
+                if (point.X < 79 && _configSpace[point] < 50 && !explored.Contains(point))
                 {
                     frontier.Add(new SCR_Point(point.X + 1, point.Y));
                 }
 
-                if (point.X > 0 && configSpace[point] < 50 && !explored.Contains(point))
+                if (point.X > 0 && _configSpace[point] < 50 && !explored.Contains(point))
                 {
                     frontier.Add(new SCR_Point(point.X - 1, point.Y));
                 }
@@ -150,11 +200,16 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // self.performance.end("Smellification")
 
         _goalPoint = workingGoalPoint;
+
+        return Task.CompletedTask;
     }
 
-    public void FindPath()
+    //FIXME actually use cancellation token in loops n stuff
+    private Task FindPath(CancellationToken token)
     {
-        FindGoalPoint();
+        SetOperatingState(SubsystemState.Operating);
+
+        FindGoalPoint(token);
 
         // looked_at = np.zeros((80, 80))
         HashSet<SCR_Point> open_set = [_robotStartPoint];
@@ -212,14 +267,17 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
             if (current == _goalPoint)
             {
+                //FIXME this shouldn't return we should like, do something else about it or something
                 return ReconstructPath(path, current);
             }
 
             open_set.Remove(current);
-            foreach ((delta_x, delta_y, dist) in search_dirs) {
+            foreach ((delta_x, delta_y, dist) in search_dirs)
+            {
                 SCR_Point neighbor = (current.X + delta_x, current.Y + delta_y);
 
-                if (neighbor.X < 0 || neighbor.X >= width || neighbor.Y < 0 || neighbor.Y >= height) {
+                if (neighbor.X < 0 || neighbor.X >= width || neighbor.Y < 0 || neighbor.Y >= height)
+                {
                     continue;
                 }
 
@@ -229,7 +287,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     path[neighbor] = current;
                     gScore[neighbor] = tentGScore;
                     fScore[neighbor] = tentGScore + H(neighbor);
-                    
+
                     if (!open_set.Contains(neighbor))
                     {
                         open_set.Add(neighbor);
@@ -238,5 +296,10 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 }
             }
         }
+
+        //TODO: publish path message
+        //TODO: publish debug image
+
+        return Task.CompletedTask;
     }
 }
