@@ -22,7 +22,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private SCR_Point _goalPoint;
     private List<SCR_Point> _path = [];
-    private SCR_Point _robotStartPoint = new(48, 78); //FIXME rewrite in terms of config space dimensions / make configurable
+    private SCR_Point _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
     private LatLng _waypoint;
     private LatLng _position;
     private int[][] _configSpace; //TODO FIXME
@@ -116,7 +116,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         // self.performance.start("Smellification")
 
-        var workingGoalPoint = new SCR_Point(40, 78); //TODO rewrite in terms of config space dimensions
+        var workingGoalPoint = new SCR_Point(_robotStartPoint.X, _robotStartPoint.Y);
         double workingCost = -1000;
 
         HashSet<SCR_Point> frontier = [_robotStartPoint]; //FIXME we should try and re-use this for the A* or something.
@@ -150,14 +150,12 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         int depth = 0;
         //FIXME add cancellation token check?
-        while (depth < 50 && frontier.Count > 0)
+        while (depth < AStarConfig.SmellyMaxDepth && frontier.Count > 0)
         {
             var frontierCopy = frontier; //TODO make this a deep copy
             foreach (var point in frontierCopy)
             {
-                //FIXME rewrite in terms of config space dimensions
-                // also FIXME make the weights configurable
-                double cost = (80 - point.Y) * 1.3 + depth * 2.2;
+                double cost = (AStarConfig.ConfigSpaceHeight - point.Y) * AStarConfig.SmellyDistanceWeight + (depth * AStarConfig.SmellyDepthWeight);
 
                 // if len(self.waypoints) > 0:
                 //     heading_err_to_gps = abs(self.getAngleDifference(self.position.theta + math.atan2(40 - x, 80 - y), heading_to_gps)) * 180 / math.pi
@@ -180,8 +178,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     frontier.Add(new SCR_Point(point.X, point.Y - 1));
                 }
 
-                //FIXME rewrite in terms of config space dimensions
-                if (point.X < 79 && _configSpace[point] < 50 && !explored.Contains(point))
+                if (point.X < (AStarConfig.ConfigSpaceWidth - 1) && _configSpace[point] < 50 && !explored.Contains(point))
                 {
                     frontier.Add(new SCR_Point(point.X + 1, point.Y));
                 }
@@ -276,7 +273,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 SCR_Point neighbor = (current.X + delta_x, current.Y + delta_y);
 
-                if (neighbor.X < 0 || neighbor.X >= width || neighbor.Y < 0 || neighbor.Y >= height)
+                if (neighbor.X < 0 || neighbor.X >= AStarConfig.ConfigSpaceWidth || neighbor.Y < 0 || neighbor.Y >= AStarConfig.ConfigSpaceHeight)
                 {
                     continue;
                 }

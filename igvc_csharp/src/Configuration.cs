@@ -226,4 +226,33 @@ public static class Configuration
         /// </summary>
         public const double OpenCvCalibrationSquareSizeMeters = 0.024;
     }
+
+    public static class AStarSubsystem
+    {
+        /// <summary>
+        /// How much to weight the cost of points the further forwards / "upwards" for smellification (goal point selection)
+        /// </summary>
+        public const double SmellyDistanceWeight = 1.3;
+
+        /// <summary>
+        /// How much to weight the cost of points the higher the depth iteration of smellification is
+        /// </summary>
+        public const double SmellyDepthWeight = 2.2;
+
+        /// <summary>
+        /// The maximum depth to search when selecting a goal point during smellification
+        /// </summary>
+        public const int SmellyMaxDepth = 50;
+
+        //FIXME does this belong to the vision subsystem instead? since that is what will publish the config space messages?
+        /// <summary>
+        /// TODO
+        /// </summary>
+        public const int ConfigSpaceWidth = 80;
+
+        /// <summary>
+        /// TODO
+        /// </summary>
+        public const int ConfigSpaceHeight = 80;
+    }
 }
