@@ -244,6 +244,11 @@ public static class Configuration
         /// </summary>
         public const int SmellyMaxDepth = 50;
 
+        /// <summary>
+        /// Whether to ignore obstacles and only pathfind to waypoints (for qualification/inspection/testing/etc.)
+        /// </summary>
+        public const bool UseOnlyWaypoints = false;
+
         //FIXME does this belong to the vision subsystem instead? since that is what will publish the config space messages?
         /// <summary>
         /// TODO

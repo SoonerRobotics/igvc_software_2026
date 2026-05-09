@@ -1,13 +1,9 @@
-using System.Diagnostics;
-using System.Threading.Channels;
 using igvc_csharp.Core;
-using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using igvc_csharp.Core.Units;
-using igvc_csharp.Subsystems.Tools;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Core.Hardware;
 using OpenCvSharp;
@@ -25,6 +21,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private SCR_Point _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
     private LatLng _waypoint;
     private LatLng _position;
+    private double _heading = 0;
     private int[][] _configSpace; //TODO FIXME
 
     public override Task Init(CancellationToken token)
@@ -50,7 +47,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             token
         );
 
-        // publishers
+        // publishers FIXME shouldn't this just run whenever we get a config space? and not on its own?
         _ = Task.Factory.StartNew(
             () => FindPath(token),
             token,
@@ -90,8 +87,9 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
     {
-        //FIXME don't we need the heading too?
         _position = new LatLng(msg.Latitude, msg.Longitude);
+
+        _heading = msg.Yaw; //FIXME this doesn't get the right global heading right? we might have to store a _lastPosition or something
 
         return Task.CompletedTask;
     }
@@ -123,29 +121,9 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         HashSet<SCR_Point> explored = [];
 
         //FIXME
-        // if self.config.getBool(CONFIG_USE_ONLY_WAYPOINTS) == True:
-        //     grid_data = [0] * len(msg.data)
-
-
-        //FIXME do a better null check or something
-        if (_waypoint.Latitude != 0)
+        if (AStarConfig.UseOnlyWaypoints)
         {
-            //FIXME
-            // north_to_gps = (next_waypoint[0] - self.position.latitude) * self.latitudeLength
-            // west_to_gps = (self.position.longitude - next_waypoint[1]) * self.longitudeLength
-            // heading_to_gps = math.atan2(west_to_gps, north_to_gps) % (2 * math.pi)
-
-            // pathingDebug = PathingDebug()
-            // pathingDebug.desired_heading = heading_to_gps
-            // pathingDebug.desired_latitude = next_waypoint[0]
-            // pathingDebug.desired_longitude = next_waypoint[1]
-            // pathingDebug.distance_to_destination = north_to_gps ** 2 + west_to_gps ** 2
-            // wp1d = []
-            // for wp in self.waypoints:
-            //     wp1d.append(wp[0])
-            //     wp1d.append(wp[1])
-            // pathingDebug.waypoints = wp1d
-            // self.debugPublisher.publish(pathingDebug)
+            _configSpace = []; //TODO FIXME
         }
 
         int depth = 0;
@@ -157,9 +135,12 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 double cost = (AStarConfig.ConfigSpaceHeight - point.Y) * AStarConfig.SmellyDistanceWeight + (depth * AStarConfig.SmellyDepthWeight);
 
-                // if len(self.waypoints) > 0:
-                //     heading_err_to_gps = abs(self.getAngleDifference(self.position.theta + math.atan2(40 - x, 80 - y), heading_to_gps)) * 180 / math.pi
-                //     cost -= max(heading_err_to_gps, 10)
+                //FIXME better null check or something
+                if (_goalPoint != null)
+                {
+                    var heading_err_to_gps = GetAngleDifference(_heading, GeoUtils.EstimateHeading(_position, _waypoint));
+                    cost -= Math.Max(heading_err_to_gps, 10);
+                }
 
                 if (cost > workingCost)
                 {
@@ -193,7 +174,6 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
 
         // self.costMap = grid_data
-        // self.bestPosition = temp_best_pos
         // self.performance.end("Smellification")
 
         _goalPoint = workingGoalPoint;
@@ -204,23 +184,30 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     //FIXME actually use cancellation token in loops n stuff
     private Task FindPath(CancellationToken token)
     {
+        if (BaseRobot.Instance.State.Mode != RobotModeEnum.Autonomous || BaseRobot.Instance.State.Mission != MissionEnum.Autonav)
+        {
+            return Task.CompletedTask;
+        }
+
         SetOperatingState(SubsystemState.Operating);
 
         FindGoalPoint(token);
 
-        // looked_at = np.zeros((80, 80))
+        int[] lookedAt = new int[AStarConfig.ConfigSpaceWidth * AStarConfig.ConfigSpaceHeight];
         HashSet<SCR_Point> open_set = [_robotStartPoint];
         List<SCR_Point> path = [];
-        int[] search_dirs = []; //TODO FIXME
-        SCR_Point current;
+        List<(int, int, double)> search_dirs = [];
+        SCR_Point currentPoint;
 
         // self.performance.start("A*")
 
-        // for x in range(-1, 2):
-        //     for y in range(-1, 2):
-        //         if x == 0 and y == 0:
-        //             continue
-        //         search_dirs.append((x,y,math.sqrt(x ** 2 + y ** 2)))
+        for (int x = -1; x < 2; x += 2)
+        {
+            for (int y = -1; y < 2; y += 2)
+            {
+                search_dirs.Add((x, y, Math.Sqrt((x * x) + (y * y))));
+            }
+        }
 
         double H(SCR_Point pt)
         {
@@ -255,40 +242,42 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             { _robotStartPoint, H(_robotStartPoint) } // initial point has score 0
         };
 
-        SCR_Point next_current = [(1, start)]; //FIXME???
+        PriorityQueue<SCR_Point, double> nextPoint = new();
+        nextPoint.Enqueue(_robotStartPoint, 1);
+
         while (open_set.Count > 0)
         {
-            current = heappop(next_current)[1];
+            currentPoint = nextPoint.Dequeue();
 
-            looked_at[current.X, current.Y] = 1;
+            lookedAt[To1DArry(currentPoint)] = 1; //FIXME what do we even use lookedAt for ???
 
-            if (current == _goalPoint)
+            if (currentPoint == _goalPoint)
             {
                 //FIXME this shouldn't return we should like, do something else about it or something
                 return ReconstructPath(path, current);
             }
 
-            open_set.Remove(current);
-            foreach ((delta_x, delta_y, dist) in search_dirs)
+            open_set.Remove(currentPoint);
+            foreach (var (delta_x, delta_y, dist) in search_dirs)
             {
-                SCR_Point neighbor = (current.X + delta_x, current.Y + delta_y);
+                SCR_Point neighbor = new(currentPoint.X + delta_x, currentPoint.Y + delta_y);
 
                 if (neighbor.X < 0 || neighbor.X >= AStarConfig.ConfigSpaceWidth || neighbor.Y < 0 || neighbor.Y >= AStarConfig.ConfigSpaceHeight)
                 {
                     continue;
                 }
 
-                var tentGScore = GetG(current) + D(neighbor, dist);
+                var tentGScore = GetG(currentPoint) + D(neighbor, dist);
                 if (tentGScore < GetG(neighbor))
                 {
-                    path[neighbor] = current;
+                    path[neighbor] = currentPoint;
                     gScore[neighbor] = tentGScore;
                     fScore[neighbor] = tentGScore + H(neighbor);
 
                     if (!open_set.Contains(neighbor))
                     {
                         open_set.Add(neighbor);
-                        heappush(next_current, (fScore[neighbor], neighbor));
+                        nextPoint.Enqueue(neighbor, fScore[neighbor]);
                     }
                 }
             }
