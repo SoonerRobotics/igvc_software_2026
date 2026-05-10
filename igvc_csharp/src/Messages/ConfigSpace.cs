@@ -23,23 +23,23 @@ public struct ConfigSpace : IFlatbufferObject
   public ulong Timestamp { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
   public uint Width { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
   public uint Height { get { int o = __p.__offset(8); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
-  public byte ImageData(int j) { int o = __p.__offset(10); return o != 0 ? __p.bb.Get(__p.__vector(o) + j * 1) : (byte)0; }
-  public int ImageDataLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public uint Data(int j) { int o = __p.__offset(10); return o != 0 ? __p.bb.GetUint(__p.__vector(o) + j * 4) : (uint)0; }
+  public int DataLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetImageDataBytes() { return __p.__vector_as_span<byte>(10, 1); }
+  public Span<uint> GetDataBytes() { return __p.__vector_as_span<uint>(10, 4); }
 #else
-  public ArraySegment<byte>? GetImageDataBytes() { return __p.__vector_as_arraysegment(10); }
+  public ArraySegment<byte>? GetDataBytes() { return __p.__vector_as_arraysegment(10); }
 #endif
-  public byte[] GetImageDataArray() { return __p.__vector_as_array<byte>(10); }
+  public uint[] GetDataArray() { return __p.__vector_as_array<uint>(10); }
 
   public static Offset<Messages.ConfigSpace> CreateConfigSpace(FlatBufferBuilder builder,
       ulong timestamp = 0,
       uint width = 0,
       uint height = 0,
-      VectorOffset image_dataOffset = default(VectorOffset)) {
+      VectorOffset dataOffset = default(VectorOffset)) {
     builder.StartTable(4);
     ConfigSpace.AddTimestamp(builder, timestamp);
-    ConfigSpace.AddImageData(builder, image_dataOffset);
+    ConfigSpace.AddData(builder, dataOffset);
     ConfigSpace.AddHeight(builder, height);
     ConfigSpace.AddWidth(builder, width);
     return ConfigSpace.EndConfigSpace(builder);
@@ -49,12 +49,12 @@ public struct ConfigSpace : IFlatbufferObject
   public static void AddTimestamp(FlatBufferBuilder builder, ulong timestamp) { builder.AddUlong(0, timestamp, 0); }
   public static void AddWidth(FlatBufferBuilder builder, uint width) { builder.AddUint(1, width, 0); }
   public static void AddHeight(FlatBufferBuilder builder, uint height) { builder.AddUint(2, height, 0); }
-  public static void AddImageData(FlatBufferBuilder builder, VectorOffset imageDataOffset) { builder.AddOffset(3, imageDataOffset.Value, 0); }
-  public static VectorOffset CreateImageDataVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
-  public static VectorOffset CreateImageDataVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
-  public static VectorOffset CreateImageDataVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
-  public static VectorOffset CreateImageDataVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
-  public static void StartImageDataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
+  public static void AddData(FlatBufferBuilder builder, VectorOffset dataOffset) { builder.AddOffset(3, dataOffset.Value, 0); }
+  public static VectorOffset CreateDataVector(FlatBufferBuilder builder, uint[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddUint(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateDataVectorBlock(FlatBufferBuilder builder, uint[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateDataVectorBlock(FlatBufferBuilder builder, ArraySegment<uint> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateDataVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<uint>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartDataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Messages.ConfigSpace> EndConfigSpace(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     return new Offset<Messages.ConfigSpace>(o);
@@ -72,7 +72,7 @@ static public class ConfigSpaceVerify
       && verifier.VerifyField(tablePos, 4 /*Timestamp*/, 8 /*ulong*/, 8, false)
       && verifier.VerifyField(tablePos, 6 /*Width*/, 4 /*uint*/, 4, false)
       && verifier.VerifyField(tablePos, 8 /*Height*/, 4 /*uint*/, 4, false)
-      && verifier.VerifyVectorOfData(tablePos, 10 /*ImageData*/, 1 /*byte*/, false)
+      && verifier.VerifyVectorOfData(tablePos, 10 /*Data*/, 4 /*uint*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }
 }

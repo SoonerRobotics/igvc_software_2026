@@ -19,10 +19,10 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private SCR_Point _goalPoint;
     private List<SCR_Point> _path = [];
     private SCR_Point _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
-    private LatLng _waypoint;
-    private LatLng _position;
+    private LatLng? _waypoint;
+    private LatLng? _position;
     private double _heading = 0;
-    private int[][] _configSpace; //TODO FIXME
+    private uint[] _configSpace = [];
 
     public override Task Init(CancellationToken token)
     {
@@ -60,13 +60,25 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    public void Reset()
+    private void Reset()
     {
-        //TODO
+        SetOperatingState(SubsystemState.Starting);
 
-        //TODO reset _robotStartPoint?
+        _goalPoint = new();
+        _path = [];
+        _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
+        _waypoint = null;
+        _position = null;
+        _heading = 0;
+        _configSpace = [];
 
         SetOperatingState(SubsystemState.Ready);
+    }
+
+    // gets the index of a 2D point in the 1D config space array
+    private static int To1DArry(SCR_Point pt)
+    {
+        return (pt.Y * AStarConfig.ConfigSpaceWidth) + pt.X;
     }
 
     public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
@@ -103,13 +115,12 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private Task OnConfigSpaceReceived(ConfigSpace msg, CancellationToken token)
     {
-        //TODO FIXME
-        _configSpace = msg.data;
+        //TODO FIXME this may need to be a deep copy or something?
+        _configSpace = msg.GetDataArray();
 
         return Task.CompletedTask;
     }
 
-    //FIXME actually use cancellation token
     private Task FindGoalPoint(CancellationToken token)
     {
         // self.performance.start("Smellification")
@@ -153,18 +164,18 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                 //REALLY BIG FIXME: these !explored.Contains(point) need to be like, !explored.Contains(point.X + 1) typa thing y'know what I'm sayin?
 
-                if (point.Y > 0 && _configSpace[point] < 50 && !explored.Contains(point))
+                if (point.Y > 0 && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
                 {
                     // we're in image coordinates, so negative Y means upwards in the image, means forwards for the robot
                     frontier.Add(new SCR_Point(point.X, point.Y - 1));
                 }
 
-                if (point.X < (AStarConfig.ConfigSpaceWidth - 1) && _configSpace[point] < 50 && !explored.Contains(point))
+                if (point.X < (AStarConfig.ConfigSpaceWidth - 1) && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
                 {
                     frontier.Add(new SCR_Point(point.X + 1, point.Y));
                 }
 
-                if (point.X > 0 && _configSpace[point] < 50 && !explored.Contains(point))
+                if (point.X > 0 && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
                 {
                     frontier.Add(new SCR_Point(point.X - 1, point.Y));
                 }
@@ -283,7 +294,6 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             }
         }
 
-        //TODO: publish path message
         //TODO: publish debug image
 
         return Task.CompletedTask;

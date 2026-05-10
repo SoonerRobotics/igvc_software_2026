@@ -9,7 +9,7 @@ table ConfigSpace {
     height: uint;
 
     // The raw data (as a 1 dimensional array)
-    image_data: [ubyte];
+    data: [uint];
 }
 
 root_type ConfigSpace;

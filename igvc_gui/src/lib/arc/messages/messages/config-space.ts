@@ -39,19 +39,19 @@ height():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
-imageData(index: number):number|null {
+data(index: number):number|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readUint8(this.bb!.__vector(this.bb_pos + offset) + index) : 0;
+  return offset ? this.bb!.readUint32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
 }
 
-imageDataLength():number {
+dataLength():number {
   const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-imageDataArray():Uint8Array|null {
+dataArray():Uint32Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+  return offset ? new Uint32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
 static startConfigSpace(builder:flatbuffers.Builder) {
@@ -70,20 +70,25 @@ static addHeight(builder:flatbuffers.Builder, height:number) {
   builder.addFieldInt32(2, height, 0);
 }
 
-static addImageData(builder:flatbuffers.Builder, imageDataOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(3, imageDataOffset, 0);
+static addData(builder:flatbuffers.Builder, dataOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, dataOffset, 0);
 }
 
-static createImageDataVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset {
-  builder.startVector(1, data.length, 1);
+static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
   for (let i = data.length - 1; i >= 0; i--) {
-    builder.addInt8(data[i]!);
+    builder.addInt32(data[i]!);
   }
   return builder.endVector();
 }
 
-static startImageDataVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(1, numElems, 1);
+static startDataVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endConfigSpace(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -99,12 +104,12 @@ static finishSizePrefixedConfigSpaceBuffer(builder:flatbuffers.Builder, offset:f
   builder.finish(offset, undefined, true);
 }
 
-static createConfigSpace(builder:flatbuffers.Builder, timestamp:bigint, width:number, height:number, imageDataOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createConfigSpace(builder:flatbuffers.Builder, timestamp:bigint, width:number, height:number, dataOffset:flatbuffers.Offset):flatbuffers.Offset {
   ConfigSpace.startConfigSpace(builder);
   ConfigSpace.addTimestamp(builder, timestamp);
   ConfigSpace.addWidth(builder, width);
   ConfigSpace.addHeight(builder, height);
-  ConfigSpace.addImageData(builder, imageDataOffset);
+  ConfigSpace.addData(builder, dataOffset);
   return ConfigSpace.endConfigSpace(builder);
 }
 }
