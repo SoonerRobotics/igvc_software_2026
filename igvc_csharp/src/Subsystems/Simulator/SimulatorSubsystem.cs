@@ -18,7 +18,8 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
     private TcpClient? _client;
     private Task? _connectTask;
     private CancellationTokenSource? _internalCts;
-
+    private NetworkStream? _stream;
+    
     public override Task Init(CancellationToken token)
     {
         _internalCts = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -90,6 +91,10 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             {
                 // ignored
             }
+            catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
+            {
+                // Socket cancelled cleanly, treat same as OperationCanceledException
+            }
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "Simulator connection error, retrying in {Delay}",
@@ -140,15 +145,18 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             return;
         }
 
-        // TODO: Store the stream?
         var bytes = MessageWriter.Write(wrapper.Type, wrapper.Data, Configuration.SimulatorSubsystem.Endianness);
-        await using var stream = _client.GetStream();
-        await stream.WriteAsync(bytes);
+        if (_stream == null)
+        {
+            return;
+        }
+        
+        await _stream.WriteAsync(bytes);
     }
 
     private async Task ReceiveLoop(TcpClient client, CancellationToken token)
     {
-        await using var stream = client.GetStream();
+        _stream = client.GetStream();
         var buffer = new byte[Configuration.SimulatorSubsystem.ReceiveBufferSize];
         var accumulator = new MessageAccumulator(
             Endianness,
@@ -160,7 +168,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         {
             while (!token.IsCancellationRequested && client.Connected)
             {
-                var bytesRead = await stream.ReadAsync(buffer, token);
+                var bytesRead = await _stream.ReadAsync(buffer, token);
                 if (bytesRead == 0)
                 {
                     break;
@@ -172,6 +180,10 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         catch (OperationCanceledException)
         {
             // ignored
+        }
+        catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
+        {
+            throw; // Let ConnectionLoop handle it
         }
     }
 }

@@ -10,7 +10,7 @@ trap 'log "Finished generate_local.sh"' EXIT
 
 log "Starting generate_local.sh"
 
-TS_DIR="../igvc_gui/src/lib/arc/messages"
+TS_DIR="../igvc_web/src/lib/arc/messages"
 CSHARP_DIR="../igvc_csharp/src"
 
 TS_NAMESPACE="messages"

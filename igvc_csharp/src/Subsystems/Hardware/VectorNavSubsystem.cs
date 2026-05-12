@@ -18,8 +18,8 @@ public class VectorNavSubsystem() : SubsystemBase
     private ProcessManager? _vnProcessManager;
 
     // Properties
-    protected SubsystemProperty<string> _pBaudRate = new("baudrate");
-    protected SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
+    private readonly SubsystemProperty<string> _pBaudRate = new("baudrate");
+    private readonly SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
 
     public override async Task Init(CancellationToken token)
     {
@@ -167,7 +167,7 @@ public class VectorNavSubsystem() : SubsystemBase
                         (sbyte)r.GpsFix
                     );
                     builder.Finish(reportOffset.Value);
-                    var reportMessage = MessageWrapper.From(MessageType.Gps, builder.SizedByteArray());
+                    var reportMessage = MessageWrapper.From(MessageType.VectorNav, builder.SizedByteArray());
                     EventBus.Instance.Publish(
                         new MessageWrapperEvent(reportMessage)
                     );

@@ -16,7 +16,6 @@ public sealed class MessageAccumulator(
     Endianness endianness,
     Action<MessageWrapper> onMessage,
     int initialCapacity = 4096,
-    int maxMessageLength = 512 * 1024, // 512 KB
     int maxBufferSize = 1024 * 1024 // 1024 KB
 )
 {
@@ -60,7 +59,7 @@ public sealed class MessageAccumulator(
                 ? BinaryPrimitives.ReadInt32LittleEndian(span[(MagicSize + 2)..])
                 : BinaryPrimitives.ReadInt32BigEndian(span[(MagicSize + 2)..]);
 
-            if (length < 0 || length >= maxMessageLength)
+            if (length < 0)
             {
                 throw new InvalidOperationException($"Invalid message length {length}");
             }
