@@ -1,16 +1,17 @@
 <script lang="ts">
     import { page } from "$app/state";
+    import { CameraIcon, ChartBar, LayoutDashboard, MapIcon, Settings2Icon, SquareActivity, WrenchIcon } from "@lucide/svelte";
 
     const { collapsed = false } = $props<{ collapsed?: boolean }>();
 
     const navItems = [
-        { href: "/dashboard", label: "Dashboard", icon: "" },
-        { href: "/camera", label: "Camera", icon: "" },
-        { href: "/metrics", label: "Metrics", icon: "" },
-        { href: "/hsv", label: "HSV Cal", icon: "" },
-        { href: "/yolo", label: "YOLO", icon: "" },
-        { href: "/map", label: "Map", icon: "" },
-        { href: "/config", label: "Config", icon: "" },
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/camera", label: "Camera", icon: CameraIcon },
+        { href: "/metrics", label: "Metrics", icon: ChartBar },
+        { href: "/tools", label: "Tools", icon: WrenchIcon },
+        { href: "/yolo", label: "YOLO", icon: SquareActivity },
+        { href: "/map", label: "Map", icon: MapIcon },
+        { href: "/config", label: "Config", icon: Settings2Icon },
     ];
 </script>
 
@@ -29,9 +30,9 @@
                     ? 'bg-red-400 text-white'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
             >
-                <span class="text-lg shrink-0 w-6 text-center leading-none"
-                    >{item.icon}</span
-                >
+                <span class="text-lg shrink-0 w-6 text-center leading-none">
+                    <item.icon />
+                </span>
                 {#if !collapsed}
                     <span
                         class="text-[13px] font-semibold tracking-wide truncate"
