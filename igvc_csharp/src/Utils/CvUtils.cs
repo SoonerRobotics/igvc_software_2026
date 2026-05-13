@@ -96,7 +96,7 @@ public class CvUtils
 
         // Mask out invalid pixels (where depth was 0)
         var mask = new Mat();
-        Cv2.Compare(mat, new Scalar(0.001f), mask, CmpType.LT);
+        Cv2.Compare(mat, new Scalar(0.001f), mask, CmpTypes.LT);
         colorized.SetTo(new Scalar(0, 0, 0), mask);
 
         normalized.Dispose();
