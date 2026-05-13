@@ -11,6 +11,7 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
@@ -45,6 +46,8 @@ public class AudioSubsystem(
 
     public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
     {
+        //Logger.LogDebug("YES WE ARE GETTING CALLED!!!!");
+        
         // check for a change in mode
         if (old != current)
         {
@@ -104,6 +107,8 @@ public class AudioSubsystem(
         SetOperatingState(SubsystemState.Operating);
 
         string relativeFilename = FileUtils.GetFileRelativeToRoot("resources/" + filename);
+
+        Logger.LogDebug("Playing sound: " + relativeFilename);
 
         using (Process playSound = new())
         {
