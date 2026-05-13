@@ -15,4 +15,6 @@ sudo apt install --reinstall \
   bluez-tools \
   linux-firmware \
   xboxdrv \
-  steam-devices
+  steam-devices \
+  pulseaudio \
+  pulseaudio-module-bluetooth
