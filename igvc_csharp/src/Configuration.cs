@@ -21,7 +21,7 @@ public static class Configuration
     /// Determines if the robot will use the simulator.
     /// </summary>
     [Config("simulation.enabled")]
-    public const bool UseSimulation = true;
+    public const bool UseSimulation = false;
 
     /// <summary>
     /// A magic header for all networking nonsense
