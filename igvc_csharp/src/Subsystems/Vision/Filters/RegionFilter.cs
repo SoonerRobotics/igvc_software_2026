@@ -36,11 +36,6 @@ public class RegionFilter : IFilter
         _contours = regions.Select(r => r.ToArray()).ToArray();
         _mode = mode;
         _fillValue = fillValue;
-
-        if (_contours.Length == 0 || _contours.Length < 3)
-        {
-            throw new ArgumentException("Each region must have at least 3 vertices.");
-        }
     }
 
     public Mat Apply(Mat frame)

@@ -5,7 +5,7 @@ using SocketCANSharp;
 
 namespace igvc_csharp.Subsystems;
 
-[Subsystem("Chronos")]
+[Subsystem("ChronosSubsystem")]
 public class ChronosSubsystem : AbstractChronosSubsystem
 {
     // Ids
@@ -23,12 +23,6 @@ public class ChronosSubsystem : AbstractChronosSubsystem
     public static class CameraId
     {
         public const int Front = 0x0001;
-    }
-
-    // Constructor
-    public ChronosSubsystem(string outputDirectory) : base(outputDirectory)
-    {
-        
     }
 
     // Overrides

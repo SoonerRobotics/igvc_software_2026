@@ -1,0 +1,13 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+table ZedFrame {
+    // unity time/read time
+    timestamp: ulong;
+
+    width: int32;
+    height: int32;
+    // row major, 0 = invalid
+    data: [ubyte];
+}
+
+root_type ZedFrame;

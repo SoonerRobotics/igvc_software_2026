@@ -10,20 +10,16 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem", DependsOn = [
-    typeof(ChronosSubsystem)
-])]
-public class VectorNavSubsystem(
-    ChronosSubsystem chronos
-) : SubsystemBase
+[Subsystem("VectorNavSubsystem", Disabled = true)]
+public class VectorNavSubsystem() : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
     private ProcessManager? _vnProcessManager;
 
     // Properties
-    protected SubsystemProperty<string> _pBaudRate = new("baudrate");
-    protected SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
+    private readonly SubsystemProperty<string> _pBaudRate = new("baudrate");
+    private readonly SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
 
     public override async Task Init(CancellationToken token)
     {
@@ -171,14 +167,14 @@ public class VectorNavSubsystem(
                         (sbyte)r.GpsFix
                     );
                     builder.Finish(reportOffset.Value);
-                    var reportMessage = MessageWrapper.From(MessageType.Gps, builder.SizedByteArray());
+                    var reportMessage = MessageWrapper.From(MessageType.VectorNav, builder.SizedByteArray());
                     EventBus.Instance.Publish(
                         new MessageWrapperEvent(reportMessage)
                     );
 
                     // Chronos
-                    chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
-                    chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
+                    // chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
+                    // chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
 
                     // Logger.LogTrace(
                     //     "[#{Seq}] {Time} | " +
