@@ -1,3 +1,5 @@
+using igvc_csharp.Utils;
+
 namespace igvc_csharp.Subsystems.Tools;
 
 public class PIDController(double kP, double kI, double kD)
@@ -12,7 +14,7 @@ public class PIDController(double kP, double kI, double kD)
 
     public void SetSetpoint(double setpoint)
     {
-        this->Setpoint = setpoint;
+        Setpoint = setpoint;
     }
 
     public double Calculate(double reading)
@@ -26,7 +28,7 @@ public class PIDController(double kP, double kI, double kD)
         {
             timeElapsed = LastTime - TimeUtils.Now();
         }
-        LastTime = now();
+        LastTime = TimeUtils.Now();
 
         double error = Setpoint - reading;
 

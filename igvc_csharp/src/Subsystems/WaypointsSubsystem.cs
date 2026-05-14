@@ -34,7 +34,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         ReadWaypointsFile(token);
 
         SubscribeMessage<VectorNavReport>(
-            MessageType.Gps,
+            MessageType.VectorNav,
             OnPositionReceived,
             token
         );
