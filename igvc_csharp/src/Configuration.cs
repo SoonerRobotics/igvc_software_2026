@@ -66,7 +66,7 @@ public static class Configuration
         /// </summary>
         [Config("hardware.can.interface")]
         public const string CanbusInterface = "can0";
-        
+
         /// <summary>
         /// How often to retry our connection to the Canbus.
         /// </summary>
@@ -151,16 +151,16 @@ public static class Configuration
         /// </summary>
         [Config("vision.ground_threshold")]
         public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
-            ColorUtils.Color.FromHsv(0,   0,   0),
-            ColorUtils.Color.FromHsv(180, 95,  160)
+            ColorUtils.Color.FromHsv(0, 0, 0),
+            ColorUtils.Color.FromHsv(180, 95, 160)
         );
 
         [Config("vision.yellow_threshold")]
         public static readonly ColorUtils.ColorRange YellowThreshold = ColorUtils.ColorRange.From(
-            ColorUtils.Color.FromHsv(15,  80,  80),
-            ColorUtils.Color.FromHsv(40,  255, 255)
+            ColorUtils.Color.FromHsv(15, 80, 80),
+            ColorUtils.Color.FromHsv(40, 255, 255)
         );
-        
+
         /// <summary>
         /// The radius of blurring we apply
         /// </summary>
@@ -233,6 +233,119 @@ public static class Configuration
         public const double OpenCvCalibrationSquareSizeMeters = 0.024;
     }
 
+    public static class FeelerSubsystem
+    {
+        // feeler-related config
+        /// <summary>
+        /// Whether to use feelers or not (as opposed to, e.x. the A* subsystem)
+        /// </summary>
+        [Config("feelers.use_feelers")]
+        public const bool UseFeelers = false;
+
+        /// <summary>
+        /// Default (unbiased) max length of the vision feelers, in pixels
+        /// </summary>
+        [Config("feelers.max_length")]
+        public const int MaxLength = 100;
+
+        /// <summary>
+        /// The starting angle of the 1st feeler, in degrees. 0 degrees is the positive x-axis
+        /// </summary>
+        [Config("feelers.angle_offset")]
+        public const double AngleOffset = 20;
+
+        /// <summary>
+        /// How large the arc of feelers is, in degrees (determines where the last feeler is placed)
+        /// </summary>
+        [Config("feelers.angular_width")]
+        public const double AngularWidth = 180 - 20;
+
+        /// <summary>
+        /// How many feelers to make across the specified arc.
+        /// </summary>
+        [Config("feelers.num_feelers")]
+        public const int NumFeelers = 32;
+
+        /// <summary>
+        /// TODO
+        /// </summary>
+        [Config("feelers.balace_feelers")]
+        public const bool BalanceFeelers = true;
+        /// <summary>
+        /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
+        /// </summary>
+        [Config("feelers.gps_wait_time")]
+        public const ulong GpsWaitTime = 1000 * 30;
+
+        /// <summary>
+        /// The maximum amount each feeler should be biased by the GPS feeler, in pixels
+        /// </summary>
+        [Config("feelers.gps_bias_weight")]
+        public const int GpsBias = 75;
+
+        /// <summary>
+        /// The maximum amount each feeler should be biased by the forward feeler, in pixels
+        /// </summary>
+        [Config("feelers.forward_bias_weight")]
+        public const int ForwardBiasWeight = 75;
+
+
+        // control-related config
+        /// <summary>
+        /// The maximum forward velocity that feelers is allowed to command, in meters per second
+        /// </summary>
+        [Config("feelers.max_drive_speed")]
+        public const double MaxDriveSpeed = 5;
+
+        /// <summary>
+        /// The maximum sideways velocity that feelers is allowed to command, in meters per second
+        /// </summary>
+        [Config("feelers.max_strafe_speed")]
+        public const double MaxStrafeSpeed = 5;
+
+        /// <summary>
+        /// The maximum rotational velocity that feelers is allowed to command, in radians per second
+        /// </summary>
+        [Config("feelers.max_turn_speed")]
+        public const double MaxTurnSpeed = 5;
+
+        /// <summary>
+        /// The proportional constant for the drive PID
+        /// </summary>
+        [Config("feelers.drive_kp")]
+        public const double DriveKp = 0.001;
+
+        /// <summary>
+        /// The integral constant for the drive PID
+        /// </summary>
+        [Config("feelers.drive_ki")]
+        public const double DriveKi = 0.0;
+
+        /// <summary>
+        /// The derivative constant for the drive PID
+        /// </summary>
+        [Config("feelers.drive_kd")]
+        public const double DriveKd = 0.0001;
+
+        /// <summary>
+        /// The proportional constant for the heading PID
+        /// </summary>
+        [Config("feelers.heading_kp")]
+        public const double HeadingKp = 0.001;
+
+        /// <summary>
+        /// The integral constant for the heading PID
+        /// </summary>
+        [Config("feelers.heading_ki")]
+        public const double HeadingKi = 0.0;
+
+        /// <summary>
+        /// The derivative constant for the heading PID
+        /// </summary>
+        [Config("feelers.heading_kd")]
+        public const double HeadingKd = 0.0001;
+    }
+
     public static class WaypointSubsystem
     {
         // gps-related config
@@ -278,5 +391,13 @@ public static class Configuration
         /// Latitude of the northern edge of the engineering quadrangle on OU campus.
         /// </summary>
         public const double EquadLatitude = 35.211160;
+    }
+
+    public static class FakeCameraSubsystemConfig
+    {
+        /// <summary>
+        /// Filename of video to send as raw camera frames
+        /// </summary>
+        public const string Filename = "";
     }
 }
