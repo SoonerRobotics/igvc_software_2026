@@ -3,7 +3,6 @@
 SCRIPTS=(
     "./install_dependencies.sh"
     "./install_dotnet.sh"
-    "./install_opencv.sh"
     "./install_vn.sh"
 )
 

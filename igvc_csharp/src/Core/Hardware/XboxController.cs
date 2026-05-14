@@ -19,7 +19,7 @@ public sealed class XboxController : IAsyncDisposable
     private CancellationTokenSource? _internalCts;
 
     private readonly Dictionary<EvAbs, InputAbsInfo> _absInfo = new();
-    private readonly Dictionary<XboxAxis, float> _axisState = new();
+    private readonly Dictionary<XboxAxis, double> _axisState = new();
     private readonly HashSet<XboxButton> _pressed = new();
 
     private int? _rumbleEffectId;
@@ -190,7 +190,7 @@ public sealed class XboxController : IAsyncDisposable
         }
     }
     
-    public async Task RumbleAsync(float strong, float weak, TimeSpan duration, CancellationToken ct = default)
+    public async Task RumbleAsync(double strong, double weak, TimeSpan duration, CancellationToken ct = default)
     {
         if (_stream is null) throw new InvalidOperationException("Not connected.");
         if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
@@ -212,7 +212,7 @@ public sealed class XboxController : IAsyncDisposable
         }
     }
 
-    private int UploadOrUpdateRumbleEffect(nint fd, float strong, float weak, TimeSpan duration)
+    private int UploadOrUpdateRumbleEffect(nint fd, double strong, double weak, TimeSpan duration)
     {
         var effect = new FfEffect
         {
@@ -270,7 +270,7 @@ public sealed class XboxController : IAsyncDisposable
         await stream.FlushAsync(ct);
     }
 
-    private float NormalizeAxis(EvAbs abs, int rawValue, XboxAxis axis)
+    private double NormalizeAxis(EvAbs abs, int rawValue, XboxAxis axis)
     {
         if (_absInfo.TryGetValue(abs, out var info))
         {
@@ -282,14 +282,14 @@ public sealed class XboxController : IAsyncDisposable
                     return 0f;
 
                 if (clamped >= center)
-                    return (float)(clamped - center) / Math.Max(1, info.maximum - center);
+                    return (double)(clamped - center) / Math.Max(1, info.maximum - center);
                 else
-                    return (float)(clamped - center) / Math.Max(1, center - info.minimum);
+                    return (double)(clamped - center) / Math.Max(1, center - info.minimum);
             }
             else
             {
                 var denom = Math.Max(1, info.maximum - info.minimum);
-                return (float)(clamped - info.minimum) / denom;
+                return (double)(clamped - info.minimum) / denom;
             }
         }
 
@@ -311,8 +311,8 @@ public sealed class XboxController : IAsyncDisposable
     private static bool IsCenteredAxis(XboxAxis axis)
         => axis is XboxAxis.LeftX or XboxAxis.LeftY or XboxAxis.RightX or XboxAxis.RightY;
 
-    private static float ClampHat(int v) => v switch { < 0 => -1f, > 0 => 1f, _ => 0f };
-    private static float Clamp01(float v) => Math.Clamp(v, 0f, 1f);
+    private static double ClampHat(int v) => v switch { < 0 => -1f, > 0 => 1f, _ => 0f };
+    private static double Clamp01(double v) => Math.Clamp(v, 0f, 1f);
 
     private int GetHatX()
         => _axisState.TryGetValue(XboxAxis.DpadX, out var v) ? (int)v : 0;
@@ -464,7 +464,7 @@ public sealed class XboxController : IAsyncDisposable
 
 public abstract record XboxControllerEvent;
 public sealed record XboxButtonEvent(XboxButton Button, bool IsDown) : XboxControllerEvent;
-public sealed record XboxAxisEvent(XboxAxis Axis, float Value, int RawValue) : XboxControllerEvent;
+public sealed record XboxAxisEvent(XboxAxis Axis, double Value, int RawValue) : XboxControllerEvent;
 public sealed record XboxDpadEvent(int X, int Y) : XboxControllerEvent;
 public readonly record struct RawInputEvent(ushort Type, ushort Code, int Value);
 

@@ -8,7 +8,11 @@ public class PresetManager
 {
     private static readonly ILogger Logger = Logging.From<PresetManager>();
 
-    private static readonly JsonSerializerOptions JsonSerializerOptions = new();
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    {
+        WriteIndented = true,
+        IndentSize = 4
+    };
     
     public static void Initialize()
     {

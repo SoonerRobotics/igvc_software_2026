@@ -1,6 +1,7 @@
 using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Core.Hardware;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
@@ -9,16 +10,16 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem")]
-public class VectorNavSubsystem : SubsystemBase
+[Subsystem("VectorNavSubsystem", Disabled = true)]
+public class VectorNavSubsystem() : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
     private ProcessManager? _vnProcessManager;
 
     // Properties
-    protected SubsystemProperty<string> _pBaudRate = new("baudrate");
-    protected SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
+    private readonly SubsystemProperty<string> _pBaudRate = new("baudrate");
+    private readonly SubsystemProperty<uint> _pLastSequence = new("sequence", 0);
 
     public override async Task Init(CancellationToken token)
     {
@@ -93,7 +94,6 @@ public class VectorNavSubsystem : SubsystemBase
             {
                 if (shm.TryOpen())
                 {
-                    Logger.LogInformation("VectorNav shared memory opened");
                     break;
                 }
 
@@ -115,7 +115,7 @@ public class VectorNavSubsystem : SubsystemBase
                     {
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
-                            Logger.LogWarning("VectorNav shared memory appears stale, reconnecting...");
+                            SetError("VN_NO_DATA");
                             break;
                         }
 
@@ -127,7 +127,7 @@ public class VectorNavSubsystem : SubsystemBase
                     {
                         if ((DateTime.UtcNow - lastNewDataAt).TotalMilliseconds > stalenessThresholdMs)
                         {
-                            Logger.LogWarning("VectorNav sequence number frozen, reconnecting...");
+                            SetError("VN_STALE_DATA");
                             break;
                         }
 
@@ -145,6 +145,7 @@ public class VectorNavSubsystem : SubsystemBase
                     }
 
                     SetOperatingState(SubsystemState.Operating);
+                    SetError(string.Empty);
                     var r = report.Value;
                     _pLastSequence.Set(r.SequenceNum);
 
@@ -166,22 +167,26 @@ public class VectorNavSubsystem : SubsystemBase
                         (sbyte)r.GpsFix
                     );
                     builder.Finish(reportOffset.Value);
-                    var reportMessage = MessageWrapper.From(MessageType.Gps, builder.SizedByteArray());
+                    var reportMessage = MessageWrapper.From(MessageType.VectorNav, builder.SizedByteArray());
                     EventBus.Instance.Publish(
                         new MessageWrapperEvent(reportMessage)
                     );
 
-                    Logger.LogTrace(
-                        "[#{Seq}] {Time} | " +
-                        "Lat: {Lat:F6}, Lon: {Lon:F6}, Alt: {Alt:F2}m | " +
-                        "Yaw: {Yaw:F2}, Pitch: {Pitch:F2}, Roll: {Roll:F2} | " +
-                        "Vel N/E/D: {VN:F2}/{VE:F2}/{VD:F2} m/s | " +
-                        "Sats: {Sats}, Fix: {Fix}",
-                        r.SequenceNum, timestamp,
-                        r.Latitude, r.Longitude, r.Altitude,
-                        r.Yaw, r.Pitch, r.Roll,
-                        r.VelNorthMs, r.VelEastMs, r.VelDownMs,
-                        r.NumSats, r.GpsFix);
+                    // Chronos
+                    // chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
+                    // chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
+
+                    // Logger.LogTrace(
+                    //     "[#{Seq}] {Time} | " +
+                    //     "Lat: {Lat:F6}, Lon: {Lon:F6}, Alt: {Alt:F2}m | " +
+                    //     "Yaw: {Yaw:F2}, Pitch: {Pitch:F2}, Roll: {Roll:F2} | " +
+                    //     "Vel N/E/D: {VN:F2}/{VE:F2}/{VD:F2} m/s | " +
+                    //     "Sats: {Sats}, Fix: {Fix}",
+                    //     r.SequenceNum, timestamp,
+                    //     r.Latitude, r.Longitude, r.Altitude,
+                    //     r.Yaw, r.Pitch, r.Roll,
+                    //     r.VelNorthMs, r.VelEastMs, r.VelDownMs,
+                    //     r.NumSats, r.GpsFix);
                 }
             }
             catch (OperationCanceledException)

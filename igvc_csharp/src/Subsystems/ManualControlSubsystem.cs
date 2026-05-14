@@ -1,42 +1,104 @@
 using igvc_csharp.Core;
+using igvc_csharp.Core.Chronos;
+using igvc_csharp.Core.Units;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
 
-[Subsystem("ManualControlSubsystem", DependsOn=[typeof(ControllerSubsystem)])]
-public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsystem canbus) : SubsystemBase
+[Subsystem("ManualControlSubsystem", DependsOn=[
+    typeof(ControllerSubsystem),
+    typeof(ChronosSubsystem)
+])]
+public class ManualControlSubsystem(
+    ControllerSubsystem controller,
+    ChronosSubsystem chronos,
+    CanbusSubsystem? canbus
+) : SubsystemBase
 {
     private DateTime? _dpadDepressedAt;
     private bool _dpadFlashed;
+
+    private double _angularVelocity;
+    private double _forwardVelocity;
+    private double _sidewaysVelocity;
     
     public override Task Init(CancellationToken token)
     {
         ControllerHooks(token);
-
+        _ = SendLoop(token);
         return Task.CompletedTask;
+    }
+
+    private async Task SendLoop(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(Configuration.DriveSubsystem.UpdateFrequency);
+        while (await timer.WaitForNextTickAsync(token))
+        {
+            // Only send in manual mode
+            if (IgvcRobot.Instance?.State.Mode != RobotModeEnum.Manual)
+            {
+                continue;
+            }
+            
+            // Logger.LogDebug("Sending velocities: Forward={ForwardVelocity} m/s, Sideways={SidewaysVelocity} m/s, Angular={AngularVelocity} rad/s",
+            //     _forwardVelocity, _sidewaysVelocity, _angularVelocity);
+            canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
+            // canbus?.MotorControl.SetVelocities(1, _sidewaysVelocity, _angularVelocity);
+        }
+    }
+
+    private static double ApplyDeadband(double value, double deadband = 0.05)
+    {
+        if (Math.Abs(value) < deadband)
+        {
+            return 0.0;
+        }
+
+        // Rescales such that output starts just past the deadband
+        return (value - deadband * Math.Sign(value)) / (1.0 - deadband);
     }
 
     private void ControllerHooks(CancellationToken token)
     {
         // System Mode
-        controller.Buttons.Menu.OnReleased += () =>
+        controller.Buttons.Menu.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Manual);
-            canbus.SafetyLights.SetManual();
+            canbus?.SafetyLights.SetManual();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
+            chronos.StartRun(SessionType.Manual);
         };
 
-        controller.Buttons.Xbox.OnReleased += () =>
+        controller.Buttons.Xbox.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Autonomous);
-            canbus.SafetyLights.SetAutonomous();
+            canbus?.SafetyLights.SetAutonomous();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
+            chronos.StartRun(SessionType.Autonomous);
         };
 
-        controller.Buttons.View.OnReleased += () =>
+        controller.Buttons.View.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Disabled);
-            canbus.SafetyLights.SetDisabled();
+            canbus?.SafetyLights.SetDisabled();
+
+            // Chronos
+            if (chronos.IsRunning)
+            {
+                await chronos.StopRunAsync();
+            }
         };
         
         // System Mission
@@ -54,7 +116,7 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             }
             
             _dpadFlashed = true;
-            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
+            canbus?.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
             Logger.LogDebug("Flashing DPad for mission switch");
         };
         controller.Dpad.DpadRight.OnReleased += () =>
@@ -69,21 +131,32 @@ public class ManualControlSubsystem(ControllerSubsystem controller, CanbusSubsys
             }
 
             _dpadDepressedAt = null;
-            SetRobotMission(Robot.Instance.State.Mission == MissionEnum.Autonav
+            SetRobotMission(IgvcRobot.Instance?.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
                 : MissionEnum.Autonav);
-            Logger.LogDebug("Switching Mission: {Mission}", Robot.Instance.State.Mission);
+            Logger.LogDebug("Switching Mission: {Mission}", IgvcRobot.Instance?.State.Mission);
         };
         
-        // Drive
+        // Rotation
         controller.Axes.LeftStick.OnChanged += (x, y) =>
         {
+            // Convert to m/s
+            _forwardVelocity = ApplyDeadband(y) * Configuration.DriveSubsystem.MaxForwardSpeed.ToMetersPerSecond();
+            _sidewaysVelocity = ApplyDeadband(x) * Configuration.DriveSubsystem.MaxSidewaysSpeed.ToMetersPerSecond();
 
+            // Invert if needed
+            _forwardVelocity *= Configuration.DriveSubsystem.InvertForwardVelocity ? -1 : 1;
+            _sidewaysVelocity *= Configuration.DriveSubsystem.InvertSidewaysVelocity ? -1 : 1;
         };
 
+        // Drive
         controller.Axes.RightStick.OnChanged += (x, y) =>
         {
+            // Convert to rad/s
+            _angularVelocity = ApplyDeadband(x) * Configuration.DriveSubsystem.MaxAngularSpeed.To(AngularVelocityUnit.RadiansPerSecond);
 
+            // Invert if needed
+            _angularVelocity *= Configuration.DriveSubsystem.InvertAngularVelocity ? -1 : 1;
         };
     }
 }

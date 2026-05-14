@@ -1,29 +1,38 @@
-using System.Runtime.InteropServices;
 using igvc_csharp.Core;
-using igvc_csharp.Core.Hardware;
 using Microsoft.Extensions.Logging;
+using Silk.NET.SDL;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
 [Subsystem("ControllerSubsystem", Disabled = false)]
 public class ControllerSubsystem : SubsystemBase
 {
-    private XboxController? _controller;
+    private Sdl _sdl = null!;
+    private unsafe GameController* _controller;
+    private int _instanceId = -1;
 
     // Public Stuff
     public ControllerButtons Buttons { get; } = new();
     public ControllerAxes Axes { get; } = new();
     public ControllerDpad Dpad { get; } = new();
 
+    private const double StickScale = 1.0 / 32767.0;
+    private const double TriggerScale = 1.0 / 32767.0;
+
     public override Task Init(CancellationToken token)
     {
-        _ = Task.Run(
-            () => ReadLoop(token),
-            token
-        );
-        
+        _sdl = Sdl.GetApi();
+
+        if (_sdl.Init(Sdl.InitGamecontroller) < 0)
+        {
+            var err = _sdl.GetErrorS();
+            Logger.LogError("SDL_Init failed: {Error}", err);
+            throw new InvalidOperationException($"SDL_Init failed: {err}");
+        }
+
+        _ = Task.Run(() => ReadLoop(token), token);
+
         // DebugPrints();
-        
         return Task.CompletedTask;
     }
 
@@ -40,17 +49,17 @@ public class ControllerSubsystem : SubsystemBase
         if (Buttons.Menu.IsDown) Buttons.Menu.Update(true);
         if (Buttons.View.IsDown) Buttons.View.Update(true);
         if (Buttons.Xbox.IsDown) Buttons.Xbox.Update(true);
-        
+
         if (Dpad.DpadLeft.IsDown) Dpad.DpadLeft.Update(true);
         if (Dpad.DpadRight.IsDown) Dpad.DpadRight.Update(true);
         if (Dpad.DpadUp.IsDown) Dpad.DpadUp.Update(true);
         if (Dpad.DpadDown.IsDown) Dpad.DpadDown.Update(true);
-        
+
         Axes.LeftStick.Broadcast();
         Axes.RightStick.Broadcast();
         Axes.LeftTrigger.Broadcast();
         Axes.RightTrigger.Broadcast();
-        
+
         return Task.CompletedTask;
     }
 
@@ -67,7 +76,7 @@ public class ControllerSubsystem : SubsystemBase
         Buttons.Menu.OnPressed += () => Logger.LogDebug("(Xbox Controller) Menu Button Pressed");
         Buttons.View.OnPressed += () => Logger.LogDebug("(Xbox Controller) View Button Pressed");
         Buttons.Xbox.OnPressed += () => Logger.LogDebug("(Xbox Controller) Xbox Button Pressed");
-        
+
         Dpad.DpadLeft.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Left Button Pressed");
         Dpad.DpadRight.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Right Button Pressed");
         Dpad.DpadDown.OnPressed += () => Logger.LogDebug("(Xbox Controller) Dpad Down Button Pressed");
@@ -76,159 +85,168 @@ public class ControllerSubsystem : SubsystemBase
         Axes.LeftStick.OnChanged += (dirX, dirY) => Logger.LogDebug("(Xbox Controller) Left Stick: {x}.{y}", dirX, dirY);
         Axes.RightStick.OnChanged += (dirX, dirY) => Logger.LogDebug("(Xbox Controller) Right Stick: {x}.{y}", dirX, dirY);
         Axes.LeftTrigger.OnChanged += (dir) => Logger.LogDebug("(Xbox Controller) Left Trigger: {x}", dir);
-        Axes.RightTrigger.OnChanged += (dir) => Logger.LogDebug("(Xbox Controller) Right rigger: {x}", dir);
+        Axes.RightTrigger.OnChanged += (dir) => Logger.LogDebug("(Xbox Controller) Right Trigger: {x}", dir);
     }
 
-    private XboxController? GetController()
+    private unsafe bool TryOpenController()
     {
-        if (_controller is { IsConnected: true })
+        if (_controller != null) return true;
+
+        var count = _sdl.NumJoysticks();
+        for (var i = 0; i < count; i++)
         {
-            return _controller;
+            if (_sdl.IsGameController(i) == SdlBool.True)
+            {
+                _controller = _sdl.GameControllerOpen(i);
+                if (_controller == null)
+                {
+                    Logger.LogWarning("Failed to open controller {Index}: {Err}", i, _sdl.GetErrorS());
+                    continue;
+                }
+
+                var joystick = _sdl.GameControllerGetJoystick(_controller);
+                _instanceId = _sdl.JoystickInstanceID(joystick);
+
+                var namePtr = _sdl.GameControllerNameS(_controller);
+                Logger.LogWarning("Connected to controller -> {Name} (instance {Id})", namePtr, _instanceId);
+                return true;
+            }
         }
 
-        var controllers = XboxController.GetControllers();
-        if (controllers.Count == 0)
-        {
-            return null;
-        }
+        return false;
+    }
 
-        Logger.LogDebug("Controllers: {List}", controllers);
-        _controller = new XboxController(controllers[^1]);
-        return _controller;
+    private unsafe void CloseController()
+    {
+        if (_controller == null) return;
+        _sdl.GameControllerClose(_controller);
+        _controller = null;
+        _instanceId = -1;
+        Logger.LogWarning("Xbox Controller Disconnected");
+
+        ReleaseAllInputs();
+    }
+
+    private void ReleaseAllInputs()
+    {
+        Buttons.A.Update(false); Buttons.B.Update(false);
+        Buttons.X.Update(false); Buttons.Y.Update(false);
+        Buttons.LeftStick.Update(false); Buttons.RightStick.Update(false);
+        Buttons.LeftBumper.Update(false); Buttons.RightBumper.Update(false);
+        Buttons.Menu.Update(false); Buttons.View.Update(false); Buttons.Xbox.Update(false);
+        Dpad.DpadLeft.Update(false); Dpad.DpadRight.Update(false);
+        Dpad.DpadUp.Update(false); Dpad.DpadDown.Update(false);
+        Axes.LeftStick.UpdateX(0); Axes.LeftStick.UpdateY(0);
+        Axes.RightStick.UpdateX(0); Axes.RightStick.UpdateY(0);
+        Axes.LeftTrigger.Update(0); Axes.RightTrigger.Update(0);
     }
 
     private async Task ReadLoop(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
-            _controller ??= GetController();
-            if (_controller == null)
+            if (!TryOpenController())
             {
                 SetOperatingState(SubsystemState.Idle);
-                await Task.Delay(1000, token);
+                PumpEvents();
+                await Task.Delay(500, token);
                 continue;
             }
 
-            Logger.LogWarning("Connecting to Xbox Controller -> {Path}", _controller.DevicePath);
-            _controller.OnConnected += OnControllerConnected;
-            _controller.OnDisconnected += OnControllerDisconnected;
-            _controller.OnEvent += OnControllerEvent;
-
             SetOperatingState(SubsystemState.Operating);
-            await _controller.ConnectAsync(token);
-            SetOperatingState(SubsystemState.Idle);
-            await Task.Delay(1000, token);
+            PumpEvents();
+
+            await Task.Delay(4, token);
         }
+
+        CloseController();
+        _sdl.Quit();
     }
 
-    private void OnControllerConnected(XboxController controller)
+    private unsafe void PumpEvents()
     {
-        Logger.LogWarning("Xbox Controller Connected");
-    }
-
-    private void OnControllerDisconnected(XboxController controller)
-    {
-        Logger.LogWarning("Xbox Controller Disconnected");
-    }
-
-    private void OnControllerEvent(XboxControllerEvent e)
-    {
-        switch (e)
+        Event e;
+        while (_sdl.PollEvent(&e) == 1)
         {
-            case XboxButtonEvent tn:
+            switch ((EventType)e.Type)
             {
-                var action = tn.Button switch
-                {
-                    XboxButton.A => Buttons.A,
-                    XboxButton.B => Buttons.B,
-                    XboxButton.X => Buttons.X,
-                    XboxButton.Y => Buttons.Y,
-                    XboxButton.Menu => Buttons.Menu,
-                    XboxButton.View => Buttons.View,
-                    XboxButton.Xbox => Buttons.Xbox,
-                    XboxButton.LeftStick => Buttons.LeftStick,
-                    XboxButton.RightStick => Buttons.RightStick,
-                    XboxButton.RightBumper => Buttons.RightBumper,
-                    XboxButton.LeftBumper => Buttons.LeftBumper,
-                    _ => null
-                };
+                case EventType.Controllerdeviceadded:
+                    break;
 
-                action?.Update(tn.IsDown);
-                break;
-            }
+                case EventType.Controllerdeviceremoved:
+                    if (e.Cdevice.Which == _instanceId)
+                        CloseController();
+                    break;
 
-            case XboxAxisEvent ae:
-            {
-                switch (ae.Axis)
-                {
-                    case XboxAxis.LeftTrigger or XboxAxis.RightTrigger:
-                    {
-                        var action = ae.Axis switch
-                        {
-                            XboxAxis.LeftTrigger => Axes.LeftTrigger,
-                            XboxAxis.RightTrigger => Axes.RightTrigger,
-                            _ => null
-                        };
-                        action?.Update(ae.Value);
-                        break;
-                    }
-                    case XboxAxis.LeftX:
-                        Axes.LeftStick.UpdateX(ae.Value);
-                        break;
-                    case XboxAxis.RightX:
-                        Axes.RightStick.UpdateX(ae.Value);
-                        break;
-                    case XboxAxis.LeftY:
-                        Axes.LeftStick.UpdateY(ae.Value);
-                        break;
-                    case XboxAxis.RightY:
-                        Axes.RightStick.UpdateY(ae.Value);
-                        break;
-                }
+                case EventType.Controllerbuttondown:
+                case EventType.Controllerbuttonup:
+                    HandleButton(e.Cbutton);
+                    break;
 
-                break;
-            }
-
-            case XboxDpadEvent dpe:
-            {
-                switch (dpe.X)
-                {
-                    case -1:
-                        Dpad.DpadLeft.Update(true);
-                        Dpad.DpadRight.Update(false);
-                        break;
-                    case 1:
-                        Dpad.DpadRight.Update(true);
-                        Dpad.DpadLeft.Update(false);
-                        break;
-                }
-
-                switch (dpe.Y)
-                {
-                    case -1:
-                        Dpad.DpadUp.Update(true);
-                        Dpad.DpadDown.Update(false);
-                        break;
-                    case 1:
-                        Dpad.DpadDown.Update(true);
-                        Dpad.DpadUp.Update(false);
-                        break;
-                }
-
-                if (dpe.X == 0 && dpe.Y == 0)
-                {
-                    Dpad.DpadLeft.Update(false);
-                    Dpad.DpadRight.Update(false);
-                    Dpad.DpadUp.Update(false);
-                    Dpad.DpadDown.Update(false);
-                }
-
-                break;
+                case EventType.Controlleraxismotion:
+                    HandleAxis(e.Caxis);
+                    break;
             }
         }
     }
 
-    // Abstraction
+    private void HandleButton(ControllerButtonEvent be)
+    {
+        var isDown = be.State == 1;
+        var button = (GameControllerButton)be.Button;
+
+        InputAction? action = button switch
+        {
+            GameControllerButton.A => Buttons.A,
+            GameControllerButton.B => Buttons.B,
+            GameControllerButton.X => Buttons.X,
+            GameControllerButton.Y => Buttons.Y,
+            GameControllerButton.Back => Buttons.View,
+            GameControllerButton.Start => Buttons.Menu,
+            GameControllerButton.Guide => Buttons.Xbox,
+            GameControllerButton.Leftstick => Buttons.LeftStick,
+            GameControllerButton.Rightstick => Buttons.RightStick,
+            GameControllerButton.Leftshoulder => Buttons.LeftBumper,
+            GameControllerButton.Rightshoulder => Buttons.RightBumper,
+            GameControllerButton.DpadUp => Dpad.DpadUp,
+            GameControllerButton.DpadDown => Dpad.DpadDown,
+            GameControllerButton.DpadLeft => Dpad.DpadLeft,
+            GameControllerButton.DpadRight => Dpad.DpadRight,
+            _ => null
+        };
+
+        action?.Update(isDown);
+    }
+
+    private void HandleAxis(ControllerAxisEvent ae)
+    {
+        var axis = (GameControllerAxis)ae.Axis;
+        var raw = ae.Value;
+
+        switch (axis)
+        {
+            case GameControllerAxis.Leftx:
+                Axes.LeftStick.UpdateX(raw * StickScale);
+                break;
+            case GameControllerAxis.Lefty:
+                Axes.LeftStick.UpdateY(-raw * StickScale);
+                break;
+            case GameControllerAxis.Rightx:
+                Axes.RightStick.UpdateX(raw * StickScale);
+                break;
+            case GameControllerAxis.Righty:
+                Axes.RightStick.UpdateY(-raw * StickScale);
+                break;
+            case GameControllerAxis.Triggerleft:
+                Axes.LeftTrigger.Update(raw * TriggerScale);
+                break;
+            case GameControllerAxis.Triggerright:
+                Axes.RightTrigger.Update(raw * TriggerScale);
+                break;
+        }
+    }
+
+    // Abstraction (unchanged)
 
     public sealed class InputAction
     {
@@ -244,14 +262,9 @@ public class ControllerSubsystem : SubsystemBase
             _wasDown = _isDown;
             _isDown = isDown;
 
-            if (_isDown && !_wasDown)
-                OnPressed?.Invoke();
-
-            if (!_isDown && _wasDown)
-                OnReleased?.Invoke();
-
-            if (_isDown)
-                WhileHeld?.Invoke();
+            if (_isDown && !_wasDown) OnPressed?.Invoke();
+            if (!_isDown && _wasDown) OnReleased?.Invoke();
+            if (_isDown) WhileHeld?.Invoke();
         }
 
         public bool IsDown => _isDown;
@@ -259,45 +272,27 @@ public class ControllerSubsystem : SubsystemBase
 
     public sealed class VariableInputAction
     {
-        private float _value;
+        private double _value;
+        public event Action<double>? OnChanged;
 
-        public event Action<float>? OnChanged;
-
-        public void Update(float value)
+        public void Update(double value)
         {
             _value = value;
             OnChanged?.Invoke(value);
         }
 
-        public void Broadcast()
-        {
-            OnChanged?.Invoke(_value);
-        }
+        public void Broadcast() => OnChanged?.Invoke(_value);
     }
 
     public sealed class MultiAxisInputAction
     {
-        private float _x;
-        private float _y;
+        private double _x;
+        private double _y;
+        public event Action<double, double>? OnChanged;
 
-        public event Action<float, float>? OnChanged;
-
-        public void UpdateX(float x)
-        {
-            _x = x;
-            OnChanged?.Invoke(_x, _y);
-        }
-
-        public void UpdateY(float y)
-        {
-            _y = y;
-            OnChanged?.Invoke(_x, _y);
-        }
-
-        public void Broadcast()
-        {
-            OnChanged?.Invoke(_x, _y);
-        }
+        public void UpdateX(double x) { _x = x; OnChanged?.Invoke(_x, _y); }
+        public void UpdateY(double y) { _y = y; OnChanged?.Invoke(_x, _y); }
+        public void Broadcast() => OnChanged?.Invoke(_x, _y);
     }
 
     public sealed class ControllerButtons

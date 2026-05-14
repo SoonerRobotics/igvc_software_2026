@@ -349,7 +349,7 @@ public class ArcSubsystem : SubsystemBase
                     continue;
                 }
 
-                var instance = Robot.Instance.GetSubsystem(clazz);
+                var instance = IgvcRobot.Instance.GetSubsystem(clazz);
                 var parameters = method.GetParameters();
                 switch (parameters.Length)
                 {

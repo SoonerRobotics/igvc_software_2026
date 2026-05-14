@@ -1,15 +1,25 @@
 #!/bin/bash
 set -e
 
-# Output directories
+log() {
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >&2
+}
+
+trap 'log "ERROR: script failed on line $LINENO"' ERR
+trap 'log "Finished generate_local.sh"' EXIT
+
+log "Starting generate_local.sh"
+
 CSHARP_DIR="/home/dylan/Projects/scr_simulator/Assets/Scripts"
 CSHARP_NAMESPACE="Messages"
 
-FBS_FILES=(./src/**/*.fbs)
+FBS_FILES=(./src/*.fbs ./src/**/*.fbs)
 
+log "Ensuring output directories exist: $CSHARP_DIR"
 mkdir -p "$CSHARP_DIR"
 
 TMP_DIR="./src/tmp_flatbuffers"
+log "Preparing temporary directory: $TMP_DIR"
 mkdir -p "$TMP_DIR"
 
 # Convert dot.separated.identifiers to PascalCase.Segments
@@ -36,18 +46,28 @@ pascal_dot_namespace() {
     '
 }
 
+if [ "${#FBS_FILES[@]}" -eq 0 ]; then
+    log "No .fbs files found, exiting."
+    exit 0
+fi
+
 for FBS_FILE in "${FBS_FILES[@]}"; do
+    log "Processing $FBS_FILE"
     FBS_CONTENT=$(<"$FBS_FILE")
 
     CSHARP_FBS_CONTENT=${FBS_CONTENT//\{NAMESPACE_PLACEHOLDER\}/$CSHARP_NAMESPACE}
     CSHARP_FBS_CONTENT=$(echo "$CSHARP_FBS_CONTENT" | pascal_dot_namespace)
 
     BASE="$(basename "${FBS_FILE%.fbs}")"
+
     CSHARP_TMP="$TMP_DIR/${BASE}_csharp.fbs"
 
+    log "Writing temp files: $CSHARP_TMP"
     echo "$CSHARP_FBS_CONTENT" > "$CSHARP_TMP"
 
+    log "Running flatc for C# -> $CSHARP_DIR"
     flatc --csharp -o "$CSHARP_DIR" "$CSHARP_TMP"
 done
 
+log "Removing temporary directory: $TMP_DIR"
 rm -rf "$TMP_DIR"

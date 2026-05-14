@@ -28,7 +28,7 @@ public class DefaultSubsystem : SubsystemBase
                 break;
             
             case CanId.EStop:
-                Robot.Instance.SetEstopped(true);
+                IgvcRobot.Instance.SetEstopped(true);
                 break;
         }
         

@@ -30,26 +30,6 @@ public static class MessageConstructor
         return ImageFrame.GetRootAsImageFrame(new ByteBuffer(builder.SizedByteArray()));
     }
 
-    public static DepthFrame CreateDepthFrame(uint width, uint height, string identifier, byte[] data)
-    {
-        var builder = new FlatBufferBuilder(1024);
-        var encodingOffset = builder.CreateString("Z16");
-        var identifierOffset = builder.CreateString(identifier);
-        var dataOffset = DepthFrame.CreateDepthDataVector(builder, data);
-        var depthOffset = DepthFrame.CreateDepthFrame(
-            builder,
-            TimeUtils.Now(),
-            0,
-            width,
-            height,
-            encodingOffset,
-            identifierOffset,
-            dataOffset
-        );
-        
-        return DepthFrame.GetRootAsDepthFrame(new ByteBuffer(builder.SizedByteArray()));
-    }
-
     public static ImageFrame ModifyImageFrame(ImageFrame frame, byte[] data, string identifier = "")
     {
         return CreateImageFrame(frame.Width, frame.Height, identifier == "" ? frame.Identifier : identifier, data);
@@ -83,11 +63,11 @@ public static class MessageConstructor
         return MessageWrapper.From(MessageType.CommandAck, cmd.ByteBuffer.ToSizedArray());
     }
 
-    public static ArcCanFrame CreateArcCanFrame(CanFrame frame)
+    public static CanMessage CreateCanMessage(CanFrame frame)
     {
         var builder = new FlatBufferBuilder(1024);
-        var dataOffset = ArcCanFrame.CreateCanDataVector(builder, frame.Data);
-        var arcCanFrameOffset = ArcCanFrame.CreateArcCanFrame(
+        var dataOffset = CanMessage.CreateCanDataVector(builder, frame.Data);
+        var arcCanFrameOffset = CanMessage.CreateCanMessage(
             builder,
             TimeUtils.Now(),
             0,
@@ -96,7 +76,7 @@ public static class MessageConstructor
         );
         builder.Finish(arcCanFrameOffset.Value);
         
-        return ArcCanFrame.GetRootAsArcCanFrame(new ByteBuffer(builder.SizedByteArray()));
+        return CanMessage.GetRootAsCanMessage(new ByteBuffer(builder.SizedByteArray()));
     }
 
     public static ArcHistogram CreateHistogram(ColorUtils.ColorRange range, int padding = 0)

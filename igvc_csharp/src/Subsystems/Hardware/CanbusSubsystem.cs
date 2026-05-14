@@ -11,8 +11,13 @@ using SocketCANSharp.Network;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CanbusSubsystem")]
-public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : SubsystemBase
+[Subsystem("CanbusSubsystem", DependsOn = [
+    typeof(ChronosSubsystem)
+])]
+public class CanbusSubsystem(
+    SimulatorSubsystem? simulatorSubsystem,
+    ChronosSubsystem chronos
+) : SubsystemBase
 {
     // Variables
     private CanNetworkInterface? _canNetwork;
@@ -176,6 +181,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
                     continue;
                 }
                 
+                chronos.WriteCan(frame);
                 EventBus.Instance.Publish(new CanFrameEvent(frame));
             }
             catch (ObjectDisposedException ex)
@@ -196,7 +202,7 @@ public class CanbusSubsystem(SimulatorSubsystem? simulatorSubsystem) : Subsystem
         // If we are simulator, write to it instead
         if (Configuration.UseSimulation)
         {
-            simulatorSubsystem.SendCanFrame(frame);
+            simulatorSubsystem?.SendCanFrame(frame);
             return;
         }
         

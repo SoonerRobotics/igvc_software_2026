@@ -1,8 +1,9 @@
-C:\ST\STM32CubeIDE_1.18.1\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344\tools\bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/include/c++/13.3.1/cmath:146:3:constexpr float std::atan2(float, float)	1
-C:\ST\STM32CubeIDE_1.18.1\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.0.202411081344\tools\bin/../lib/gcc/arm-none-eabi/13.3.1/../../../../arm-none-eabi/include/c++/13.3.1/cmath:438:3:constexpr float std::sqrt(float)	1
-../Core/Inc/SwerveDrive/SwerveModule.cpp:14:7:float radiansA(double)	1
-../Core/Inc/SwerveDrive/SwerveModule.cpp:18:1:SwerveModule::SwerveModule(SwerveModuleConfig)	1
-../Core/Inc/SwerveDrive/SwerveModule.cpp:29:7:float SwerveModule::getDriveDelta()	2
-../Core/Inc/SwerveDrive/SwerveModule.cpp:43:6:void SwerveModule::updateState(SwerveModuleState)	8
-../Core/Inc/SwerveDrive/SwerveModule.cpp:71:1:void __static_initialization_and_destruction_0()	1
-../Core/Inc/SwerveDrive/SwerveModule.cpp:71:1:cpp)	1
+/opt/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.linux64_1.0.100.202509120712/tools/arm-none-eabi/include/c++/13.3.1/cmath:146:3:constexpr float std::atan2(float, float)	1
+/opt/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.linux64_1.0.100.202509120712/tools/arm-none-eabi/include/c++/13.3.1/cmath:438:3:constexpr float std::sqrt(float)	1
+../Core/Inc/SwerveDrive/SwerveModule.h:40:12:double SwerveModule::getCurrentAngleRad() const	1
+../Core/Inc/SwerveDrive/SwerveModule.cpp:15:7:float radiansA(double)	1
+../Core/Inc/SwerveDrive/SwerveModule.cpp:19:1:SwerveModule::SwerveModule(SwerveModuleConfig)	1
+../Core/Inc/SwerveDrive/SwerveModule.cpp:30:7:float SwerveModule::getDriveDelta()	2
+../Core/Inc/SwerveDrive/SwerveModule.cpp:44:6:void SwerveModule::updateState(SwerveModuleState)	8
+../Core/Inc/SwerveDrive/SwerveModule.cpp:77:1:void __static_initialization_and_destruction_0()	1
+../Core/Inc/SwerveDrive/SwerveModule.cpp:77:1:cpp)	1

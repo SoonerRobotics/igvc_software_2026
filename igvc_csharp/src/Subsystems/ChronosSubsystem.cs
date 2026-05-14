@@ -1,0 +1,73 @@
+using igvc_csharp.Core;
+using igvc_csharp.Core.Chronos;
+using igvc_csharp.Core.Units;
+using SocketCANSharp;
+
+namespace igvc_csharp.Subsystems;
+
+[Subsystem("ChronosSubsystem")]
+public class ChronosSubsystem : AbstractChronosSubsystem
+{
+    // Ids
+    public static class EntryId
+    {
+        // General
+        public const ushort GenericEvent = 0x1000;
+        public const ushort CanFrame = 0x1001;
+
+        // Data
+        public const ushort Gps = 0x1100;
+        public const ushort Ypr = 0x1101;
+    }
+
+    public static class CameraId
+    {
+        public const int Front = 0x0001;
+    }
+
+    // Overrides
+    protected override void OnRunStarted(string runId, ushort sessionType)
+    {
+        using var ms = new MemoryStream(sizeof(ushort));
+        using var bw = new BinaryWriter(ms);
+        bw.Write(sessionType);
+        WriteEntry(EntryTypeId.SessionStart, ms.ToArray());
+
+        // Open Cameras
+        // OpenCamera(CameraId.Front, 1280, 720, 20);
+    }
+
+    // Helpers
+    public void WriteCan(CanFrame frame)
+    {
+        // CanId (uint) + DataLength (int) + Data(byte[])
+        using var ms = new MemoryStream(sizeof(uint) + sizeof(int) + frame.Data.Length);
+        using var bw = new BinaryWriter(ms);
+        bw.Write(frame.CanId);
+        bw.Write(frame.Data.Length);
+        bw.Write(frame.Data);
+        WriteEntry(EntryId.CanFrame, ms.ToArray());
+    }
+
+    public void WriteGps(LatLng gps, byte fix, byte numSatellites)
+    {
+        // 2x double, 2x bytes | lat, lng, gps fix, num satellites
+        using var ms = new MemoryStream((sizeof(double) * 2) + 2);
+        using var writer = new BinaryWriter(ms);
+        writer.Write(gps.Latitude);
+        writer.Write(gps.Longitude);
+        writer.Write(fix);
+        writer.Write(numSatellites);
+        WriteEntry(EntryId.Gps, ms.ToArray());
+    }
+
+    public void WriteYpr(Ypr ypr)
+    {
+        using var ms = new MemoryStream(sizeof(double) * 3);
+        using var writer = new BinaryWriter(ms);
+        writer.Write(ypr.Yaw);
+        writer.Write(ypr.Pitch);
+        writer.Write(ypr.Roll);
+        WriteEntry(EntryId.Ypr, ms.ToArray());
+    }
+}

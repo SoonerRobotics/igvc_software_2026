@@ -14,18 +14,22 @@ public static class Configuration
     /// <summary>
     /// Global robot periodic rate (fixed delay)
     /// </summary>
+    [Config("robot.periodic_rate")]
     public static readonly TimeSpan PeriodicRate = TimeSpan.FromMilliseconds(1000 / 10);
 
     /// <summary>
     /// Determines if the robot will use the simulator.
     /// </summary>
     [Config("simulation.enabled")]
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
     /// </summary>
+    [Config("robot.networking_magic")]
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
+
+    public static readonly string ChronosOutputDirectory = "~/.scr/chronos";
 
     // Core Constants
 
@@ -60,11 +64,13 @@ public static class Configuration
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
-        public const string CanbusInterface = "bigcan0";
+        [Config("hardware.can.interface")]
+        public const string CanbusInterface = "can0";
 
         /// <summary>
         /// How often to retry our connection to the Canbus.
         /// </summary>
+        [Config("hardware.can.timeout")]
         public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
     }
 
@@ -123,6 +129,7 @@ public static class Configuration
         /// <summary>
         /// How long between reconnects.
         /// </summary>
+        [Config("simulator.reconnect_delay")]
         public static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(3);
 
 
@@ -145,7 +152,13 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(180, 255, 255)
+            ColorUtils.Color.FromHsv(180, 95, 160)
+        );
+
+        [Config("vision.yellow_threshold")]
+        public static readonly ColorUtils.ColorRange YellowThreshold = ColorUtils.ColorRange.From(
+            ColorUtils.Color.FromHsv(15, 80, 80),
+            ColorUtils.Color.FromHsv(40, 255, 255)
         );
 
         /// <summary>
@@ -164,16 +177,37 @@ public static class Configuration
     public static class DriveSubsystem
     {
         /// <summary>
-        /// The max speed of the robot<br/>
+        /// The max forward speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
-        public static readonly LinearVelocity MaxSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+        [Config("drive.max_forward")]
+        public static readonly LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+
+        /// <summary>
+        /// The max sideways speed of the robot<br/>
+        /// <b>NOTE:</b> This defaults to 5mph as per competition rules
+        /// </summary>
+        [Config("drive.max_sideways")]
+        public static readonly LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
 
         /// <summary>
         /// The max angular speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
-        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+        [Config("drive.max_angular")]
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
+
+        [Config("drive.invert_forward")]
+        public static readonly bool InvertForwardVelocity = false;
+
+        [Config("drive.invert_sideways")]
+        public static readonly bool InvertSidewaysVelocity = false;
+
+        [Config("drive.invert_angular")]
+        public static readonly bool InvertAngularVelocity = false;
+
+        [Config("drive.update_frequency")]
+        public static readonly TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(100);
     }
 
     public static class CalibrationSubsystem
@@ -237,26 +271,6 @@ public static class Configuration
         /// </summary>
         [Config("feelers.balace_feelers")]
         public const bool BalanceFeelers = true;
-
-
-        // gps-related config
-        /// <summary> 
-        /// filename for the waypoints (should be CSV file with label,lat,lon,)
-        /// </summary>
-        public const string WaypointsFilename = "./data/waypoints.csv";
-
-        /// <summary>
-        /// How close we have to be for a GPS waypoint to be considered 'reached,' in meters
-        /// </summary>
-        [Config("feelers.waypoint_pop_dist")]
-        public const double WaypointPopDist = 1.5;
-
-        /// <summary>
-        /// How long we have to be within the WaypointPopDist, in milliseconds
-        /// </summary>
-        [Config("feelers.waypoint_pop_time")]
-        public const ulong WaypointPopTime = 500;
-
         /// <summary>
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
         /// </summary>
@@ -330,6 +344,53 @@ public static class Configuration
         /// </summary>
         [Config("feelers.heading_kd")]
         public const double HeadingKd = 0.0001;
+    }
+
+    public static class WaypointSubsystem
+    {
+        // gps-related config
+        /// <summary> 
+        /// filename for the waypoints (should be CSV file with label,lat,lon,)
+        /// </summary>
+        public const string WaypointsFilename = "resources/waypoints.csv";
+
+        /// <summary>
+        /// How close we have to be for a GPS waypoint to be considered 'reached,' in meters
+        /// </summary>
+        [Config("waypoints.waypoint_pop_dist")]
+        public const double WaypointPopDist = 1.5;
+
+        /// <summary>
+        /// How long we have to be within the WaypointPopDist, in milliseconds
+        /// </summary>
+        [Config("waypoints.waypoint_pop_time")]
+        public const ulong WaypointPopTime = 500;
+
+        /// <summary>
+        /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
+        /// </summary>
+        [Config("waypoints.gps_wait_time")]
+        public const ulong GpsWaitTime = 1000 * 30;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the practice autonav field
+        /// </summary>
+        public const double PracticeLongitude = -83.218909;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the autonav competition field
+        /// </summary>
+        public const double AutonavLongitude = -83.219584;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the selfdrive course
+        /// </summary>
+        public const double SelfdriveLongitude = -83.217515;
+
+        /// <summary>
+        /// Latitude of the northern edge of the engineering quadrangle on OU campus.
+        /// </summary>
+        public const double EquadLatitude = 35.211160;
     }
 
     public static class FakeCameraSubsystemConfig
