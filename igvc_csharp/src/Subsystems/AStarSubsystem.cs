@@ -23,6 +23,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private LatLng? _position;
     private double _heading = 0;
     private uint[] _configSpace = [];
+    private PurePursuit _purePursuit = new();
 
     public override Task Init(CancellationToken token)
     {
@@ -47,9 +48,9 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             token
         );
 
-        // publishers FIXME shouldn't this just run whenever we get a config space? and not on its own?
+
         _ = Task.Factory.StartNew(
-            () => FindPath(token),
+            () => SendMotorCommands(token),
             token,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default
@@ -115,8 +116,13 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private Task OnConfigSpaceReceived(ConfigSpace msg, CancellationToken token)
     {
-        //TODO FIXME this may need to be a deep copy or something?
-        _configSpace = msg.GetDataArray();
+        if (AStarConfig.UseAStar)
+        {
+            //TODO FIXME this may need to be a deep copy or something?
+            _configSpace = msg.GetDataArray();
+
+            FindPath(token);
+        }
 
         return Task.CompletedTask;
     }
@@ -188,6 +194,16 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // self.performance.end("Smellification")
 
         _goalPoint = workingGoalPoint;
+
+        return Task.CompletedTask;
+    }
+
+    private Task ReconstructPath(CancellationToken token)
+    {
+        foreach (var pt in _path)
+        {
+            _purePursuit.AddPoint(pt.X, pt.Y); //FIXME add an override that just adds the point straight-up?
+        }
 
         return Task.CompletedTask;
     }
@@ -295,6 +311,29 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
 
         //TODO: publish debug image
+
+        return Task.CompletedTask;
+    }
+
+    private Task SendMotorCommands(CancellationToken token)
+    {
+        if (AStarConfig.UseAStar)
+        {
+            //TODO are we gonna run this in selfdrive too though?
+            if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous && BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
+            {
+                var point = _purePursuit.GetLookaheadPoint(_position, AStarConfig.LookaheadRadius);
+
+                double angleToPoint = 0; //TODO
+
+                if (BaseRobot.Instance.State.MotionAllowed)
+                {
+                    //TODO: add a back-up sequence like in previous years
+                    //FIXME this is incorrect
+                    canbus.MotorControl.SetVelocities(1.0, 0.0, angleToPoint);
+                }
+            }
+        }
 
         return Task.CompletedTask;
     }

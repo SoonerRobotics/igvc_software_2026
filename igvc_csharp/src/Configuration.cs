@@ -30,7 +30,7 @@ public static class Configuration
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
 
     public static readonly string ChronosOutputDirectory = "~/.scr/chronos";
-    
+
     // Core Constants
 
     public static class Logging
@@ -49,7 +49,7 @@ public static class Configuration
         /// <b>NOTE:</b> This will be created if it does not exist.
         /// </summary>
         public const string PresetsDirectory = "~/.igvc/config";
-        
+
         /// <summary>
         /// The default preset name.
         /// <b>NOTE:</b> This will be created if it does not exist.
@@ -60,22 +60,22 @@ public static class Configuration
     public static class Hardware
     {
         public static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-        
+
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
         [Config("hardware.can.interface")]
         public const string CanbusInterface = "can0";
-        
+
         /// <summary>
         /// How often to retry our connection to the Canbus.
         /// </summary>
         [Config("hardware.can.timeout")]
         public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
     }
-    
+
     // Subsystem Constants
-    
+
     public static class ArcSubsystem
     {
         /// <summary>
@@ -160,7 +160,7 @@ public static class Configuration
         /// </summary>
         [Config("vision.blur_radius")]
         public const int BlurRadius = 5;
-        
+
         /// <summary>
         /// The strength of blurring we apply
         /// </summary>
@@ -210,17 +210,17 @@ public static class Configuration
         /// How long to keep the opencv calibration tool active before timing out
         /// </summary>
         public const ulong OpenCvCalibrationTimeoutMs = 60_000;
-        
+
         /// <summary>
         /// The width of the OpenCV calibration pattern (number of inner corners)
         /// </summary>
         public const int OpenCvCalibrationPatternWidth = 7;
-        
+
         /// <summary>
         /// The height of the OpenCV calibration pattern (number of inner corners)
         /// </summary>
         public const int OpenCvCalibrationPatternHeight = 7;
-        
+
         /// <summary>
         /// The size of each square in the OpenCV calibration pattern, in meters.
         /// </summary>
@@ -268,5 +268,10 @@ public static class Configuration
         /// TODO
         /// </summary>
         public const int ConfigSpaceHeight = 80;
+
+        /// <summary>
+        /// The Pure-Pursuit controller lookahead radius, in meters I think
+        /// </summary>
+        public const double LookaheadRadius = 1.0;
     }
 }
