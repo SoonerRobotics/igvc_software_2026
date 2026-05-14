@@ -7,10 +7,12 @@ public enum MessageType : ushort
     ArcLog = 0x02,
     Metric = 0x04,
     MetricHistory = 0x05,
+    DepthFrame = 0x06,
     CanFrame = 0x07,
     VectorNav = 0x08,
     ZedFrame = 0x09,
     Waypoint = 0x10,
+    AudibleFeedback = 0x11,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
