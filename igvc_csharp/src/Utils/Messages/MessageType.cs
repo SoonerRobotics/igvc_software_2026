@@ -11,7 +11,8 @@ public enum MessageType : ushort
     CanFrame = 0x07,
     VectorNav = 0x08,
     ZedFrame = 0x09,
-    AudibleFeedback = 0x10,
+    Waypoint = 0x10,
+    AudibleFeedback = 0x11,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
