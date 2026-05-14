@@ -27,26 +27,21 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     // pid controllers
     private PIDController _drivingPID = new(
-        Configuration.FeelerSubsystem.DriveKp,
-        Configuration.FeelerSubsystem.DriveKi,
-        Configuration.FeelerSubsystem.DriveKd
+        FeelerConfig.DriveKp,
+        FeelerConfig.DriveKi,
+        FeelerConfig.DriveKd
     );
     //FIXME we actually could want to like, no-rotate and only strafe, so we'd need to headingPID towards waypoints but also strafePID to avoid obstacles as well
     private PIDController _headingPID = new(
-        Configuration.FeelerSubsystem.HeadingKp,
-        Configuration.FeelerSubsystem.HeadingKi,
-        Configuration.FeelerSubsystem.HeadingKd
+        FeelerConfig.HeadingKp,
+        FeelerConfig.HeadingKi,
+        FeelerConfig.HeadingKd
     );
 
     // GPS stuff
     private VectorNavReport _position;
-    private ulong _runStartTime = 0;
-    private ulong _waypointTimeStart = 0;
     private LatLng? _startGpsPos;
     private LatLng? _goalPoint;
-    private Dictionary<String, List<LatLng>> _waypointsDict = [];
-    private int _waypointIndex = 0;
-    private string _direction = ""; //FIXME make this an enum or something
 
     // OpenCV stuff
     private readonly Channel<ImageFrame> _debugFrameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
@@ -67,8 +62,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         SetOperatingState(SubsystemState.Starting);
 
-        ReadWaypointsFile();
-
         BuildFeelers();
 
         // subscribers
@@ -85,8 +78,14 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         );
 
         SubscribeMessage<VectorNavReport>(
-            MessageType.Gps,
+            MessageType.VectorNav,
             OnPositionReceived,
+            token
+        );
+
+        SubscribeMessage<Waypoint>(
+            MessageType.Waypoint,
+            OnWaypointReceived,
             token
         );
 
@@ -99,44 +98,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         );
 
         SetOperatingState(SubsystemState.Ready);
-        return Task.CompletedTask;
-    }
-
-    private Task ReadWaypointsFile()
-    {
-        int numWaypoints = 0;
-        // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
-        String line;
-
-        //FIXME does this need to be like a .GetFileRelativeToRoot() or something?
-        using (StreamReader waypointsFile = new(FeelerConfig.WaypointsFilename))
-        {
-            // skip the first line
-            line = waypointsFile.ReadLine();
-            while ((line = waypointsFile.ReadLine()) != null)
-            {
-                var tokens = line.Split(",");
-
-                LatLng point = new(
-                    double.Parse(tokens[1]),
-                    double.Parse(tokens[2])
-                );
-
-                // waypoints are stored like {"north":[GPSPoint, GPSPoint]}
-                _waypointsDict[tokens[0]].Add(point);
-                numWaypoints++;
-            }
-        }
-        _waypointIndex = 0;
-        // === /read waypoints ===
-
-        Logger.LogInformation("Number of waypoints read: " + numWaypoints);
-
-        if (numWaypoints < 1)
-        {
-            Logger.LogWarning("No waypoints read! Feelers will not use GPS information!");
-        }
-
         return Task.CompletedTask;
     }
 
@@ -180,6 +141,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
     {
+        //FIXME should we be in charge of this? I think canbus could handle this automatically...
         if (old == RobotModeEnum.Autonomous && current != RobotModeEnum.Autonomous)
         {
             canbus.SafetyLights.SetAutonomous();
@@ -214,72 +176,13 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         _position = msg;
 
-        // if we haven't set a timestamp yet, but have started the run
-        if (_runStartTime == 0 && Robot.Instance.State.MotionAllowed && Robot.Instance.State.Mode == RobotModeEnum.Autonomous)
-        {
-            _runStartTime = TimeUtils.Now(); // then set the timestamp for the start of the run
-            _startGpsPos = new LatLng(msg.Latitude, msg.Longitude);
-            Logger.LogInformation("Starting Run!"); //FIXME maybe this should just be in OnSystemModeUpdated() or something?
-        }
+        return Task.CompletedTask;
+    }
 
-        // if, however, we have set a timestamp, and we're past the GPS wait time, BUT haven't set a direction yet
-        else if (_runStartTime != 0 && ((TimeUtils.Now() - _runStartTime) > FeelerConfig.GpsWaitTime) && _direction == "")
-        {
-            // then pick a set of waypoints based on which direction we are heading
-
-            // FIXME add a set of practice waypoints which we can choose if we don't start like, on the course
-            // i.e. our starting GPS position isn't on the actual course
-            // also FIXME what if instead of having compNorth/compSouth we just reversed the direction the waypoints went
-            // we could do like a int waypointDirection = -1; and set waypointIndex = waypoints.length - 1; or something
-            // also FIXME we should move waypoint reading, publishing, popping/reaching, and such to its own subsystem
-            // or make it part of the vectornav subsystem. I don't know if I like it being part of Feelers, because I think it leads to
-            // identical code duplication in like, whenever we write Smellification/A*
-
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).Value.To(AngleUnit.Degrees);
-            if (120 < heading_degrees && heading_degrees < 240)
-            {
-                _direction = "compSouth";
-                Logger.LogInformation("Picking south waypoints!");
-            }
-            else
-            {
-                _direction = "compNorth";
-                Logger.LogInformation("Picking north waypoints!");
-            }
-
-            //TODO: we should flash safety lights to let operator know that the GPS waypoints are working / have been selected
-        }
-
-        // waypoint reach detection
-        else if (_direction != "" && _waypointsDict.Count() != 0)
-        {
-            var current_gps = new LatLng(msg.Latitude, msg.Longitude);
-            _goalPoint = _waypointsDict[_direction][_waypointIndex];
-
-            var dist = current_gps.Distance(_goalPoint);
-
-            // if we are close enough to the waypoint, and we aren't going to cause an out-of-bounds index error
-            if (dist.To(DistanceUnit.Meters) < FeelerConfig.WaypointPopDist && _waypointIndex < (_waypointsDict[_direction].Count - 2))
-            {
-                if (_waypointTimeStart == 0)
-                {
-                    // start the clock for how long we have to be close to it
-                    _waypointTimeStart = TimeUtils.Now();
-                }
-                else if ((TimeUtils.Now() - _waypointTimeStart) > FeelerConfig.WaypointPopTime)
-                {
-                    // then go to the next waypoint
-                    _waypointIndex++;
-
-                    Logger.LogInformation("Waypoint Reached! Heading to next...");
-                    _waypointTimeStart = 0;
-
-                    // and do the classic green flash for GPS waypoint reached
-                    canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, length: 2000);
-                }
-            }
-        }
-
+    private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
+    {
+        _goalPoint = new(msg.Latitude, msg.Longitude);
+        
         return Task.CompletedTask;
     }
 
@@ -293,7 +196,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             while (!token.IsCancellationRequested)
             {
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
-                if (Robot.Instance.State.Mode == RobotModeEnum.Autonomous)
+                if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous)
                 {
                     canbus.SafetyLights.SetAutonomous();
 
@@ -344,10 +247,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
 
                         // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
-                        if (Robot.Instance.State.MotionAllowed)
+                        if (BaseRobot.Instance.State.MotionAllowed)
                         {
                             // convert headingArrow to motor output
-                            canbus.MotorControl.SendCommand(
+                            canbus.MotorControl.SetVelocities(
                                 (float)Math.Clamp(_drivingPID.Calculate(controlFeeler.Current.Y), -FeelerConfig.MaxDriveSpeed, FeelerConfig.MaxDriveSpeed),
                                 (float)0.0, //FIXME we need to figure out strafing
                                 (float)Math.Clamp(_headingPID.Calculate(controlFeeler.Current.X), -FeelerConfig.MaxTurnSpeed, FeelerConfig.MaxTurnSpeed)
@@ -356,7 +259,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         else
                         {
                             // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
-                            canbus.MotorControl.SendCommand(
+                            canbus.MotorControl.SetVelocities(
                                 0f,
                                 0f,
                                 0f
@@ -393,7 +296,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     else
                     {
                         // don't move the robot
-                        canbus.MotorControl.SendCommand(0f, 0f, 0f);
+                        canbus.MotorControl.SetVelocities(0f, 0f, 0f);
                     }
                 }
             }
