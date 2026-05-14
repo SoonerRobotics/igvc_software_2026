@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading.Channels;
+using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Vision.Filters;
@@ -8,6 +9,7 @@ using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using AStarConfig = igvc_csharp.Configuration.AStarSubsystem;
 
 namespace igvc_csharp.Subsystems.Vision;
 
@@ -97,6 +99,33 @@ public class VisionSubsystem : SubsystemBase
                 );
 
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+
+                if (AStarConfig.UseAStar)
+                {
+                    //FIXME is this mat gonna have the inflation filter applied to it?
+                    // only publish config space message if A* is being used / ran to avoid conflicting with Feelers / Self-Drive
+                    var scaled = mat.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
+                    var row_array = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
+
+                    var builder = new FlatBufferBuilder(128);
+                    var msgOffset = ConfigSpace.CreateConfigSpace(
+                        builder,
+                        TimeUtils.Now(),
+                        AStarConfig.ConfigSpaceWidth,
+                        AStarConfig.ConfigSpaceHeight,
+                        new VectorOffset(row_array.ElemSize()) //FIXME I'm pretty sure this is wrong
+                    );
+                    builder.Finish(msgOffset.Value);
+
+                    var cfgSpaceMsg = MessageWrapper.From(MessageType.ConfigSpace, builder.SizedByteArray());
+
+                    EventBus.Instance.Publish(
+                        new MessageWrapperEvent(cfgSpaceMsg)
+                    );
+
+                    scaled.Dispose();
+                    row_array.Dispose();
+                }
 
                 mat.Dispose();
             }
