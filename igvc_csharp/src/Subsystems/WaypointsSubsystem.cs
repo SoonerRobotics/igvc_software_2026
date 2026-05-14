@@ -86,9 +86,9 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
+    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
-        if (current == RobotModeEnum.Autonomous)
+        if (updated.Mode == RobotModeEnum.Autonomous)
         {
             // this will get called when mobility gets updated too, so we can check it here
             if (BaseRobot.Instance.State.MotionAllowed && _runStartTime == 0)

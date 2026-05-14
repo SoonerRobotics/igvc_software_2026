@@ -139,18 +139,18 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
+    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         //FIXME should we be in charge of this? I think canbus could handle this automatically...
-        if (old == RobotModeEnum.Autonomous && current != RobotModeEnum.Autonomous)
+        if (old.Mode == RobotModeEnum.Autonomous && updated.Mode != RobotModeEnum.Autonomous)
         {
             canbus.SafetyLights.SetAutonomous();
         }
-        else if (current == RobotModeEnum.Autonomous)
+        else if (updated.Mode == RobotModeEnum.Autonomous)
         {
             canbus.SafetyLights.SetAutonomous();
         }
-        else if (current == RobotModeEnum.Manual)
+        else if (updated.Mode == RobotModeEnum.Manual)
         {
             canbus.SafetyLights.SetManual();
         }

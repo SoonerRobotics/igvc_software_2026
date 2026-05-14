@@ -258,29 +258,33 @@ public abstract class BaseRobot : IDisposable
 
     public void SetMobility(bool mobility)
     {
+        var oldState = State;
         State.MotionAllowed = mobility;
-        CallSubsystemFunction(mobility ? "OnMobilityStart" : "OnMobilityStop");
+        CallSubsystemFunction("OnRobotStateChanged", oldState, State);
+        Logger.LogDebug("Robot Mobility Changed -> {}", mobility);
     }
 
     public void SetEstopped(bool estopped)
     {
+        var oldState = State;
         State.Estopped = estopped;
-        CallSubsystemFunction("OnRobotEstopped");
+        CallSubsystemFunction("OnRobotStateChanged", oldState, State);
+        Logger.LogDebug("Robot Estopped Changed -> {}", estopped);
     }
 
     public void SetMode(RobotModeEnum mode)
     {
-        var oldMode = State.Mode;
+        var oldState = State;
         State.Mode = mode;
-        CallSubsystemFunction("OnRobotModeChanged", oldMode, mode);
-        Logger.LogDebug("Robot Mode Changed -> {} to {}", oldMode.ToString(), mode.ToString());
+        CallSubsystemFunction("OnRobotStateChanged", oldState, State);
+        Logger.LogDebug("Robot Mode Changed -> {} to {}", oldState.Mode.ToString(), mode.ToString());
     }
 
     public void SetMission(MissionEnum mission)
     {
-        var oldMission = State.Mission;
+        var oldState = State;
         State.Mission = mission;
-        CallSubsystemFunction("OnRobotModeChanged", oldMission, mission);
-        Logger.LogDebug("Robot Mission Changed -> {} to {}", oldMission.ToString(), mission.ToString());
+        CallSubsystemFunction("OnRobotStateChanged", oldState, State);
+        Logger.LogDebug("Robot Mission Changed -> {} to {}", oldState.Mission.ToString(), mission.ToString());
     }
 }

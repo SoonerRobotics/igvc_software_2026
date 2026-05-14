@@ -44,14 +44,14 @@ public class AudioSubsystem(
         return Task.CompletedTask;
     }
 
-    public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
+    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         //Logger.LogDebug("YES WE ARE GETTING CALLED!!!!");
         
         // check for a change in mode
-        if (old != current)
+        if (old.Mode != updated.Mode)
         {
-            if (current == RobotModeEnum.Autonomous)
+            if (updated.Mode == RobotModeEnum.Autonomous)
             {
                 if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
                 {
@@ -62,11 +62,11 @@ public class AudioSubsystem(
                     PlaySound("self-drive.mp3");
                 }
             }
-            else if (current == RobotModeEnum.Manual)
+            else if (updated.Mode == RobotModeEnum.Manual)
             {
                 PlaySound("self-drive2.mp3");
             }
-            else if (current == RobotModeEnum.Disabled)
+            else if (updated.Mode == RobotModeEnum.Disabled)
             {
                 //TODO I don't think we need a sound for this (?) but it's here...
             }
