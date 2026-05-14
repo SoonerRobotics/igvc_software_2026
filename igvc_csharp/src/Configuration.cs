@@ -30,7 +30,7 @@ public static class Configuration
     public static readonly byte[] NetworkingMagic = "IGVC"u8.ToArray();
 
     public static readonly string ChronosOutputDirectory = "~/.scr/chronos";
-    
+
     // Core Constants
 
     public static class Logging
@@ -49,7 +49,7 @@ public static class Configuration
         /// <b>NOTE:</b> This will be created if it does not exist.
         /// </summary>
         public const string PresetsDirectory = "~/.igvc/config";
-        
+
         /// <summary>
         /// The default preset name.
         /// <b>NOTE:</b> This will be created if it does not exist.
@@ -60,7 +60,7 @@ public static class Configuration
     public static class Hardware
     {
         public static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-        
+
         /// <summary>
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
@@ -73,9 +73,9 @@ public static class Configuration
         [Config("hardware.can.timeout")]
         public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
     }
-    
+
     // Subsystem Constants
-    
+
     public static class ArcSubsystem
     {
         /// <summary>
@@ -166,7 +166,7 @@ public static class Configuration
         /// </summary>
         [Config("vision.blur_radius")]
         public const int BlurRadius = 5;
-        
+
         /// <summary>
         /// The strength of blurring we apply
         /// </summary>
@@ -216,20 +216,67 @@ public static class Configuration
         /// How long to keep the opencv calibration tool active before timing out
         /// </summary>
         public const ulong OpenCvCalibrationTimeoutMs = 60_000;
-        
+
         /// <summary>
         /// The width of the OpenCV calibration pattern (number of inner corners)
         /// </summary>
         public const int OpenCvCalibrationPatternWidth = 7;
-        
+
         /// <summary>
         /// The height of the OpenCV calibration pattern (number of inner corners)
         /// </summary>
         public const int OpenCvCalibrationPatternHeight = 7;
-        
+
         /// <summary>
         /// The size of each square in the OpenCV calibration pattern, in meters.
         /// </summary>
         public const double OpenCvCalibrationSquareSizeMeters = 0.024;
+    }
+
+    public static class WaypointSubsystem
+    {
+        // gps-related config
+        /// <summary> 
+        /// filename for the waypoints (should be CSV file with label,lat,lon,)
+        /// </summary>
+        public const string WaypointsFilename = "resources/waypoints.csv";
+
+        /// <summary>
+        /// How close we have to be for a GPS waypoint to be considered 'reached,' in meters
+        /// </summary>
+        [Config("waypoints.waypoint_pop_dist")]
+        public const double WaypointPopDist = 1.5;
+
+        /// <summary>
+        /// How long we have to be within the WaypointPopDist, in milliseconds
+        /// </summary>
+        [Config("waypoints.waypoint_pop_time")]
+        public const ulong WaypointPopTime = 500;
+
+        /// <summary>
+        /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
+        /// </summary>
+        [Config("waypoints.gps_wait_time")]
+        public const ulong GpsWaitTime = 1000 * 30;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the practice autonav field
+        /// </summary>
+        public const double PracticeLongitude = -83.218909;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the autonav competition field
+        /// </summary>
+        public const double AutonavLongitude = -83.219584;
+
+        /// <summary>
+        /// Longitude of the west-most edge of the selfdrive course
+        /// </summary>
+        public const double SelfdriveLongitude = -83.217515;
+
+        /// <summary>
+        /// Latitude of the northern edge of the engineering quadrangle on OU campus.
+        /// </summary>
+        public const double EquadLatitude = 35.211160;
     }
 }
