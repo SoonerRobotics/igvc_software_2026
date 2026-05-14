@@ -202,7 +202,7 @@ public class CanbusSubsystem(
         // If we are simulator, write to it instead
         if (Configuration.UseSimulation)
         {
-            simulatorSubsystem.SendCanFrame(frame);
+            simulatorSubsystem?.SendCanFrame(frame);
             return;
         }
         

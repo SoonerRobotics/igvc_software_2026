@@ -21,7 +21,7 @@ public static class Configuration
     /// Determines if the robot will use the simulator.
     /// </summary>
     [Config("simulation.enabled")]
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -65,8 +65,8 @@ public static class Configuration
         /// The name of the interface where the Canbus is connected to.
         /// </summary>
         [Config("hardware.can.interface")]
-        public const string CanbusInterface = "bigcan0";
-
+        public const string CanbusInterface = "can0";
+        
         /// <summary>
         /// How often to retry our connection to the Canbus.
         /// </summary>
@@ -151,10 +151,16 @@ public static class Configuration
         /// </summary>
         [Config("vision.ground_threshold")]
         public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
-            ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(180, 255, 255)
+            ColorUtils.Color.FromHsv(0,   0,   0),
+            ColorUtils.Color.FromHsv(180, 95,  160)
         );
 
+        [Config("vision.yellow_threshold")]
+        public static readonly ColorUtils.ColorRange YellowThreshold = ColorUtils.ColorRange.From(
+            ColorUtils.Color.FromHsv(15,  80,  80),
+            ColorUtils.Color.FromHsv(40,  255, 255)
+        );
+        
         /// <summary>
         /// The radius of blurring we apply
         /// </summary>
@@ -189,7 +195,7 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(180);
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
 
         [Config("drive.invert_forward")]
         public static readonly bool InvertForwardVelocity = false;
