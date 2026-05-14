@@ -11,7 +11,7 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using WaypointConfig = igvc_csharp.Configuration.WaypointSubsystem;
 
-namespace igvc_csharp.src.Subsystems.Control;
+namespace igvc_csharp.src.Subsystems;
 
 [Subsystem("WaypointsSubsystem", Disabled = false)]
 public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
@@ -59,7 +59,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var tokens = line.Split(",");
 
                 LatLng point = new(
-                    double.Parse(tokens[1]), //FIXME we should add a .strip() or something here
+                    double.Parse(tokens[1]),
                     double.Parse(tokens[2])
                 );
 
@@ -76,7 +76,6 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         _waypointIndex = 0;
         // === /read waypoints ===
 
-        //TODO add like, per-label waypoint counts? theoreticlly we don't have to modify them that much but also idk
         Logger.LogInformation("Number of waypoints read: " + numWaypoints);
 
         if (numWaypoints < 1)
@@ -163,7 +162,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             }
 
 
-            Logger.LogInformation("Picked {} waypoint set with direction {}!", _waypointSet, _waypointDirection.ToString());
+            Logger.LogInformation("Picked [{}] waypoint set with direction [{}]! Tracking [{}] waypoints...", _waypointSet, _waypointDirection.ToString(), _waypointsDict[_waypointSet].Count);
 
             _waypointsFinished = false;
             _waypointTimeStart = 0;
@@ -192,7 +191,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
 
         // waypoint reach detection
-        else if (_waypointsDict.Count() != 0 && !_waypointsFinished) //FIXME I think this needs to be an if and not an else if so that it runs on first message?
+        if (_waypointsDict.Count() != 0 && !_waypointsFinished)
         {
             var current_gps = new LatLng(msg.Latitude, msg.Longitude);
             var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
