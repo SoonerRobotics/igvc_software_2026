@@ -202,6 +202,11 @@ public static class Configuration
     public static class FeelerSubsystem
     {
         // feeler-related config
+        /// <summary>
+        /// Whether to use feelers or not (as opposed to, e.x. the A* subsystem)
+        /// </summary>
+        [Config("feelers.use_feelers")]
+        public const bool UseFeelers = false;
 
         /// <summary>
         /// Default (unbiased) max length of the vision feelers, in pixels

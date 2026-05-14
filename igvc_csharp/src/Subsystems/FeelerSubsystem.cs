@@ -15,7 +15,7 @@ using igvc_csharp.src.Subsystems.Feelers;
 using FeelerConfig = igvc_csharp.Configuration.FeelerSubsystem;
 
 
-namespace igvc_csharp.scr.Subsystems.Feelers;
+namespace igvc_csharp.scr.Subsystems;
 
 [Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
@@ -62,11 +62,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         SingleWriter = false,
         FullMode = BoundedChannelFullMode.DropOldest
     });
-
-    // public FeelerSubsystem()
-    // {
-    //     //TODO FIXME?
-    // }
 
     public override Task Init(CancellationToken token)
     {
@@ -340,6 +335,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
 
                         // perform feeler obstacle detection
+                        //TODO: add a "use only waypoints" config option like A* has that just sets the mask to 0s so we ignore all obstacles
                         foreach (var feeler in _feelers)
                         {
                             //TODO this could be multithreaded or something (if it's that big of a performance hit, that is)
