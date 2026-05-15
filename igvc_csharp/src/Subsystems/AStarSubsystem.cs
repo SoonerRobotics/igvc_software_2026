@@ -17,10 +17,10 @@ namespace igvc_csharp.scr.Subsystems;
 public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private SCR_Point _goalPoint;
-    private List<SCR_Point> _path = [];
     private SCR_Point _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
     private LatLng? _waypoint;
     private LatLng? _position;
+    private LatLng? _lastPosition;
     private double _heading = 0;
     private uint[] _configSpace = [];
     private PurePursuit _purePursuit = new();
@@ -66,10 +66,10 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         SetOperatingState(SubsystemState.Starting);
 
         _goalPoint = new();
-        _path = [];
         _robotStartPoint = new(AStarConfig.ConfigSpaceWidth / 2, AStarConfig.ConfigSpaceHeight - 2);
         _waypoint = null;
         _position = null;
+        _lastPosition = null;
         _heading = 0;
         _configSpace = [];
 
@@ -102,7 +102,12 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         _position = new LatLng(msg.Latitude, msg.Longitude);
 
-        _heading = msg.Yaw; //FIXME this doesn't get the right global heading right? we might have to store a _lastPosition or something
+        if (_lastPosition.HasValue)
+        {
+            _heading = GeoUtils.EstimateHeading(_lastPosition, _position).Radians;
+        }
+
+        _lastPosition = _position;
 
         return Task.CompletedTask;
     }
@@ -137,15 +142,17 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         HashSet<SCR_Point> frontier = [_robotStartPoint]; //FIXME we should try and re-use this for the A* or something.
         HashSet<SCR_Point> explored = [];
 
-        //FIXME
+        // if we are going to ignore obstacles, then zero out the config space
         if (AStarConfig.UseOnlyWaypoints)
         {
-            _configSpace = []; //TODO FIXME
+            for (int i = 0; i < _configSpace.Length; i++)
+            {
+                _configSpace[i] = 0;
+            }
         }
 
         int depth = 0;
-        //FIXME add cancellation token check?
-        while (depth < AStarConfig.SmellyMaxDepth && frontier.Count > 0)
+        while (depth < AStarConfig.SmellyMaxDepth && frontier.Count > 0 && !token.IsCancellationRequested)
         {
             var frontierCopy = frontier; //TODO make this a deep copy
             foreach (var point in frontierCopy)
@@ -168,20 +175,18 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 frontier.Remove(point);
                 explored.Add(point);
 
-                //REALLY BIG FIXME: these !explored.Contains(point) need to be like, !explored.Contains(point.X + 1) typa thing y'know what I'm sayin?
-
-                if (point.Y > 0 && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
+                if (point.Y > 0 && _configSpace[To1DArry(point)] < AStarConfig.ObstacleThreshold && !explored.Contains(new SCR_Point(point.X, point.Y - 1)))
                 {
                     // we're in image coordinates, so negative Y means upwards in the image, means forwards for the robot
                     frontier.Add(new SCR_Point(point.X, point.Y - 1));
                 }
 
-                if (point.X < (AStarConfig.ConfigSpaceWidth - 1) && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
+                if (point.X < (AStarConfig.ConfigSpaceWidth - 1) && _configSpace[To1DArry(point)] < AStarConfig.ObstacleThreshold && !explored.Contains(new SCR_Point(point.X + 1, point.Y)))
                 {
                     frontier.Add(new SCR_Point(point.X + 1, point.Y));
                 }
 
-                if (point.X > 0 && _configSpace[To1DArry(point)] < 50 && !explored.Contains(point))
+                if (point.X > 0 && _configSpace[To1DArry(point)] < AStarConfig.ObstacleThreshold && !explored.Contains(new SCR_Point(point.X - 1, point.Y)))
                 {
                     frontier.Add(new SCR_Point(point.X - 1, point.Y));
                 }
@@ -190,7 +195,6 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             depth += 1;
         }
 
-        // self.costMap = grid_data
         // self.performance.end("Smellification")
 
         _goalPoint = workingGoalPoint;
@@ -198,17 +202,22 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task ReconstructPath(CancellationToken token)
+    private Task ReconstructPath(LinkedList<SCR_Point> p, CancellationToken token)
     {
-        foreach (var pt in _path)
-        {
-            _purePursuit.AddPoint(pt.X, pt.Y); //FIXME add an override that just adds the point straight-up?
-        }
+        _purePursuit.Reset();
+
+        // foreach (var pt in p)
+        // {
+        //     _purePursuit.AddPoint(pt.X, pt.Y); //FIXME add an override that just adds the point straight-up?
+        // }
+
+        // _purePursuit.SetPoints(p);
+
+        
 
         return Task.CompletedTask;
     }
 
-    //FIXME actually use cancellation token in loops n stuff
     private Task FindPath(CancellationToken token)
     {
         if (BaseRobot.Instance.State.Mode != RobotModeEnum.Autonomous || BaseRobot.Instance.State.Mission != MissionEnum.Autonav)
@@ -220,9 +229,14 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         FindGoalPoint(token);
 
+        if (token.IsCancellationRequested)
+        {
+            return Task.CompletedTask;
+        }
+
         int[] lookedAt = new int[AStarConfig.ConfigSpaceWidth * AStarConfig.ConfigSpaceHeight];
         HashSet<SCR_Point> open_set = [_robotStartPoint];
-        List<SCR_Point> path = [];
+        LinkedList<SCR_Point> path = new();
         List<(int, int, double)> search_dirs = [];
         SCR_Point currentPoint;
 
@@ -272,16 +286,18 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         PriorityQueue<SCR_Point, double> nextPoint = new();
         nextPoint.Enqueue(_robotStartPoint, 1);
 
-        while (open_set.Count > 0)
+        while (open_set.Count > 0 && !token.IsCancellationRequested)
         {
             currentPoint = nextPoint.Dequeue();
 
-            lookedAt[To1DArry(currentPoint)] = 1; //FIXME what do we even use lookedAt for ???
+            //TODO if the code doesn't break then remove this like because we never check it ???
+            // lookedAt[To1DArry(currentPoint)] = 1; //FIXME what do we even use lookedAt for ???
 
             if (currentPoint == _goalPoint)
             {
-                //FIXME this shouldn't return we should like, do something else about it or something
-                return ReconstructPath(path, current);
+                ReconstructPath(path, token);
+
+                return Task.CompletedTask;
             }
 
             open_set.Remove(currentPoint);
@@ -297,7 +313,8 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var tentGScore = GetG(currentPoint) + D(neighbor, dist);
                 if (tentGScore < GetG(neighbor))
                 {
-                    path[neighbor] = currentPoint;
+                    path.AddAfter(neighbor, currentPoint); // ????? will this even work ?????
+                    // path[neighbor] = currentPoint;
                     gScore[neighbor] = tentGScore;
                     fScore[neighbor] = tentGScore + H(neighbor);
 
@@ -324,7 +341,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 var point = _purePursuit.GetLookaheadPoint(_position, AStarConfig.LookaheadRadius);
 
-                double angleToPoint = 0; //TODO
+                double angleToPoint = 0; //TODO need to actually calculate the angle to turn at
 
                 if (BaseRobot.Instance.State.MotionAllowed)
                 {

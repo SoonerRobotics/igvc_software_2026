@@ -10,6 +10,11 @@ class PurePursuit
         _path = [];
     }
 
+    public void Reset()
+    {
+        _path = [];
+    }
+
     //FIXME
     public void AddPoint(int x, int y)
     {

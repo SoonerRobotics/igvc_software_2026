@@ -260,18 +260,23 @@ public static class Configuration
         public const int SmellyMaxDepth = 50;
 
         /// <summary>
+        /// The threshold for a pixel/point in the configuration space to be considered an obstacle
+        /// </summary>
+        public const int ObstacleThreshold = 50;
+
+        /// <summary>
         /// Whether to ignore obstacles and only pathfind to waypoints (for qualification/inspection/testing/etc.)
         /// </summary>
         public const bool UseOnlyWaypoints = false;
 
         //FIXME does this belong to the vision subsystem instead? since that is what will publish the config space messages?
         /// <summary>
-        /// TODO
+        /// Width of the config space, in pixels (where each pixel is a meter, supposedly)
         /// </summary>
         public const int ConfigSpaceWidth = 80;
 
         /// <summary>
-        /// TODO
+        /// Height of the configuration space, in pixels (where each pixel is a meter, supposedly)
         /// </summary>
         public const int ConfigSpaceHeight = 80;
 
