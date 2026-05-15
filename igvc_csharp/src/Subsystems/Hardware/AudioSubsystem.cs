@@ -18,13 +18,8 @@ namespace igvc_csharp.Subsystems.Hardware;
 
 //TODO: make this subsystem like, configurable and everything
 [Subsystem("AudioSubsystem", DependsOn = [typeof(ChronosSubsystem)])]
-public class AudioSubsystem(
-    SimulatorSubsystem? simulatorSubsystem,
-    ChronosSubsystem chronos
-) : SubsystemBase
+public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
 {
-    private bool _isPlayingSound = false;
-    private string _currentPlayingSound = ""; //FIXME not sure if we need/want this
     private Process? _process;
 
     public override Task Init(CancellationToken token)
@@ -47,7 +42,7 @@ public class AudioSubsystem(
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         //Logger.LogDebug("YES WE ARE GETTING CALLED!!!!");
-        
+
         // check for a change in mode
         if (old.Mode != updated.Mode)
         {
@@ -128,10 +123,9 @@ public class AudioSubsystem(
 
     private Task StopAllSounds(CancellationToken token)
     {
-        _process.Kill();
-        _isPlayingSound = false;
+        _process?.Kill();
 
-        // SetOperatingState(SubsystemState.Idle);
+        SetOperatingState(SubsystemState.Idle);
 
         return Task.CompletedTask;
     }
@@ -140,8 +134,7 @@ public class AudioSubsystem(
     {
         SetOperatingState(SubsystemState.ShuttingDown);
 
-        _process.Kill();
-        _isPlayingSound = false;
+        _process?.Kill();
 
         SetOperatingState(SubsystemState.Shutdown);
 
