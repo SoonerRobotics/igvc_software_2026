@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
@@ -15,14 +14,13 @@ using igvc_csharp.src.Subsystems.Feelers;
 using FeelerConfig = igvc_csharp.Configuration.FeelerSubsystem;
 
 
-namespace igvc_csharp.scr.Subsystems;
+namespace igvc_csharp.src.Subsystems;
 
 [Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // actual feeler stuff
     private List<Feeler> _feelers = [];
-    private Feeler _headingArrow = new();
     private Feeler _gpsFeeler = new();
 
     // pid controllers
@@ -40,7 +38,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     // GPS stuff
     private VectorNavReport _position;
-    private LatLng? _startGpsPos;
     private LatLng? _goalPoint;
 
     // OpenCV stuff

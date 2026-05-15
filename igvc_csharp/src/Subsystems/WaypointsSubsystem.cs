@@ -48,10 +48,19 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         int numWaypoints = 0;
         // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
-        string line;
+        string? line;
 
         using (StreamReader waypointsFile = new(FileUtils.GetFileRelativeToRoot(WaypointConfig.WaypointsFilename)))
         {
+            if (waypointsFile == null)
+            {
+                SetOperatingState(SubsystemState.Errored);
+
+                Logger.LogError("Failed to read waypoints file! Waypoints will not work!")    ;
+
+                return Task.CompletedTask;
+            }
+
             // skip the first line
             line = waypointsFile.ReadLine();
             while ((line = waypointsFile.ReadLine()) != null)
@@ -133,11 +142,11 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 _waypointSet = "selfdrive";
             }
-            else if (msg.Latitude < Configuration.WaypointSubsystem.EquadLatitude)
+            else if (msg.Latitude < WaypointConfig.EquadLatitude)
             {
                 _waypointSet = "equad";
             }
-            else if (msg.Longitude > Configuration.WaypointSubsystem.PracticeLongitude)
+            else if (msg.Longitude > WaypointConfig.PracticeLongitude)
             {
                 _waypointSet = "practice";
             }
@@ -213,7 +222,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     // then go to the next waypoint
                     _waypointIndex += _waypointDirection;
 
-                    if (_waypointIndex < 0 || _waypointIndex + 1 > _waypointsDict[_waypointSet].Count())
+                    if (_waypointIndex < 0 || _waypointIndex + 1 > _waypointsDict[_waypointSet].Count)
                     {
                         // we've reached the end of the list, publish no more
                         _waypointsFinished = true;
