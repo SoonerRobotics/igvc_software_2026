@@ -1,0 +1,11 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+table AudibleFeedback {
+    // the filename of the sound to play (can be empty)
+    filename: string;
+
+    // true = stop playing all sounds
+    stop_all_sounds: bool;
+}
+
+root_type AudibleFeedback;

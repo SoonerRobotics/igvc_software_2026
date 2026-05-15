@@ -215,27 +215,7 @@ public class SubsystemBase : ISubsystem
         return Task.CompletedTask;
     }
 
-    public virtual Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
-    {
-        return Task.CompletedTask;
-    }
-
-    public virtual Task OnRobotMissionChanged(MissionEnum old, MissionEnum current)
-    {
-        return Task.CompletedTask;
-    }
-
-    public virtual Task OnRobotEstopped()
-    {
-        return Task.CompletedTask;
-    }
-
-    public virtual Task OnMobilityStart()
-    {
-        return Task.CompletedTask;
-    }
-
-    public virtual Task OnMobilityStop()
+    public virtual Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         return Task.CompletedTask;
     }

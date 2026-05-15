@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using OpenCvSharp;
+using igvc_csharp.Core;
 
 namespace igvc_csharp.Utils;
 
@@ -14,13 +15,16 @@ public sealed class OpenCvImageWindow : IDisposable
     {
         _windowName = windowName;
 
-        _uiThread = new Thread(UiLoop)
-        {
-            IsBackground = true,
-            Name = $"OpenCV:{windowName}"
-        };
+        if (Configuration.UseSimulation) {
 
-        _uiThread.Start();
+            _uiThread = new Thread(UiLoop)
+            {
+                IsBackground = true,
+                Name = $"OpenCV:{windowName}"
+            };
+
+            _uiThread.Start();
+        }
     }
 
     public void EnqueueJpeg(byte[] jpeg)

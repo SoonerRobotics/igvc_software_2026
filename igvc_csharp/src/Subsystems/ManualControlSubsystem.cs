@@ -42,8 +42,8 @@ public class ManualControlSubsystem(
                 continue;
             }
             
-            Logger.LogDebug("Sending velocities: Forward={ForwardVelocity} m/s, Sideways={SidewaysVelocity} m/s, Angular={AngularVelocity} rad/s",
-                _forwardVelocity, _sidewaysVelocity, _angularVelocity);
+            // Logger.LogDebug("Sending velocities: Forward={ForwardVelocity} m/s, Sideways={SidewaysVelocity} m/s, Angular={AngularVelocity} rad/s",
+            //     _forwardVelocity, _sidewaysVelocity, _angularVelocity);
             canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
             // canbus?.MotorControl.SetVelocities(1, _sidewaysVelocity, _angularVelocity);
         }
