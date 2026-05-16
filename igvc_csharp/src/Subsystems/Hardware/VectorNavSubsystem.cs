@@ -7,6 +7,7 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
+using VectornavReport = Messages.VectornavReport;
 
 namespace igvc_csharp.Subsystems.Hardware;
 

@@ -17,7 +17,7 @@ namespace igvc_csharp.src.Subsystems;
 public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // GPS stuff
-    private VectorNavReport? _position;
+    private VectornavReport? _position;
     private ulong _runStartTime = 0;
     private ulong _waypointTimeStart = 0;
     private LatLng? _startGpsPos;
@@ -33,7 +33,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         ReadWaypointsFile(token);
 
-        SubscribeMessage<VectorNavReport>(
+        SubscribeMessage<VectornavReport>(
             MessageType.VectorNav,
             OnPositionReceived,
             token
@@ -124,7 +124,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task CheckDirection(VectorNavReport msg, CancellationToken token)
+    private Task CheckDirection(VectornavReport msg, CancellationToken token)
     {
         if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
         {
@@ -175,7 +175,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
+    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
     {
         _position = msg;
 

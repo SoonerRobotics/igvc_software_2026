@@ -39,7 +39,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     );
 
     // GPS stuff
-    private VectorNavReport _position;
+    private VectornavReport _position;
     private LatLng? _startGpsPos;
     private LatLng? _goalPoint;
 
@@ -77,7 +77,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             token
         );
 
-        SubscribeMessage<VectorNavReport>(
+        SubscribeMessage<VectornavReport>(
             MessageType.VectorNav,
             OnPositionReceived,
             token
@@ -172,7 +172,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
+    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
     {
         _position = msg;
 

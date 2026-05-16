@@ -12,7 +12,7 @@ using OpenCvSharp;
 
 // Just a testing subsystem for yolo
 
-[Subsystem("YoloTestSubsystem", Disabled = true, DependsOn = [typeof(ArcSubsystem)])]
+[Subsystem("YoloTestSubsystem", Disabled = false, DependsOn = [typeof(ArcSubsystem)])]
 public class YoloTestSubsystem : SubsystemBase
 {
     private YoloDetector? _detector;
@@ -24,7 +24,7 @@ public class YoloTestSubsystem : SubsystemBase
         // _detector = new YoloDetector(FileUtils.GetFileRelativeToRoot("resources/yolo11n.onnx"));
         _detector = new YoloDetector(FileUtils.GetFileRelativeToRoot("resources/yolov8s-worldv2.onnx"));
         _window = new OpenCvDetectionImageWindow("IGVC 2026 | Yolo Test");
-        
+
         SubscribeImage(
             "zed2i",
             OnImageReceived,
@@ -45,8 +45,8 @@ public class YoloTestSubsystem : SubsystemBase
         lock (_depthLock) { _latestDepthMat?.Dispose(); }
         return Task.CompletedTask;
     }
-    
-    private Mat?  _latestDepthMat;
+
+    private Mat? _latestDepthMat;
     private readonly object _depthLock = new();
     private Task OnZedFrameReceived(ZedFrame frame, CancellationToken token)
     {
@@ -74,7 +74,10 @@ public class YoloTestSubsystem : SubsystemBase
 
         await foreach (var jpeg in reader.ReadAllAsync(token))
         {
-            var detections = _detector!.Detect(jpeg);
+            using var mat = CvUtils.AsMat(jpeg);
+            mat.ConvertTo(mat, MatType.CV_8UC3, alpha: 1.5, beta: 0);
+            var matjpeg = CvUtils.FromMat(mat);
+            var detections = _detector!.Detect(matjpeg);
 
             // Sample depth at each detection center
             List<DetectionWithDepth> withDepth;
@@ -91,8 +94,8 @@ public class YoloTestSubsystem : SubsystemBase
             _window?.EnqueueJpeg(jpeg, withDepth);
 
             // Annotated publish — pass withDepth labels
-            var annotated    = OpenCvDetectionRenderer.RenderDetections(jpeg, detections);
-            var imageFrame   = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
+            var annotated = OpenCvDetectionRenderer.RenderDetections(jpeg, detections);
+            var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
             var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, imageFrame.ByteBuffer.ToFullArray());
             EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
         }

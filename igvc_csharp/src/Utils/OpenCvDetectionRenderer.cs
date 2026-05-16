@@ -15,15 +15,15 @@ public static class OpenCvDetectionRenderer
 
         foreach (var det in detections)
         {
-            Cv2.Rectangle(mat, det.Bounding, Scalar.Red, 2);
+            Cv2.Rectangle(mat, det.Bounding, Scalar.Red, 4);
 
             Cv2.PutText(
                 mat,
                 $"{det.Label} {det.Confidence:P1}",
-                new Point(det.Bounding.X, Math.Max(0, det.Bounding.Y - 5)),
-                HersheyFonts.HersheySimplex,
-                0.5,
-                Scalar.Yellow,
+                new Point(det.Bounding.X, det.Bounding.Y),
+                HersheyFonts.HersheyPlain,
+                0.3,
+                Scalar.WhiteSmoke,
                 1);
         }
 

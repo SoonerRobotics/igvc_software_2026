@@ -3,7 +3,7 @@ namespace igvc_csharp.Core.Hardware;
 using System.Runtime.InteropServices;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct VectorNavReport
+internal struct _InternalVectornavReport
 {
     // GPS
     public double Latitude;
@@ -31,7 +31,7 @@ internal sealed class VectorNavSharedMemoryReader : IDisposable
     private const string ShmName = "/vectornav_report";
     private const string SemName = "/vectornav_sem";
     private static readonly IntPtr SemFailed = new(-1);
-    private static readonly int ShmSize = Marshal.SizeOf<VectorNavReport>();
+    private static readonly int ShmSize = Marshal.SizeOf<_InternalVectornavReport>();
 
     private const int O_RDONLY = 0;
     private const int PROT_READ = 1;
@@ -105,7 +105,7 @@ internal sealed class VectorNavSharedMemoryReader : IDisposable
     /// Tries to read the next report from shared memory.
     /// Returns null if no new data is available within the timeout.
     /// </summary>
-    public VectorNavReport? TryRead(int timeoutMs = 100)
+    public _InternalVectornavReport? TryRead(int timeoutMs = 100)
     {
         if (!IsOpen) throw new InvalidOperationException("Shared memory is not open.");
 
@@ -121,7 +121,7 @@ internal sealed class VectorNavSharedMemoryReader : IDisposable
         if (sem_timedwait(_sem, ref ts) != 0)
             return null;
 
-        var report = Marshal.PtrToStructure<VectorNavReport>(_map);
+        var report = Marshal.PtrToStructure<_InternalVectornavReport>(_map);
         sem_post(_sem);
         return report;
     }

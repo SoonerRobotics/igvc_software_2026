@@ -10,7 +10,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Simulator;
 
-[Subsystem("FakeCameraSubsystem", Disabled = false)]
+[Subsystem("FakeCameraSubsystem", Disabled = true)]
 public class FakeCameraSubsystem : SubsystemBase
 {
     private readonly Channel<ImageFrame> _frameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)

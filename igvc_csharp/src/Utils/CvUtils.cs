@@ -17,6 +17,11 @@ public class CvUtils
         return Cv2.ImDecode(byts, ImreadModes.Color);
     }
 
+    public static Mat AsMat(byte[] imageData)
+    {
+        return Cv2.ImDecode(imageData, ImreadModes.Color);
+    }
+
     public static Mat AsDepthMat(ZedFrame frame)
     {
         return ProcessDepthMessage(frame);
