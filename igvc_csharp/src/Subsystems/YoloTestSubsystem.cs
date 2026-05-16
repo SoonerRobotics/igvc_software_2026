@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc;
@@ -10,30 +9,26 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-// Just a testing subsystem for yolo
-
 [Subsystem("YoloTestSubsystem", Disabled = false, DependsOn = [typeof(ArcSubsystem)])]
 public class YoloTestSubsystem : SubsystemBase
 {
     private YoloDetector? _detector;
-    private OpenCvDetectionImageWindow? _window;
     private readonly Channel<byte[]> _frameChannel = Channel.CreateBounded<byte[]>(1);
+
+    private Mat? _latestDepthMat;
+    private readonly object _depthLock = new();
 
     public override Task Init(CancellationToken token)
     {
-        // _detector = new YoloDetector(FileUtils.GetFileRelativeToRoot("resources/yolo11n.onnx"));
-        _detector = new YoloDetector(FileUtils.GetFileRelativeToRoot("resources/yolov8s-worldv2.onnx"));
-        _window = new OpenCvDetectionImageWindow("IGVC 2026 | Yolo Test");
-
-        SubscribeImage(
-            "zed2i",
-            OnImageReceived,
-            token
+        _detector = new YoloDetector(
+            FileUtils.GetFileRelativeToRoot("resources/yolov8s-worldv2.onnx"),
+            YoloExecutionProvider.Cuda
         );
 
+        SubscribeImage("zed2i", OnImageReceived, token);
         SubscribeMessage<ZedFrame>(MessageType.ZedFrame, OnZedFrameReceived, token);
 
-        _ = Task.Run(() => InteferenceLoop(token), token);
+        _ = Task.Run(() => InferenceLoop(token), token);
 
         SetOperatingState(SubsystemState.Operating);
         return Task.CompletedTask;
@@ -46,38 +41,33 @@ public class YoloTestSubsystem : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Mat? _latestDepthMat;
-    private readonly object _depthLock = new();
     private Task OnZedFrameReceived(ZedFrame frame, CancellationToken token)
     {
-        // Keep raw float depth mat for distance sampling
         var depthMat = CvUtils.AsDepthMat(frame); // CV_32FC1, meters
-
         lock (_depthLock)
         {
             _latestDepthMat?.Dispose();
             _latestDepthMat = depthMat;
         }
-
-        // Also show colorized depth in the window while inference runs
-        // var colorized = CvUtils.AsColorizedMat(frame);
-        // _window?.EnqueueJpeg(CvUtils.FromMat(colorized), []);
-        // colorized.Dispose();
-
-        // Forward RGB jpeg to inference if you have it, or skip
         return Task.CompletedTask;
     }
 
-    private async Task InteferenceLoop(CancellationToken token)
+    private async Task InferenceLoop(CancellationToken token)
     {
-        var reader = _frameChannel.Reader;
-
-        await foreach (var jpeg in reader.ReadAllAsync(token))
+        await foreach (var jpeg in _frameChannel.Reader.ReadAllAsync(token))
         {
-            using var mat = CvUtils.AsMat(jpeg);
-            mat.ConvertTo(mat, MatType.CV_8UC3, alpha: 1.5, beta: 0);
-            var matjpeg = CvUtils.FromMat(mat);
-            var detections = _detector!.Detect(matjpeg);
+            using var src = CvUtils.AsMat(jpeg);
+
+            // ConvertTo in-place is unreliable — always use a separate destination mat
+            using var brightened = new Mat();
+            src.ConvertTo(brightened, MatType.CV_8UC3, alpha: 1.5, beta: 0);
+
+            // Flip vertically — ZED image arrives upside down from GPU readback
+            using var flipped = new Mat();
+            Cv2.Flip(brightened, flipped, FlipMode.X);
+
+            var matJpeg    = CvUtils.FromMat(flipped);
+            var detections = _detector!.Detect(matJpeg);
 
             // Sample depth at each detection center
             List<DetectionWithDepth> withDepth;
@@ -91,11 +81,8 @@ public class YoloTestSubsystem : SubsystemBase
                 )).ToList();
             }
 
-            _window?.EnqueueJpeg(jpeg, withDepth);
-
-            // Annotated publish — pass withDepth labels
-            var annotated = OpenCvDetectionRenderer.RenderDetections(jpeg, detections);
-            var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
+            var annotated    = OpenCvDetectionRenderer.RenderDetections(matJpeg, withDepth);
+            var imageFrame   = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
             var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, imageFrame.ByteBuffer.ToFullArray());
             EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
         }
