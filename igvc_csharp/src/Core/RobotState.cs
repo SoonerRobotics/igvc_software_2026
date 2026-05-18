@@ -39,4 +39,16 @@ public sealed class RobotState
         get => Volatile.Read(ref _estopped) != 0;
         set => Volatile.Write(ref _estopped, value ? 1 : 0);
     }
+
+    public RobotState Clone()
+    {
+        return new RobotState
+        {
+            Mode = this.Mode,
+            MotionAllowed = this.MotionAllowed,
+            Mission = this.Mission,
+            IsSimulation = this.IsSimulation,
+            Estopped = this.Estopped
+        };
+    }
 }
