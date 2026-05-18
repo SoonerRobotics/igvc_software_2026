@@ -22,7 +22,6 @@ public abstract class BaseRobot : IDisposable
     private readonly List<SubsystemBase> _subsystems = [];
     private readonly Dictionary<Type, SubsystemBase> _subsystemsByType = new();
 
-
     // State
     private bool _initialized;
     private bool _disposed;
@@ -40,26 +39,89 @@ public abstract class BaseRobot : IDisposable
 
     private static List<Type> DiscoverSubsystems()
     {
-        return Assembly.GetExecutingAssembly()
-            .GetTypes()
-            .Where(t =>
-                !t.IsAbstract &&
-                typeof(SubsystemBase).IsAssignableFrom(t) &&
-                t.GetCustomAttribute<SubsystemAttribute>() is { Disabled: false }
-            ).ToList();
+        var allTypes = new List<Type>();
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                allTypes.AddRange(assembly.GetTypes());
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                allTypes.AddRange(ex.Types.Where(t => t != null)!);
+                foreach (var loaderEx in ex.LoaderExceptions.Where(e => e != null))
+                {
+                    Logger.LogError("Type load error: {Message}", loaderEx!.Message);
+                }
+            }
+        }
+
+        var discovered = new List<Type>();
+
+        foreach (var t in allTypes)
+        {
+            if (t.IsAbstract || !typeof(SubsystemBase).IsAssignableFrom(t))
+            {
+                continue;
+            }
+
+            var attr = t.GetCustomAttribute<SubsystemAttribute>();
+            if (attr == null)
+            {
+                Logger.LogWarning("Subsystem {Subsystem} has no [Subsystem] attribute, skipping", t.Name);
+                continue;
+            }
+
+            if (attr.Disabled)
+            {
+                Logger.LogWarning("Subsystem {Subsystem} is disabled, skipping", t.Name);
+                continue;
+            }
+
+            discovered.Add(t);
+        }
+
+        return discovered;
+    }
+
+    private static IReadOnlyList<Type> GetDependencies(Type type)
+    {
+        var ctor = type.GetConstructors()
+            .OrderByDescending(c => c.GetParameters().Length)
+            .FirstOrDefault();
+
+        if (ctor == null) return [];
+
+        return ctor.GetParameters()
+            .Where(p => typeof(SubsystemBase).IsAssignableFrom(p.ParameterType))
+            .Select(p => p.ParameterType)
+            .ToList();
     }
 
     private static List<Type> ResolveDependencies(List<Type> types)
     {
-        var remaining = new HashSet<Type>(types);
         var resolved = new List<Type>();
+        var remaining = new HashSet<Type>(types);
+        var depMap = types.ToDictionary(t => t, GetDependencies);
 
-        var depMap = types.ToDictionary(
-            t => t,
-            t => t.GetCustomAttribute<SubsystemAttribute>()!.DependsOn
-        );
+        // Warn about deps that have no known implementation (will be injected as null)
+        foreach (var (type, deps) in depMap)
+        {
+            foreach (var dep in deps)
+            {
+                var satisfiable = types.Any(t => dep.IsAssignableFrom(t));
+                if (!satisfiable)
+                {
+                    Logger.LogWarning(
+                        "Subsystem {Subsystem} declares dependency {Dep} which has no known implementation, " +
+                        "it will be injected as null",
+                        type.Name, dep.Name);
+                }
+            }
+        }
+
         bool progressed;
-
         do
         {
             progressed = false;
@@ -67,10 +129,13 @@ public abstract class BaseRobot : IDisposable
             foreach (var type in remaining.ToArray())
             {
                 var deps = depMap[type];
-                if (!deps.All(d => resolved.Contains(d)))
-                {
-                    continue;
-                }
+
+                // A non-nullable dep must already be resolved; nullable deps are always satisfied
+                var allDepsSatisfied = deps.All(dep =>
+                    resolved.Any(r => dep.IsAssignableFrom(r))
+                );
+
+                if (!allDepsSatisfied) continue;
 
                 resolved.Add(type);
                 remaining.Remove(type);
@@ -78,21 +143,15 @@ public abstract class BaseRobot : IDisposable
             }
         } while (progressed);
 
-        if (remaining.Count > 0)
+        foreach (var type in remaining)
         {
-            foreach (var type in remaining)
-            {
-                var attr = type.GetCustomAttribute<SubsystemAttribute>();
-                if (attr == null)
-                {
-                    // This should never happen due to all of the previous checks
-                    continue;
-                }
+            var unsatisfied = depMap[type]
+                .Where(dep => !resolved.Any(r => dep.IsAssignableFrom(r)))
+                .Select(dep => dep.Name);
 
-                var missing = attr.DependsOn.Where(d => !resolved.Contains(d)).Select(d => d.Name);
-                Logger.LogError("Subsystem {Subsystem} not created due to missing dependencies: {Dependencies}",
-                    type.Name, string.Join(", ", missing));
-            }
+            Logger.LogError(
+                "Subsystem {Subsystem} could not be ordered, unsatisfied or circular dependencies: {Dependencies}",
+                type.Name, string.Join(", ", unsatisfied));
         }
 
         return resolved;
@@ -110,20 +169,67 @@ public abstract class BaseRobot : IDisposable
         return subsystem!;
     }
 
+    private SubsystemBase? CreateSubsystem(Type type)
+    {
+        var ctor = type.GetConstructors()
+            .OrderByDescending(c => c.GetParameters().Length)
+            .FirstOrDefault();
+
+        if (ctor == null)
+        {
+            return Activator.CreateInstance(type) as SubsystemBase;
+        }
+
+        var args = new List<object?>();
+        foreach (var param in ctor.GetParameters())
+        {
+            if (!typeof(SubsystemBase).IsAssignableFrom(param.ParameterType))
+            {
+                Logger.LogError("Unsupported constructor parameter type {Param} ({Type}) on {Subsystem}",
+                    param.Name, param.ParameterType.Name, type.Name);
+                return null;
+            }
+
+            var dep = _subsystemsByType
+                .FirstOrDefault(kvp => param.ParameterType.IsAssignableFrom(kvp.Key))
+                .Value;
+
+            // Allow injection of null for nullable parameters (e.g. CanbusSubsystem?)
+            var isNullable = param.GetCustomAttribute<NullableAttribute>() != null
+                             || Nullable.GetUnderlyingType(param.ParameterType) != null;
+
+            if (dep == null && !isNullable)
+            {
+                Logger.LogError(
+                    "Could not resolve constructor parameter {Param} ({Type})",
+                    param.Name, param.ParameterType.Name);
+                return null;
+            }
+
+            args.Add(dep);
+        }
+
+        return ctor.Invoke(args.ToArray()) as SubsystemBase;
+    }
+
     protected void CallSubsystemFunction(string name, params object[] pms)
     {
         foreach (var subsystem in _subsystems)
         {
-            var subsystemType = subsystem.GetType();
-            var methods = subsystemType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
+            var methods = subsystem.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(m => m.Name == name);
+
             foreach (var method in methods)
             {
-                if (method.Name != name)
+                var result = method.Invoke(subsystem, pms);
+                if (result is Task t)
                 {
-                    continue;
+                    _ = t.ContinueWith(
+                        completed => Logger.LogError(completed.Exception, "Error in {Method} on {Subsystem}", name,
+                            subsystem.GetType().Name),
+                        TaskContinuationOptions.OnlyOnFaulted);
                 }
-
-                method.Invoke(subsystem, pms);
             }
         }
     }
@@ -138,15 +244,13 @@ public abstract class BaseRobot : IDisposable
         Logger.LogInformation("Discovering subsystems");
         var subsystemTypes = DiscoverSubsystems();
         var orderedTypes = ResolveDependencies(subsystemTypes);
+
         foreach (var type in orderedTypes)
         {
             try
             {
                 var subsystem = CreateSubsystem(type);
-                if (subsystem == null)
-                {
-                    continue;
-                }
+                if (subsystem == null) continue;
 
                 _subsystems.Add(subsystem);
                 _subsystemsByType.Add(type, subsystem);
@@ -172,42 +276,6 @@ public abstract class BaseRobot : IDisposable
         }
 
         _initialized = true;
-    }
-
-    private SubsystemBase? CreateSubsystem(Type type)
-    {
-        var ctor = type.GetConstructors()
-            .OrderByDescending(c => c.GetParameters().Length)
-            .FirstOrDefault();
-
-        // For those that do not have a constructor, just create them generically and call it a day
-        if (ctor == null)
-        {
-            var instance = Activator.CreateInstance(type);
-            return instance as SubsystemBase;
-        }
-
-        var args = new List<object?>();
-        foreach (var param in ctor.GetParameters())
-        {
-            if (!typeof(SubsystemBase).IsAssignableFrom(param.ParameterType))
-            {
-                Logger.LogError("Unsupported constructor parameter {Param}", param.Name);
-                return null;
-            }
-
-            _subsystemsByType.TryGetValue(param.ParameterType, out var dep);
-            // var attribute = param.GetCustomAttribute<SubsystemDependencyAttribute>();
-            // if (dep == null && attribute is { Required: true })
-            // {
-            //     Logger.LogError("Missing required dependency {Dep}", param.ParameterType.Name);
-            //     return null;
-            // }
-
-            args.Add(dep);
-        }
-
-        return ctor.Invoke(args.ToArray()) as SubsystemBase;
     }
 
     public virtual async Task Periodic(CancellationToken token)
@@ -245,20 +313,14 @@ public abstract class BaseRobot : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
-        {
-            return;
-        }
-
+        if (_disposed) return;
         _disposed = true;
         _subsystems.Clear();
     }
 
-    // State
-
     public void SetMobility(bool mobility)
     {
-        var oldState = State;
+        var oldState = State.Clone();
         State.MotionAllowed = mobility;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Mobility Changed -> {}", mobility);
@@ -266,7 +328,7 @@ public abstract class BaseRobot : IDisposable
 
     public void SetEstopped(bool estopped)
     {
-        var oldState = State;
+        var oldState = State.Clone();
         State.Estopped = estopped;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Estopped Changed -> {}", estopped);
@@ -274,17 +336,17 @@ public abstract class BaseRobot : IDisposable
 
     public void SetMode(RobotModeEnum mode)
     {
-        var oldState = State;
+        var oldState = State.Clone();
         State.Mode = mode;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
-        Logger.LogDebug("Robot Mode Changed -> {} to {}", oldState.Mode.ToString(), mode.ToString());
+        Logger.LogDebug("Robot Mode Changed -> {old} to {new}", oldState.Mode.ToString(), mode.ToString());
     }
 
     public void SetMission(MissionEnum mission)
     {
-        var oldState = State;
+        var oldState = State.Clone();
         State.Mission = mission;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
-        Logger.LogDebug("Robot Mission Changed -> {} to {}", oldState.Mission.ToString(), mission.ToString());
+        Logger.LogDebug("Robot Mission Changed -> {old} to {new}", oldState.Mission.ToString(), mission.ToString());
     }
 }

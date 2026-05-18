@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
 using Google.FlatBuffers;
+using Messages;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Utils.Messages;
@@ -49,7 +50,7 @@ public class FlatBufferRegistry
 
     private static Func<ByteBuffer, object> GetFactory(Type type, MethodInfo method)
     {
-        var bbParam = Expression.Parameter(typeof(ByteBuffer), "bb");
+        var bbParam = Expression.Parameter(typeof(ByteBuffer), "_bb");
         var call = Expression.Call(method, bbParam);
         var cast = Expression.Convert(call, typeof(object));
         

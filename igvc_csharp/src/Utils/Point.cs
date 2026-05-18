@@ -49,6 +49,10 @@ public struct SCR_Point : IEquatable<SCR_Point>, IComparable<SCR_Point>
     public bool Equals(SCR_Point other) => X.Equals(other.X) && Y.Equals(other.Y);
 
     public override bool Equals(object? obj) => obj is SCR_Point other && Equals(other);
+    public override readonly int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
     public readonly int CompareTo(SCR_Point other) => (int)(other.Angle - Angle);
 
     public static bool operator ==(SCR_Point a, SCR_Point b) => a.Equals(b);

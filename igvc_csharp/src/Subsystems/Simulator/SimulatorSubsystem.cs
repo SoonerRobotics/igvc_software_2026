@@ -1,4 +1,10 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Buffers;
+using System.IO;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
@@ -11,7 +17,7 @@ using SocketCANSharp;
 namespace igvc_csharp.Subsystems.Simulator;
 
 [Subsystem("SimulatorSubsystem", Disabled = !Configuration.UseSimulation)]
-public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : SubsystemBase
+public class SimulatorSubsystem : SubsystemBase
 {
     private const Endianness Endianness = Configuration.SimulatorSubsystem.Endianness;
 
@@ -19,7 +25,15 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
     private Task? _connectTask;
     private CancellationTokenSource? _internalCts;
     private NetworkStream? _stream;
-    
+
+    private readonly Channel<(byte[] buffer, int length)> _sendChannel =
+        Channel.CreateBounded<(byte[], int)>(new BoundedChannelOptions(256)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = false
+        });
+
     public override Task Init(CancellationToken token)
     {
         _internalCts = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -38,23 +52,15 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         SetOperatingState(SubsystemState.ShuttingDown);
 
         if (_internalCts != null)
-        {
             await _internalCts.CancelAsync();
-        }
 
         if (_connectTask != null)
         {
-            try
-            {
-                await _connectTask;
-            }
-            catch
-            {
-                // ignore
-            }
+            try { await _connectTask; }
+            catch { /* ignore */ }
         }
 
-        // TODO: Cleanup
+        DrainSendChannel();
 
         _internalCts?.Dispose();
         _internalCts = null;
@@ -68,52 +74,115 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         await Init(LifetimeToken);
     }
 
-    // TCP Stuff
+    // TCP connection loop
 
     private async Task ConnectionLoop(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
+            TcpClient? client = null;
             try
             {
                 SetOperatingState(SubsystemState.Idle);
-                _client = new TcpClient();
-                await _client.ConnectAsync(
+                client = new TcpClient();
+                _client = client;
+
+                await client.ConnectAsync(
                     Configuration.SimulatorSubsystem.Host,
                     Configuration.SimulatorSubsystem.Port,
                     token
                 );
 
                 SetOperatingState(SubsystemState.Operating);
-                await ReceiveLoop(_client, token);
+
+                _stream = client.GetStream();
+                var readTask = ReceiveLoop(client, token);
+                var writeTask = WriteLoop(_stream, token);
+                await Task.WhenAll(readTask, writeTask);
             }
-            catch (OperationCanceledException)
-            {
-                // ignored
-            }
+            catch (OperationCanceledException) { break; }
             catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
             {
-                // Socket cancelled cleanly, treat same as OperationCanceledException
+                // Socket cancelled cleanly
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Simulator connection error, retrying in {Delay}",
-                    Configuration.SimulatorSubsystem.ReconnectDelay);
+                // Maybe log but it is really obnoxious to have a million log lines about the connection being lost
             }
             finally
             {
-                // TODO: CLeanup
+                _stream = null;
+                try { client?.Dispose(); } catch { /* ignore */ }
+                _client = null;
+
+                DrainSendChannel();
             }
 
-            try
+            try { await Task.Delay(Configuration.SimulatorSubsystem.ReconnectDelay, token); }
+            catch (OperationCanceledException) { break; }
+        }
+    }
+
+    private async Task WriteLoop(NetworkStream stream, CancellationToken token)
+    {
+        try
+        {
+            await foreach (var (buffer, length) in _sendChannel.Reader.ReadAllAsync(token))
             {
-                await Task.Delay(Configuration.SimulatorSubsystem.ReconnectDelay, token);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
+                try
+                {
+                    await stream.WriteAsync(buffer.AsMemory(0, length), token);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
+                }
             }
         }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Simulator write loop error");
+        }
+    }
+
+    private async Task ReceiveLoop(TcpClient client, CancellationToken token)
+    {
+        var readBuffer = ArrayPool<byte>.Shared.Rent(Configuration.SimulatorSubsystem.ReceiveBufferSize);
+        var accumulator = new MessageAccumulator(
+            Endianness,
+            OnMessageReceived,
+            initialCapacity: Configuration.SimulatorSubsystem.ReceiveBufferSize
+        );
+
+        try
+        {
+            var stream = client.GetStream();
+            while (!token.IsCancellationRequested && client.Connected)
+            {
+                var bytesRead = await stream.ReadAsync(readBuffer, token);
+                if (bytesRead == 0) break;
+                accumulator.Append(readBuffer.AsSpan(0, bytesRead));
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
+        {
+            throw;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(readBuffer);
+            accumulator.Dispose();
+        }
+    }
+
+    // Message handling
+
+    private void OnMessageReceived(MessageWrapper wrapper)
+    {
+        try { ProcessMessage(wrapper); }
+        finally { wrapper.Dispose(); }
     }
 
     private void ProcessMessage(MessageWrapper wrapper)
@@ -128,8 +197,12 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             return;
         }
 
-        EventBus.Instance.Publish(new MessageWrapperEvent(wrapper));
+        var ownedData = new byte[wrapper.Length];
+        wrapper.Data!.AsSpan(0, wrapper.Length).CopyTo(ownedData);
+        EventBus.Instance.Publish(new MessageWrapperEvent(MessageWrapper.From(wrapper.Type, ownedData)));
     }
+
+    // Sending
 
     public async Task SendCanFrame(CanFrame frame)
     {
@@ -138,52 +211,30 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
         await SendWrapper(wrapper);
     }
 
-    private async Task SendWrapper(MessageWrapper wrapper)
+    private ValueTask SendWrapper(MessageWrapper wrapper)
     {
         if (_client is not { Connected: true })
-        {
-            return;
-        }
+            return ValueTask.CompletedTask;
 
-        var bytes = MessageWriter.Write(wrapper.Type, wrapper.Data, Configuration.SimulatorSubsystem.Endianness);
-        if (_stream == null)
-        {
-            return;
-        }
-        
-        await _stream.WriteAsync(bytes);
-    }
-
-    private async Task ReceiveLoop(TcpClient client, CancellationToken token)
-    {
-        _stream = client.GetStream();
-        var buffer = new byte[Configuration.SimulatorSubsystem.ReceiveBufferSize];
-        var accumulator = new MessageAccumulator(
+        var includeCrc = wrapper.Type != MessageType.ImageFrame;
+        var (buffer, length) = MessageWriter.WritePooled(
+            wrapper.Type,
+            wrapper.Data.AsSpan(0, wrapper.Length),
             Endianness,
-            ProcessMessage,
-            initialCapacity: Configuration.SimulatorSubsystem.ReceiveBufferSize
+            includeCrc
         );
 
-        try
+        if (!_sendChannel.Writer.TryWrite((buffer, length)))
         {
-            while (!token.IsCancellationRequested && client.Connected)
-            {
-                var bytesRead = await _stream.ReadAsync(buffer, token);
-                if (bytesRead == 0)
-                {
-                    break;
-                }
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
 
-                accumulator.Append(buffer.AsSpan(0, bytesRead));
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
-        }
-        catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
-        {
-            throw; // Let ConnectionLoop handle it
-        }
+        return ValueTask.CompletedTask;
+    }
+
+    private void DrainSendChannel()
+    {
+        while (_sendChannel.Reader.TryRead(out var entry))
+            ArrayPool<byte>.Shared.Return(entry.buffer);
     }
 }

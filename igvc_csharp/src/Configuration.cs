@@ -21,7 +21,7 @@ public static class Configuration
     /// Determines if the robot will use the simulator.
     /// </summary>
     [Config("simulation.enabled")]
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -423,7 +423,7 @@ public static class Configuration
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
         /// </summary>
         [Config("waypoints.gps_wait_time")]
-        public const ulong GpsWaitTime = 1000 * 30;
+        public const ulong GpsWaitTime = 1000 * 2;
 
         /// <summary>
         /// Longitude of the west-most edge of the practice autonav field
@@ -451,6 +451,16 @@ public static class Configuration
         /// <summary>
         /// Filename of video to send as raw camera frames
         /// </summary>
-        public const string Filename = "";
+        public const string Filename = "resources/video/camera.mp4";
+
+        /// <summary>
+        /// Frames to publish per second
+        /// </summary>
+        public const double FPS = 15;
+    }
+
+    public static class FakeGpsSubsystem
+    {
+        public const string Filename = "resources/gps/ENTRY_GPS.csv";
     }
 }

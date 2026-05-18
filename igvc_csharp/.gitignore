@@ -4,6 +4,12 @@
 # sound effects so we don't get DMCA'd or somethin
 resources/audio/*
 
+# fake camera subsystem video files
+resources/video/*
+
+# fake gps data
+resources/gps/*
+
 # User-specific files
 *.suo
 *.user
