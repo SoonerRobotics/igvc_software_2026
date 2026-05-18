@@ -1,8 +1,10 @@
 ﻿using System.Threading.Channels;
 using igvc_csharp.Core;
+using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
@@ -32,7 +34,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     public override Task Init(CancellationToken token)
     {
-        AddFilters();
+        AddFilters(BaseRobot.Instance.State);
 
         SubscribeImage("left_view", OnLeftImageReceived, token);
         SubscribeImage("right_view", OnRightImageReceived, token);
@@ -48,9 +50,61 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private void AddFilters()
+    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
-        _filters.Add(new LaneDetectionFilter());
+        SetOperatingState(SubsystemState.Starting);
+
+        _filters.Clear();
+        AddFilters(updated);
+
+        if (updated.Mission == MissionEnum.Autonav)
+        {
+            //TODO
+        }
+        else if (updated.Mission == MissionEnum.Selfdrive)
+        {
+            //TODO
+        }
+
+        SetOperatingState(SubsystemState.Ready);
+
+        return Task.CompletedTask;
+    }
+
+    private void AddFilters(RobotState newState)
+    {
+        _filters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
+
+        if (newState.Mission == MissionEnum.Autonav)
+        {
+            // insert as the first filter
+            _filters.Insert(0, new BlurFilter(5, 3, BlurFilter.BlurMethod.BoxBlur));
+
+            _filters.Add(new RegionFilter([
+                new Point(0, 0), new Point(100, 100), new Point(50, 50)]
+            ));
+
+            _filters.Add(new TopDownFilter(
+                [
+                new Point2f(220, 200),
+                new Point2f(420, 200),
+                new Point2f(580, 420),
+                new Point2f(60, 420)
+                ],
+                new Size(80, 80)
+            ));
+        }
+
+        // if (Configuration.AStarConfig.UseAStar)
+        // {
+        //     // don't need this for anything but A* (e.g. not for feelers)
+        //     _filters.Add(new InflationFilter());
+        // }
+
+        if (newState.Mission == MissionEnum.Selfdrive)
+        {
+            _filters.Add(new LaneDetectionFilter());
+        }
     }
 
     private async Task ImageProcessingTask(CancellationToken token)
@@ -68,13 +122,63 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 leftMat = _filters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
                 rightMat = _filters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
 
-                var combined = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
+                var combinedFiltered = new Mat();
 
-                _window.EnqueueJpeg(CvUtils.FromMat(combined));
+                if (BaseRobot.Instance.State.Mission == MissionEnum.Selfdrive)
+                {
+                    combinedFiltered = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
+
+                    _window.EnqueueJpeg(CvUtils.FromMat(combinedFiltered));
+                }
+                else if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
+                {
+                    Cv2.HConcat([leftMat, rightMat], combinedFiltered);
+                }
+
+                // only publish the combined view of the filters, not left and right seperately
+                var combinedFilteredBytes = CvUtils.FromMat(combinedFiltered);
+                var newFrame = MessageConstructor.CreateImageFrame(
+                    (uint)combinedFiltered.Width,
+                    (uint)combinedFiltered.Height,
+                    "combined_filtered",
+                    combinedFilteredBytes
+                );
+
+                var wrappedFrame = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    newFrame.ByteBuffer.ToFullArray()
+                );
+
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+
+                // also publish the raw combined view for debug purposes
+                var leftRaw = CvUtils.AsMat(leftFrame);
+                var rightRaw = CvUtils.AsMat(rightFrame);
+
+                var combinedRaw = new Mat();
+                Cv2.HConcat([leftRaw, rightRaw], combinedRaw);
+
+                var combinedBytes = CvUtils.FromMat(combinedRaw);
+                var rawFrame = MessageConstructor.CreateImageFrame(
+                    (uint)combinedRaw.Width,
+                    (uint)combinedRaw.Height,
+                    "combined_view",
+                    combinedBytes
+                );
+
+                var wrappedRawFrame = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    rawFrame.ByteBuffer.ToFullArray()
+                );
+
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRawFrame));
 
                 leftMat.Dispose();
                 rightMat.Dispose();
-                combined.Dispose();
+                combinedFiltered.Dispose();
+                leftRaw.Dispose();
+                rightRaw.Dispose();
+                combinedRaw.Dispose();
             }
         }
         catch (OperationCanceledException) { }
