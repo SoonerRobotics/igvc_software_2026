@@ -17,6 +17,7 @@
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
       <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.1" />
       <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.1" />
+      <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.26.0" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
       <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260330" />
       <PackageReference Include="OpenCvSharp4.Extensions" Version="4.11.0.20250507" />
@@ -25,7 +26,8 @@
       <PackageReference Include="Silk.NET.SDL" Version="2.22.0" />
       <PackageReference Include="System.CommandLine" Version="2.0.2" />
       <PackageReference Include="System.IO.Hashing" Version="10.0.1" />
-      <PackageReference Include="YoloSharp" Version="6.0.7" />
+      <PackageReference Include="YoloSharp.Gpu" Version="6.1.0" />
+      <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
     </ItemGroup>
 
     <ItemGroup>

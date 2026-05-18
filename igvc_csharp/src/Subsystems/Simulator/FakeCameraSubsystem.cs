@@ -7,7 +7,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Simulator;
 
-[Subsystem("FakeCameraSubsystem", Disabled = false)]
+[Subsystem("FakeCameraSubsystem", Disabled = true)]
 public class FakeCameraSubsystem : SubsystemBase
 {
     private VideoCapture? _video;

@@ -9,7 +9,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Vision;
 
-[Subsystem("VisionSubsystem", DependsOn = [typeof(CanbusSubsystem)], Disabled = false)]
+[Subsystem("VisionSubsystem", DependsOn = [typeof(CanbusSubsystem)], Disabled = true)]
 public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private readonly List<IFilter> _filters = [];
@@ -18,19 +18,23 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private readonly Channel<ImageFrame> _leftChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
-        SingleReader = true, SingleWriter = false, FullMode = BoundedChannelFullMode.DropOldest
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
     });
 
     private readonly Channel<ImageFrame> _rightChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
-        SingleReader = true, SingleWriter = false, FullMode = BoundedChannelFullMode.DropOldest
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
     });
 
     public override Task Init(CancellationToken token)
     {
         AddFilters();
 
-        SubscribeImage("left_view",  OnLeftImageReceived,  token);
+        SubscribeImage("left_view", OnLeftImageReceived, token);
         SubscribeImage("right_view", OnRightImageReceived, token);
 
         _ = Task.Factory.StartNew(
@@ -55,19 +59,16 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         {
             while (!token.IsCancellationRequested)
             {
-                // Wait for both frames
-                var leftFrame  = await _leftChannel.Reader.ReadAsync(token);
+                var leftFrame = await _leftChannel.Reader.ReadAsync(token);
                 var rightFrame = await _rightChannel.Reader.ReadAsync(token);
 
-                // Apply lane detection filter to each view
-                var leftMat  = CvUtils.AsMat(leftFrame);
+                var leftMat = CvUtils.AsMat(leftFrame);
                 var rightMat = CvUtils.AsMat(rightFrame);
 
-                leftMat  = _filters.Aggregate(leftMat,  (current, filter) => filter.Apply(current));
+                leftMat = _filters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
                 rightMat = _filters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
 
-                // Combine and determine lane position
-                var combined = CombineAndAnnotate(leftMat, rightMat);
+                var combined = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
 
                 _window.EnqueueJpeg(CvUtils.FromMat(combined));
 
@@ -82,67 +83,72 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
             Logger.LogError(ex, "Vision processing task crashed");
         }
     }
-    
-    private static Mat CombineAndAnnotate(Mat left, Mat right)
+
+    private static Mat CombineAndAnnotate(Mat left, Mat right, double scale = 0.5)
     {
-        using var leftYellow  = new Mat();
+        // Scale down before processing
+        var scaledLeft = new Mat();
+        var scaledRight = new Mat();
+        Cv2.Resize(left, scaledLeft, new Size(0, 0), scale, scale, InterpolationFlags.Area);
+        Cv2.Resize(right, scaledRight, new Size(0, 0), scale, scale, InterpolationFlags.Area);
+        left = scaledLeft;
+        right = scaledRight;
+
+        using var leftYellow = new Mat();
         using var rightYellow = new Mat();
-        Cv2.InRange(left,  new Scalar(0, 254, 254), new Scalar(1, 255, 255), leftYellow);
+        Cv2.InRange(left, new Scalar(0, 254, 254), new Scalar(1, 255, 255), leftYellow);
         Cv2.InRange(right, new Scalar(0, 254, 254), new Scalar(1, 255, 255), rightYellow);
 
-        var leftYellowCount  = Cv2.CountNonZero(leftYellow);
+        var leftYellowCount = Cv2.CountNonZero(leftYellow);
         var rightYellowCount = Cv2.CountNonZero(rightYellow);
 
-        // Determine lane position based on which side has more yellow
-        // more yellow on left -> robot is in right lane, and vice versa
         string laneLabel;
-
         if (leftYellowCount == 0 && rightYellowCount == 0)
-        {
-            laneLabel = "Lane: Unknown";
-        }
+            laneLabel = "Lane: UNKNOWN";
         else if (leftYellowCount > rightYellowCount * 1.5)
-        {
             laneLabel = "Lane: RIGHT";
-        }
         else if (rightYellowCount > leftYellowCount * 1.5)
-        {
             laneLabel = "Lane: LEFT";
-        }
         else
-        {
             laneLabel = "Lane: CENTER";
-        }
 
-        // Stack together
-        var dividerWidth = 4;
-        var divider = new Mat(left.Height, dividerWidth, MatType.CV_8UC3, new Scalar(80, 80, 80));
-
-        // Labels
-        var leftLabeled  = left.Clone();
+        // Stack views with divider
+        var divider = new Mat(left.Height, 4, MatType.CV_8UC3, new Scalar(80, 80, 80));
+        var leftLabeled = left.Clone();
         var rightLabeled = right.Clone();
-        Cv2.PutText(leftLabeled,  "LEFT VIEW",  new Point(10, 30), HersheyFonts.HersheySimplex, 0.8, new Scalar(200, 200, 200), 2);
+        Cv2.PutText(leftLabeled, "LEFT VIEW", new Point(10, 30), HersheyFonts.HersheySimplex, 0.8, new Scalar(200, 200, 200), 2);
         Cv2.PutText(rightLabeled, "RIGHT VIEW", new Point(10, 30), HersheyFonts.HersheySimplex, 0.8, new Scalar(200, 200, 200), 2);
 
-        // Combined
         var combined = new Mat();
         Cv2.HConcat(new[] { leftLabeled, divider, rightLabeled }, combined);
         leftLabeled.Dispose();
         rightLabeled.Dispose();
         divider.Dispose();
+        scaledLeft.Dispose();
+        scaledRight.Dispose();
 
-        // Banner
+        // Color-coded banner per lane state
         var bannerH = 50;
-        Cv2.Rectangle(combined, new Rect(0, 0, combined.Width, bannerH), new Scalar(0, 255, 0), thickness: -1);
-        Cv2.PutText(
+        var (bannerColor, textColor) = laneLabel switch
+        {
+            "Lane: LEFT" => (new Scalar(255, 100, 0), new Scalar(255, 255, 255)),  // orange
+            "Lane: RIGHT" => (new Scalar(0, 100, 255), new Scalar(255, 255, 255)),  // blue
+            "Lane: CENTER" => (new Scalar(0, 200, 80), new Scalar(0, 0, 0)),        // green
+            _ => (new Scalar(40, 40, 40), new Scalar(160, 160, 160))   // dark grey
+        };
+
+        Cv2.Rectangle(combined, new Rect(0, 0, combined.Width, bannerH), bannerColor, thickness: -1);
+
+        // Pill background behind text
+        var textSize = Cv2.GetTextSize(laneLabel, HersheyFonts.HersheySimplex, 1.0, 2, out _);
+        var textX = combined.Width / 2 - textSize.Width / 2;
+        Cv2.Rectangle(
             combined,
-            laneLabel,
-            new Point(combined.Width / 2 - 120, 35),
-            HersheyFonts.HersheySimplex,
-            1.2,
+            new Rect(textX - 10, 8, textSize.Width + 20, bannerH - 16),
             new Scalar(0, 0, 0),
-            thickness: 2
+            thickness: -1
         );
+        Cv2.PutText(combined, laneLabel, new Point(textX, 35), HersheyFonts.HersheySimplex, 1.0, textColor, thickness: 2);
 
         return combined;
     }
