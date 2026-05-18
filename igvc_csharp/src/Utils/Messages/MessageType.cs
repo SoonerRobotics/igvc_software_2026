@@ -13,10 +13,12 @@ public enum MessageType : ushort
     ZedFrame = 0x09,
     Waypoint = 0x10,
     AudibleFeedback = 0x11,
+    ConfigSpace = 0x12,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
     CapabilityAck = 60_001,
     CommandReq = 60_002,
     CommandAck = 60_003,
+    Gps = 60004,
 }

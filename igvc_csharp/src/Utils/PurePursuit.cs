@@ -22,6 +22,11 @@ class PurePursuit
         _path.Add(new(x, y));
     }
 
+    public void AddPoint(SCR_Point p)
+    {
+        _path.Add(p);
+    }
+
     public void SetPoints(List<SCR_Point> pts)
     {
 

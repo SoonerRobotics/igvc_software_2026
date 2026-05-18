@@ -98,11 +98,11 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
             ));
         }
 
-        // if (Configuration.AStarConfig.UseAStar)
-        // {
-        //     // don't need this for anything but A* (e.g. not for feelers)
-        //     _filters.Add(new InflationFilter());
-        // }
+        if (AStarConfig.UseAStar)
+        {
+            // don't need this for anything but A* (e.g. not for feelers)
+            _filters.Add(new InflationFilter());
+        }
 
         if (newState.Mission == MissionEnum.Selfdrive)
         {
@@ -180,7 +180,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 {
                     //FIXME is this mat gonna have the inflation filter applied to it?
                     // only publish config space message if A* is being used / ran to avoid conflicting with Feelers / Self-Drive
-                    var scaled = mat.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
+                    var scaled = combinedFiltered.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
                     var row_array = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
 
                     var builder = new FlatBufferBuilder(128);
@@ -203,7 +203,6 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     row_array.Dispose();
                 }
 
-                mat.Dispose();
                 leftMat.Dispose();
                 rightMat.Dispose();
                 combinedFiltered.Dispose();

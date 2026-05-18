@@ -11,9 +11,9 @@ using AStarConfig = igvc_csharp.Configuration.AStarSubsystem;
 using igvc_csharp.src.Utils;
 
 
-namespace igvc_csharp.scr.Subsystems;
+namespace igvc_csharp.src.Subsystems;
 
-[Subsystem("AStarSubsystem", Disabled = false)]
+[Subsystem("AStarSubsystem", Disabled = true)]
 public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private SCR_Point _goalPoint;
@@ -30,7 +30,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         SetOperatingState(SubsystemState.Starting);
 
         // subscribers
-        SubscribeMessage<VectorNavReport>(
+        SubscribeMessage<VectornavReport>(
             MessageType.Gps,
             OnPositionReceived,
             token
@@ -82,12 +82,18 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return (pt.Y * AStarConfig.ConfigSpaceWidth) + pt.X;
     }
 
-    public override Task OnRobotModeChanged(RobotModeEnum old, RobotModeEnum current)
+    // expects both in radians
+    private static double GetAngleDifference(double a, double b)
+    {
+        return a - b; //FIXME
+    }
+
+    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         // on an actual mode change FIXME we might want to reset for mob start/stop too?
-        if (old != current)
+        if (old != updated)
         {
-            if (current == RobotModeEnum.Autonomous)
+            if (updated.Mode == RobotModeEnum.Autonomous)
             {
                 Reset();
             }
@@ -98,13 +104,13 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task OnPositionReceived(VectorNavReport msg, CancellationToken token)
+    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
     {
         _position = new LatLng(msg.Latitude, msg.Longitude);
 
-        if (_lastPosition.HasValue)
+        if (_lastPosition != null)
         {
-            _heading = GeoUtils.EstimateHeading(_lastPosition, _position).Radians;
+            _heading = GeoUtils.EstimateHeading(_lastPosition, _position).Value.To(AngleUnit.Radians);
         }
 
         _lastPosition = _position;
@@ -162,7 +168,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 //FIXME better null check or something
                 if (_goalPoint != null)
                 {
-                    var heading_err_to_gps = GetAngleDifference(_heading, GeoUtils.EstimateHeading(_position, _waypoint));
+                    var heading_err_to_gps = GetAngleDifference(_heading, GeoUtils.EstimateHeading(_position, _waypoint).Value.To(AngleUnit.Radians));
                     cost -= Math.Max(heading_err_to_gps, 10);
                 }
 
@@ -202,18 +208,25 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task ReconstructPath(LinkedList<SCR_Point> p, CancellationToken token)
+    private Task ReconstructPath(Dictionary<SCR_Point, SCR_Point> p, CancellationToken token)
     {
         _purePursuit.Reset();
 
-        // foreach (var pt in p)
-        // {
-        //     _purePursuit.AddPoint(pt.X, pt.Y); //FIXME add an override that just adds the point straight-up?
-        // }
+        bool reconstructed = false;
+        var parent = p[_goalPoint];
+        _purePursuit.AddPoint(_goalPoint);
 
-        // _purePursuit.SetPoints(p);
+        while (!reconstructed && !token.IsCancellationRequested)
+        {
+            parent = p[parent];
 
-        
+            if (parent == _robotStartPoint)
+            {
+                reconstructed = true; // ??? FIXME is this even correct?
+            }
+
+            _purePursuit.AddPoint(parent);
+        }
 
         return Task.CompletedTask;
     }
@@ -236,7 +249,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         int[] lookedAt = new int[AStarConfig.ConfigSpaceWidth * AStarConfig.ConfigSpaceHeight];
         HashSet<SCR_Point> open_set = [_robotStartPoint];
-        LinkedList<SCR_Point> path = new();
+        Dictionary<SCR_Point, SCR_Point> path = [];
         List<(int, int, double)> search_dirs = [];
         SCR_Point currentPoint;
 
@@ -255,7 +268,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             return pt.Dist(_goalPoint);
         }
 
-        double D(SCR_Point pt)
+        int D(SCR_Point pt, double d)
         {
             return 0; //TODO FIXME what is this function even supposed to do? account for corners?
         }
@@ -313,8 +326,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var tentGScore = GetG(currentPoint) + D(neighbor, dist);
                 if (tentGScore < GetG(neighbor))
                 {
-                    path.AddAfter(neighbor, currentPoint); // ????? will this even work ?????
-                    // path[neighbor] = currentPoint;
+                    path[neighbor] = currentPoint;
                     gScore[neighbor] = tentGScore;
                     fScore[neighbor] = tentGScore + H(neighbor);
 
@@ -339,13 +351,18 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
             //TODO are we gonna run this in selfdrive too though?
             if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous && BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
             {
-                var point = _purePursuit.GetLookaheadPoint(_position, AStarConfig.LookaheadRadius);
+                //TODO: convert _position to like, an actual local in-config-space-map position
+                // SCR_Point localPos = new(_position.Latitude, _position.Longitude);
+                SCR_Point localPos = _robotStartPoint;
+                var point = _purePursuit.GetLookaheadPoint(localPos, AStarConfig.LookaheadRadius);
 
                 double angleToPoint = 0; //TODO need to actually calculate the angle to turn at
 
                 if (BaseRobot.Instance.State.MotionAllowed)
                 {
                     //TODO: add a back-up sequence like in previous years
+                    //TODO: lower our forward speed based on how much we have to turn but not as much as we had to for the Danger Zone
+                    //TODO: clamp our max speed to some configurable value maybe?
                     //FIXME this is incorrect
                     canbus.MotorControl.SetVelocities(1.0, 0.0, angleToPoint);
                 }
