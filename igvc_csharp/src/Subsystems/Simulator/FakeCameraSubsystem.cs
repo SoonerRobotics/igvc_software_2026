@@ -1,28 +1,23 @@
-using System.Diagnostics;
-using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
-using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using Silk.NET.Core.Native;
 
 namespace igvc_csharp.Subsystems.Simulator;
 
 [Subsystem("FakeCameraSubsystem", Disabled = false)]
 public class FakeCameraSubsystem : SubsystemBase
 {
-    private readonly Channel<ImageFrame> _frameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
-    {
-        SingleReader = true,
-        SingleWriter = true,
-        FullMode = BoundedChannelFullMode.DropOldest
-    });
+    private VideoCapture? _video;
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
+
+        _video = new VideoCapture(FileUtils.GetFileRelativeToRoot(Configuration.FakeCameraSubsystemConfig.Filename));
 
         _ = Task.Factory.StartNew(
             () => ImagePublishingTask(token),
@@ -38,20 +33,24 @@ public class FakeCameraSubsystem : SubsystemBase
 
     private async Task ImagePublishingTask(CancellationToken token)
     {
+        bool EOF = false;
         try
         {
-            while (!token.IsCancellationRequested)
+            while (!token.IsCancellationRequested && !EOF)
             {
                 SetOperatingState(SubsystemState.Operating);
 
-                var frame = await _frameChannel.Reader.ReadAsync(token);
-
-                var mat = CvUtils.AsMat(frame);
+                Mat mat = new();
+                if (_video == null || !_video.Read(mat))
+                {
+                    EOF = true;
+                    continue;
+                }
 
                 var frameBytes = CvUtils.FromMat(mat);
                 var newFrame = MessageConstructor.CreateImageFrame(
-                    frame.Width,
-                    frame.Height,
+                    (uint)mat.Width,
+                    (uint)mat.Height,
                     "front_view",
                     frameBytes
                 );
@@ -65,7 +64,7 @@ public class FakeCameraSubsystem : SubsystemBase
 
                 mat.Dispose();
 
-                // await time.sleep(FPS);
+                await Task.Delay((int)(60 * 1000 / Configuration.FakeCameraSubsystemConfig.FPS), token);
             }
         }
         catch (OperationCanceledException)
@@ -77,5 +76,16 @@ public class FakeCameraSubsystem : SubsystemBase
             Logger.LogError(ex, "Image publishing task crashed");
             SetOperatingState(SubsystemState.Errored);
         }
+
+        await Shutdown();
+    }
+
+    public override Task Shutdown()
+    {
+        _video?.Release();
+
+        SetOperatingState(SubsystemState.Shutdown);
+
+        return Task.CompletedTask;
     }
 }

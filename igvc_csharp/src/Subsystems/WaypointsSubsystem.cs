@@ -56,7 +56,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 SetOperatingState(SubsystemState.Errored);
 
-                Logger.LogError("Failed to read waypoints file! Waypoints will not work!")    ;
+                Logger.LogError("Failed to read waypoints file! Waypoints will not work!");
 
                 return Task.CompletedTask;
             }

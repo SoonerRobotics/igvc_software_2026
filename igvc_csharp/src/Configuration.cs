@@ -398,6 +398,11 @@ public static class Configuration
         /// <summary>
         /// Filename of video to send as raw camera frames
         /// </summary>
-        public const string Filename = "";
+        public const string Filename = "resources/video/camera.mp4";
+
+        /// <summary>
+        /// Frames to publish per second
+        /// </summary>
+        public const double FPS = 15;
     }
 }
