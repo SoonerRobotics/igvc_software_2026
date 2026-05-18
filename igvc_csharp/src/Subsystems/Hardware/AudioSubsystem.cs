@@ -17,7 +17,7 @@ namespace igvc_csharp.Subsystems.Hardware;
 
 
 //TODO: make this subsystem like, configurable and everything
-[Subsystem("AudioSubsystem", DependsOn = [typeof(ChronosSubsystem)])]
+[Subsystem("AudioSubsystem")]
 public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
 {
     private Process? _process;

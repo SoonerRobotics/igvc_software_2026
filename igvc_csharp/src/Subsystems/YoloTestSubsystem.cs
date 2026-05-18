@@ -9,7 +9,7 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-[Subsystem("YoloTestSubsystem", Disabled = false, DependsOn = [typeof(ArcSubsystem)])]
+[Subsystem("YoloTestSubsystem", Disabled = false)]
 public class YoloTestSubsystem : SubsystemBase
 {
     private YoloDetector? _detector;
@@ -37,7 +37,11 @@ public class YoloTestSubsystem : SubsystemBase
     public override Task Shutdown()
     {
         _detector?.Dispose();
-        lock (_depthLock) { _latestDepthMat?.Dispose(); }
+        lock (_depthLock)
+        {
+            _latestDepthMat?.Dispose();
+        }
+
         return Task.CompletedTask;
     }
 
@@ -49,6 +53,7 @@ public class YoloTestSubsystem : SubsystemBase
             _latestDepthMat?.Dispose();
             _latestDepthMat = depthMat;
         }
+
         return Task.CompletedTask;
     }
 
@@ -58,15 +63,14 @@ public class YoloTestSubsystem : SubsystemBase
         {
             using var src = CvUtils.AsMat(jpeg);
 
-            // ConvertTo in-place is unreliable — always use a separate destination mat
             using var brightened = new Mat();
             src.ConvertTo(brightened, MatType.CV_8UC3, alpha: 1.5, beta: 0);
 
-            // Flip vertically — ZED image arrives upside down from GPU readback
+            // Flip vertically
             using var flipped = new Mat();
             Cv2.Flip(brightened, flipped, FlipMode.X);
 
-            var matJpeg    = CvUtils.FromMat(flipped);
+            var matJpeg = CvUtils.FromMat(flipped);
             var detections = _detector!.Detect(matJpeg);
 
             // Sample depth at each detection center
@@ -81,8 +85,8 @@ public class YoloTestSubsystem : SubsystemBase
                 )).ToList();
             }
 
-            var annotated    = OpenCvDetectionRenderer.RenderDetections(matJpeg, withDepth);
-            var imageFrame   = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
+            var annotated = OpenCvDetectionRenderer.RenderDetections(matJpeg, withDepth);
+            var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
             var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, imageFrame.ByteBuffer.ToFullArray());
             EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
         }

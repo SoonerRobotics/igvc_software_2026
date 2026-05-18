@@ -11,9 +11,7 @@ using SocketCANSharp.Network;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CanbusSubsystem", DependsOn = [
-    typeof(ChronosSubsystem)
-])]
+[Subsystem("CanbusSubsystem")]
 public class CanbusSubsystem(
     SimulatorSubsystem? simulatorSubsystem,
     ChronosSubsystem chronos

@@ -22,7 +22,11 @@ public static class Logging
             _factory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(Configuration.Logging.Level);
-                builder.AddConsole();
+                builder.AddSimpleConsole(options =>
+                {
+                    options.SingleLine = true;
+                    options.TimestampFormat = "HH:mm:ss ";
+                });                
                 builder.AddProvider(new LogInterceptorProvider((cat, level, id, message, ex) =>
                 {
                     // Try and get the Chronos instance
