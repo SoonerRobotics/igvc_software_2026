@@ -40,29 +40,46 @@ public class FakeCameraSubsystem : SubsystemBase
             {
                 SetOperatingState(SubsystemState.Operating);
 
-                Mat mat = new();
-                if (_video == null || !_video.Read(mat))
+                Mat combined = new();
+                if (_video == null || !_video.Read(combined))
                 {
                     EOF = true;
                     continue;
                 }
 
-                var frameBytes = CvUtils.FromMat(mat);
-                var newFrame = MessageConstructor.CreateImageFrame(
-                    (uint)mat.Width,
-                    (uint)mat.Height,
-                    "front_view",
-                    frameBytes
+                Mat leftMat = combined.SubMat(0, combined.Height, 0, combined.Width / 2);
+                Mat rightMat = combined.SubMat(0, combined.Height, combined.Width / 2, combined.Width);
+
+                var leftFrame = MessageConstructor.CreateImageFrame(
+                    (uint)leftMat.Width,
+                    (uint)leftMat.Height,
+                    "left_view",
+                    CvUtils.FromMat(leftMat)
                 );
 
-                var wrappedFrame = MessageWrapper.From(
+                var wrappedLeft = MessageWrapper.From(
                     MessageType.ImageFrame,
-                    newFrame.ByteBuffer.ToFullArray()
+                    leftFrame.ByteBuffer.ToFullArray()
                 );
 
-                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+                var rightFrame = MessageConstructor.CreateImageFrame(
+                    (uint)rightMat.Width,
+                    (uint)rightMat.Height,
+                    "right_view",
+                    CvUtils.FromMat(rightMat)
+                );
 
-                mat.Dispose();
+                var wrappedRight = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    rightFrame.ByteBuffer.ToFullArray()
+                );
+
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedLeft));
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRight));
+
+                combined.Dispose();
+                leftMat.Dispose();
+                rightMat.Dispose();
 
                 await Task.Delay((int)(60 * 1000 / Configuration.FakeCameraSubsystemConfig.FPS), token);
             }
