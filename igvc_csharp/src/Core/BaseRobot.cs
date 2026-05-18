@@ -216,12 +216,20 @@ public abstract class BaseRobot : IDisposable
     {
         foreach (var subsystem in _subsystems)
         {
-            var subsystemType = subsystem.GetType();
-            var methods = subsystemType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance);
+            var methods = subsystem.GetType()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(m => m.Name == name);
+
             foreach (var method in methods)
             {
-                if (method.Name != name) continue;
-                method.Invoke(subsystem, pms);
+                var result = method.Invoke(subsystem, pms);
+                if (result is Task t)
+                {
+                    _ = t.ContinueWith(
+                        completed => Logger.LogError(completed.Exception, "Error in {Method} on {Subsystem}", name,
+                            subsystem.GetType().Name),
+                        TaskContinuationOptions.OnlyOnFaulted);
+                }
             }
         }
     }
