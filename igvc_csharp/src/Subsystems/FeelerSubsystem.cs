@@ -161,11 +161,15 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
     {
         _debugFrameChannel.Writer.TryWrite(frame);
+
         return Task.CompletedTask;
     }
     private Task OnMaskReceived(ImageFrame frame, CancellationToken token)
     {
         _maskFrameChannel.Writer.TryWrite(frame);
+
+        SetOperatingState(SubsystemState.Operating);
+
         return Task.CompletedTask;
     }
 
@@ -179,7 +183,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
     {
         _goalPoint = new(msg.Latitude, msg.Longitude);
-        
+
         return Task.CompletedTask;
     }
 
@@ -195,6 +199,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
                 if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous)
                 {
+                    //FIXME should we be setting safetyLights or should it be setting automatically?
                     canbus.SafetyLights.SetAutonomous();
 
                     if (State == SubsystemState.Operating)

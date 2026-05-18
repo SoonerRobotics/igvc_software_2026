@@ -5,9 +5,9 @@ using igvc_csharp.Utils.Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-namespace igvc_csharp.Subsystems.Simulator;
+namespace igvc_csharp.src.Subsystems.Simulator;
 
-[Subsystem("FakeCameraSubsystem", Disabled = true)]
+[Subsystem("FakeCameraSubsystem", Disabled = false)]
 public class FakeCameraSubsystem : SubsystemBase
 {
     private VideoCapture? _video;
@@ -33,6 +33,11 @@ public class FakeCameraSubsystem : SubsystemBase
     private async Task ImagePublishingTask(CancellationToken token)
     {
         bool EOF = false;
+        int frame = 0;
+
+        BaseRobot.Instance.SetMission(MissionEnum.Autonav);
+        BaseRobot.Instance.SetMode(RobotModeEnum.Autonomous);
+
         try
         {
             while (!token.IsCancellationRequested && !EOF)
@@ -42,6 +47,7 @@ public class FakeCameraSubsystem : SubsystemBase
                 Mat combined = new();
                 if (_video == null || !_video.Read(combined))
                 {
+                    Logger.LogInformation(" === END OF VIDEO ===");
                     EOF = true;
                     continue;
                 }
@@ -87,11 +93,14 @@ public class FakeCameraSubsystem : SubsystemBase
 
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedLeft));
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRight));
-                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFull));
+                // EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFull));
 
                 combined.Dispose();
                 leftMat.Dispose();
                 rightMat.Dispose();
+
+                Logger.LogDebug("publishing frame: " + frame);
+                frame++;
 
                 await Task.Delay((int)(60 * 1000 / Configuration.FakeCameraSubsystemConfig.FPS), token);
             }
