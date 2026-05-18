@@ -4,7 +4,6 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
-using Silk.NET.Core.Native;
 
 namespace igvc_csharp.Subsystems.Simulator;
 
@@ -74,8 +73,21 @@ public class FakeCameraSubsystem : SubsystemBase
                     rightFrame.ByteBuffer.ToFullArray()
                 );
 
+                var fullFrame = MessageConstructor.CreateImageFrame(
+                    (uint)combined.Width,
+                    (uint)combined.Height,
+                    "combined_view",
+                    CvUtils.FromMat(combined)
+                );
+
+                var wrappedFull = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    fullFrame.ByteBuffer.ToFullArray()
+                );
+
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedLeft));
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRight));
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFull));
 
                 combined.Dispose();
                 leftMat.Dispose();

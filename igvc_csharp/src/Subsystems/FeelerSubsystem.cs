@@ -63,13 +63,13 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         // subscribers
         SubscribeImage(
-            "front_view",
+            "combined_view",
             OnDebugImageReceived,
             token
         );
 
         SubscribeImage(
-            "front_transformed_view",
+            "combined_filtered",
             OnMaskReceived,
             token
         );
