@@ -7,6 +7,9 @@ resources/audio/*
 # fake camera subsystem video files
 resources/video/*
 
+# fake gps data
+resources/gps/*
+
 # User-specific files
 *.suo
 *.user

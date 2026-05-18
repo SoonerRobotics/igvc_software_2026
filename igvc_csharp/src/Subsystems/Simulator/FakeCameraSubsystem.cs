@@ -34,9 +34,8 @@ public class FakeCameraSubsystem : SubsystemBase
     {
         bool EOF = false;
         int frame = 0;
-
-        BaseRobot.Instance.SetMission(MissionEnum.Autonav);
-        BaseRobot.Instance.SetMode(RobotModeEnum.Autonomous);
+        ulong startTime = TimeUtils.Now();
+        bool set = false;
 
         try
         {
@@ -50,6 +49,15 @@ public class FakeCameraSubsystem : SubsystemBase
                     Logger.LogInformation(" === END OF VIDEO ===");
                     EOF = true;
                     continue;
+                }
+
+                if (TimeUtils.Now() - startTime > 10_000 && !set) // wait 2 seconds before setting this
+                {
+                    BaseRobot.Instance.SetMission(MissionEnum.Autonav);
+                    BaseRobot.Instance.SetMobility(true);
+                    BaseRobot.Instance.SetMode(RobotModeEnum.Autonomous);
+
+                    set = true;
                 }
 
                 Mat leftMat = combined.SubMat(0, combined.Height, 0, combined.Width / 2);

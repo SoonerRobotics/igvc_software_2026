@@ -370,7 +370,7 @@ public static class Configuration
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
         /// </summary>
         [Config("waypoints.gps_wait_time")]
-        public const ulong GpsWaitTime = 1000 * 30;
+        public const ulong GpsWaitTime = 1000 * 2;
 
         /// <summary>
         /// Longitude of the west-most edge of the practice autonav field
@@ -404,5 +404,10 @@ public static class Configuration
         /// Frames to publish per second
         /// </summary>
         public const double FPS = 15;
+    }
+
+    public static class FakeGpsSubsystem
+    {
+        public const string Filename = "resources/gps/ENTRY_GPS.csv";
     }
 }
