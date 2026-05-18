@@ -99,11 +99,12 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         if (updated.Mode == RobotModeEnum.Autonomous)
         {
-            // this will get called when mobility gets updated too, so we can check it here
-            if (BaseRobot.Instance.State.MotionAllowed && _runStartTime == 0)
+            if (updated.MotionAllowed && _runStartTime == 0)
             {
                 if (_position.HasValue)
                 {
+                    Logger.LogDebug("Starting Waypoints Run!");
+
                     _runStartTime = TimeUtils.Now();
                     _startGpsPos = new LatLng(_position.Value.Latitude, _position.Value.Longitude);
                     _waypointsFinished = false;
@@ -117,6 +118,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
         else
         {
+            // reset everything if we don't get put in autonomous
             if (State != SubsystemState.Ready)
             {
                 SetOperatingState(SubsystemState.Ready);
@@ -176,7 +178,23 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             _waypointsFinished = false;
             _waypointTimeStart = 0;
 
-            //FIXME should we publish the first waypoint message here then? instead of waiting for OnPositionReceived?
+            // and publish the first waypoint
+            var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
+            var builder = new FlatBufferBuilder(128);
+            var msgOffset = Waypoint.CreateWaypoint(
+                builder,
+                TimeUtils.Now(),
+                new StringOffset(_waypointSet.Length), //FIXME does this actually put the string in there or is like... this not gonna work.
+                _waypointIndex,
+                (uint)_waypointsDict[_waypointSet].Count,
+                goalPoint.Latitude,
+                goalPoint.Longitude
+            );
+            builder.Finish(msgOffset.Value);
+
+            var waypointMsg = MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray());
+            
+            EventBus.Instance.Publish(new MessageWrapperEvent(waypointMsg));
 
             canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Blue, token, 2000);
         }
@@ -200,7 +218,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         }
 
         // waypoint reach detection
-        if (_waypointsDict.Count() != 0 && !_waypointsFinished)
+        if (_waypointSet != "" && _waypointsDict.Count() != 0 && !_waypointsFinished)
         {
             var current_gps = new LatLng(msg.Latitude, msg.Longitude);
             var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
