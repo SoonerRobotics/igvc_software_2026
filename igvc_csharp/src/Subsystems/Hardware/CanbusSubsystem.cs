@@ -14,7 +14,7 @@ namespace igvc_csharp.Subsystems.Hardware;
 [Subsystem("CanbusSubsystem")]
 public class CanbusSubsystem(
     SimulatorSubsystem? simulatorSubsystem,
-    ChronosSubsystem chronos
+    ChronosSubsystem? chronos
 ) : SubsystemBase
 {
     // Variables
@@ -27,11 +27,13 @@ public class CanbusSubsystem(
     // Layers
     public SafetyLightsLayer SafetyLights = null!;
     public MotorControlLayer MotorControl = null!;
+    public CurrentSensorLayer CurrentSensor = null!;
     
     public override Task Init(CancellationToken token)
     {
         SafetyLights = new SafetyLightsLayer(this);
         MotorControl = new MotorControlLayer(this);
+        CurrentSensor = new CurrentSensorLayer(this);
         
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
@@ -179,7 +181,7 @@ public class CanbusSubsystem(
                     continue;
                 }
                 
-                chronos.WriteCan(frame);
+                chronos?.WriteCan(frame);
                 EventBus.Instance.Publish(new CanFrameEvent(frame));
             }
             catch (ObjectDisposedException ex)

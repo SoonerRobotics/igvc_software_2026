@@ -38,12 +38,12 @@ sequenceNumber():number {
 
 purpose():ArcCommandPurpose {
   const offset = this.bb!.__offset(this.bb_pos, 8);
-  return offset ? this.bb!.readInt8(this.bb_pos + offset) : ArcCommandPurpose.UnknownPurpose;
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : ArcCommandPurpose.UnknownPurpose;
 }
 
 commandId():ArcCommandId {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt8(this.bb_pos + offset) : ArcCommandId.UnknownCommand;
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : ArcCommandId.UnknownCommand;
 }
 
 data(index: number):number|null {
@@ -74,11 +74,11 @@ static addSequenceNumber(builder:flatbuffers.Builder, sequenceNumber:number) {
 }
 
 static addPurpose(builder:flatbuffers.Builder, purpose:ArcCommandPurpose) {
-  builder.addFieldInt8(2, purpose, ArcCommandPurpose.UnknownPurpose);
+  builder.addFieldInt32(2, purpose, ArcCommandPurpose.UnknownPurpose);
 }
 
 static addCommandId(builder:flatbuffers.Builder, commandId:ArcCommandId) {
-  builder.addFieldInt8(3, commandId, ArcCommandId.UnknownCommand);
+  builder.addFieldInt32(3, commandId, ArcCommandId.UnknownCommand);
 }
 
 static addData(builder:flatbuffers.Builder, dataOffset:flatbuffers.Offset) {
