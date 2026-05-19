@@ -1,4 +1,6 @@
-﻿using System.Threading.Channels;
+using System.Diagnostics;
+using System.Threading.Channels;
+using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
@@ -8,6 +10,7 @@ using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using AStarConfig = igvc_csharp.Configuration.AStarSubsystem;
 
 namespace igvc_csharp.Subsystems.Vision;
 
@@ -95,11 +98,11 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
             ));
         }
 
-        // if (Configuration.AStarConfig.UseAStar)
-        // {
-        //     // don't need this for anything but A* (e.g. not for feelers)
-        //     _filters.Add(new InflationFilter());
-        // }
+        if (AStarConfig.UseAStar)
+        {
+            // don't need this for anything but A* (e.g. not for feelers)
+            _filters.Add(new InflationFilter());
+        }
 
         if (newState.Mission == MissionEnum.Selfdrive)
         {
@@ -172,6 +175,33 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 );
 
                 EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRawFrame));
+
+                if (AStarConfig.UseAStar)
+                {
+                    //FIXME is this mat gonna have the inflation filter applied to it?
+                    // only publish config space message if A* is being used / ran to avoid conflicting with Feelers / Self-Drive
+                    var scaled = combinedFiltered.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
+                    var row_array = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
+
+                    var builder = new FlatBufferBuilder(128);
+                    var msgOffset = ConfigSpace.CreateConfigSpace(
+                        builder,
+                        TimeUtils.Now(),
+                        AStarConfig.ConfigSpaceWidth,
+                        AStarConfig.ConfigSpaceHeight,
+                        new VectorOffset(row_array.ElemSize()) //FIXME I'm pretty sure this is wrong
+                    );
+                    builder.Finish(msgOffset.Value);
+
+                    var cfgSpaceMsg = MessageWrapper.From(MessageType.ConfigSpace, builder.SizedByteArray());
+
+                    EventBus.Instance.Publish(
+                        new MessageWrapperEvent(cfgSpaceMsg)
+                    );
+
+                    scaled.Dispose();
+                    row_array.Dispose();
+                }
 
                 leftMat.Dispose();
                 rightMat.Dispose();

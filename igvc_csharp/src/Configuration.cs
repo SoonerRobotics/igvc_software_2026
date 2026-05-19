@@ -233,6 +233,59 @@ public static class Configuration
         public const double OpenCvCalibrationSquareSizeMeters = 0.024;
     }
 
+    //FIXME make all these like, web-configurable
+    public static class AStarSubsystem
+    {
+        /// <summary>
+        /// Whether to use the A* path planning to drive the robot in Autonav mode or not
+        /// The other option is to use Feelers (or potentially other algorithms we add)
+        /// There is probably a better way to set this up (an enum or something, in a different config class)
+        /// But this is what exists for now.
+        /// </summary>
+        public const bool UseAStar = true;
+
+        /// <summary>
+        /// How much to weight the cost of points the further forwards / "upwards" for smellification (goal point selection)
+        /// </summary>
+        public const double SmellyDistanceWeight = 1.3;
+
+        /// <summary>
+        /// How much to weight the cost of points the higher the depth iteration of smellification is
+        /// </summary>
+        public const double SmellyDepthWeight = 2.2;
+
+        /// <summary>
+        /// The maximum depth to search when selecting a goal point during smellification
+        /// </summary>
+        public const int SmellyMaxDepth = 50;
+
+        /// <summary>
+        /// The threshold for a pixel/point in the configuration space to be considered an obstacle
+        /// </summary>
+        public const int ObstacleThreshold = 50;
+
+        /// <summary>
+        /// Whether to ignore obstacles and only pathfind to waypoints (for qualification/inspection/testing/etc.)
+        /// </summary>
+        public const bool UseOnlyWaypoints = false;
+
+        //FIXME does this belong to the vision subsystem instead? since that is what will publish the config space messages?
+        /// <summary>
+        /// Width of the config space, in pixels (where each pixel is a meter, supposedly)
+        /// </summary>
+        public const int ConfigSpaceWidth = 80;
+
+        /// <summary>
+        /// Height of the configuration space, in pixels (where each pixel is a meter, supposedly)
+        /// </summary>
+        public const int ConfigSpaceHeight = 80;
+
+        /// <summary>
+        /// The Pure-Pursuit controller lookahead radius, in meters I think
+        /// </summary>
+        public const double LookaheadRadius = 1.0;
+    }
+
     public static class FeelerSubsystem
     {
         // feeler-related config

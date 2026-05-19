@@ -1,0 +1,15 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+table ConfigSpace {
+    // The timestamp of the config space in milliseconds
+    timestamp: ulong;
+
+    // The width and height of the config space
+    width: uint;
+    height: uint;
+
+    // The raw data (as a 1 dimensional array)
+    data: [uint];
+}
+
+root_type ConfigSpace;

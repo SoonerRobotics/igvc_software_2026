@@ -1,3 +1,4 @@
+using igvc_csharp.src.Utils;
 using OpenCvSharp;
 
 namespace igvc_csharp.src.Subsystems.Feelers;
