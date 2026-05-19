@@ -13,6 +13,7 @@ using OpenCvSharp;
 using System.Security.Cryptography;
 using Microsoft.VisualBasic;
 using System.Security.Cryptography.X509Certificates;
+using Priority_Queue;
 
 
 namespace igvc_csharp.src.Subsystems;
@@ -27,44 +28,39 @@ namespace igvc_csharp.src.Subsystems;
 public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     //FIXME make this configurable, but this is basically the width and height of an autonav course in meters
-    private PriorityQueue<(int, int), int> _openSet = new(); //TODO rename to like... "gridMap" or something?
+    private SimplePriorityQueue<(int, int), int> _openSet = new(); //TODO rename to like... "gridMap" or something?
     //FIXME no, _openSet is supposed to be a List<> I think...
     private int _km = 0;
-    private int[46][46] _rhs = new();
-    private int[46][46] _par = null;
+    private int[,] _parents = new int[46, 46]; //FIXME make this size configurable
     private (int, int) _startPos;
     private (int, int) _goalPos;
+
+    // D* Lite maintains an h-value, g-value, f -value
+    // and parent pointer for every state s with similar meanings as
+    // used by A* but it also maintain an rhs-value
+    private int[,] _gCost = new int[46, 46]; //FIXME should these be ints? or like, shorts? bytes even?
+    private int[,] _hCost = new int[46, 46];
+    private int[,] _fCost = new int[46, 46];
+    private int[,] _rhs = new int[46, 46];
+
+    /*
+        S denotes the finite set
+        of all (blocked and unblocked) states, sstart ∈ S denotes the
+        current state of the hunter and the start state of the search,
+        and sgoal ∈ S denotes the current state of the target and the
+        goal state of the search. c(s, s′) denotes the cost of a cost-
+        minimal path from state s ∈ S to state s′ ∈ S. Succ(s) ⊆ S
+        denotes the set of successors of state s ∈ S, and Pred(s) ⊆ S
+        denotes the set of predecessors of state s ∈ S. 
+    */
+
+    private const int Infinity = int.MaxValue;
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
 
         Initialize();
-
-        // subscribers
-        SubscribeImage(
-            "combined_view",
-            OnDebugImageReceived,
-            token
-        );
-
-        SubscribeImage(
-            "combined_filtered",
-            OnMaskReceived,
-            token
-        );
-
-        SubscribeMessage<VectornavReport>(
-            MessageType.VectorNav,
-            OnPositionReceived,
-            token
-        );
-
-        SubscribeMessage<Waypoint>(
-            MessageType.Waypoint,
-            OnWaypointReceived,
-            token
-        );
 
         //TODO FIXME
         _ = Task.Factory.StartNew(
@@ -78,81 +74,57 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    public override Task OnRobotStateChanged(RobotState old, RobotState updated)
+    private int CalculateKey((int, int) pt)
     {
-        //TODO
-
-        return Task.CompletedTask;
-    }
-
-    private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
-    {
-        _debugFrameChannel.Writer.TryWrite(frame);
-
-        return Task.CompletedTask;
-    }
-
-    private Task OnMaskReceived(ImageFrame frame, CancellationToken token)
-    {
-        _maskFrameChannel.Writer.TryWrite(frame);
-
-        SetOperatingState(SubsystemState.Operating);
-
-        return Task.CompletedTask;
-    }
-
-    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
-    {
-        _position = msg;
-
-        return Task.CompletedTask;
-    }
-
-    private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
-    {
-        _goalPoint = new(msg.Latitude, msg.Longitude);
-
-        return Task.CompletedTask;
-    }
-
-    // === actual D* Lite functions ===
-    private int CalculateKey(SCR_Point pt)
-    {
+        //k1 = min(self.g[s], self.rhs[s]) + heuristic(self.s_start, s) + self.k_m
+        // k2 = min(self.g[s], self.rhs[s])
         return (
-            Math.Min(_gGrid[pt], _rhs[pt]) + h(pt, _goal) + kM, Math.Min(_gGrid[pt], _rhs[pt])
+            Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2]) + Heurisitic(pt, _goalPos) + _km, Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2])
         );
+    }
+
+    private double Cost((int, int) p1, (int, int) p2)
+    {
+        // TODO: check if p1 or p2 are obstructed
+        return Heurisitic(p1, p2);
+    }
+
+    private double Heurisitic((int, int) p1, (int, int) p2)
+    {
+        // just use regular distance formula
+        // TODO: is this right?
+        return Math.Sqrt(Math.Pow(p1.Item1 - p2.Item1, 2) + Math.Pow(p1.Item2 - p2.Item2, 2));
     }
 
     private void Initialize()
     {
-        _openSet.Initialize(); // ??? fill with 0s?
+        _openSet.Clear(); //FIXME is this right ???
         _km = 0;
 
-        for (int y = 0; y < _openSet.Length; y++)
+        for (int y = 0; y < _fCost.GetLength(0); y++)
         {
-            for (int x = 0; x < _openSet[y].Length; x++)
+            for (int x = 0; x < _fCost.GetLength(1); x++)
             {
-                _rhs[y][x] = Infinity;
-                _gCost[y][x] = Infinity;
-                _par[y][x] = null;
+                _rhs[x, y] = Infinity;
+                _gCost[x, y] = Infinity;
+                _parents[x, y] = null;
             }
         }
 
         _startPos = new(); //TODO FIXME
         _goalPos = new(); //TODO FIXME
 
-        //FIXME is openset supposed to be a priorityqueue or something?
-        _openSet.Insert(_startPos, CalculateKey(_startPos));
+        _openSet.Enqueue(_startPos, CalculateKey(_startPos));
     }
 
     private void UpdateState((int, int) point)
     {
-        if (G(point) != _rhs[point])
+        if (_gCost[point.Item1, point.Item2] != _rhs[point.Item1, point.Item2])
         {
             if (_openSet.Contains(point))
             {
 
-                _openSet.Update(point, CalculateKey(point));
+                _openSet.UpdatePriority(point, CalculateKey(point));
             }
             else
             {
@@ -168,25 +140,48 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private void ComputeCostMinimalPath()
     {
-        while (_openSet.TryPeek(out topKey, out topPriority) < CalculateKey(_goalPos) || _rhs(_goalPos) > G(_goalPos))
+        while (_openSet.TryPeek(out topKey, out topPriority) < CalculateKey(_goalPos)
+            || _rhs[_goalPos.Item1, _goalPos.Item2] > _gCost[_goalPos.Item1, _goalPos.Item2])
         {
-            (var workingPt, var workingMinPriority) = _openSet.Dequeue();
+            var workingPt = _openSet.Dequeue();
             var newMinPriority = CalculateKey(workingPt);
 
+            // if our lowest cost node has a lower priority now
             if (newMinPriority < workingMinPriority)
             {
-                _openSet.Update(workingPt, workingMinPriority);
+                // then update it ??? FIXME?
+                _openSet.UpdatePriority(workingPt, workingMinPriority);
             }
-            else if (G(workingPt) > _rhs[workingPt])
+            // otherwise, if the G cost has increased
+            else if (_gCost[workingPt.Item1, workingPt.Item2] > _rhs[workingPt.Item1, workingPt.Item2])
             {
-                G(workingPt) = _rhs[workingPt];
-                _openSet.Remove(workingPt, out _, out __); //FIXME actually check if this succeeded
+                // update the g cost with RHS ???
+                _gCost[workingPt.Item1, workingPt.Item2] = _rhs[workingPt.Item1, workingPt.Item2];
 
-                //TODO foreach loop (line {30})
+                _openSet.Remove(workingPt); //FIXME actually check if this succeeded
+
+                foreach (var pt in Succ(workingPt))
+                {
+                    if (pt != _startPos && par(pt) == workingPt)
+                    {
+                        _rhs[pt] = Math.Min(???); // ??? line {39} FIXME
+                        if (_rhs[pt] == Infinity)
+                        {
+                            par(pt) = null;
+                        }
+                        else
+                        {
+                            par(pt) = argmin(); // ????? line {43} FIXME
+                        }
+                    }
+
+                    UpdateState(pt);
+                }
             }
             else
             {
-                G(workingPt) = Infinity;
+                // otherwise this node isn't worth exploring ??? FIXME ???
+                _gCost[workingPt.Item1, workingPt.Item2] = Infinity;
                 //TODO foreach loop (line {36})
             }
         }
@@ -195,41 +190,70 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
     /**
      * TODO FIXME
      */
-    private async Task CalculatePath(CancellationToken token)
+    private Task CalculatePath(CancellationToken token)
     {
-        while (sstart  = sgoal)
-soldstart:= sstart;
-    soldgoal:= sgoal;
-        ComputeCostMinimalPath();
-        if (rhs(sgoal) = ∞) /*no path exists*/
-return false;
-        identify a path from sstart to sgoal using the parent pointers;
-        while (target not caught AND target on path from sstart to sgoal
- AND no edge costs changed)
-hunter follows path from sstart to sgoal;
-        if hunter caught target
-return true;
-    sstart:= the current state of the hunter;
-    sgoal:= the current state of the target;
-    km:= km + h(soldgoal, sgoal);
-        if (soldstart  = sstart)
-shift the map appropriately(which changes sstart and sgoal);
-        for all directed edges(u, v) with changed edge costs
-        cold := c(u, v);
-        update the edge cost c(u, v);
-if (cold > c(u, v))
-            if (v  = sstart AND rhs(v) > g(u) + c(u, v))
-par(v) := u;
-        rhs(v) := g(u) + c(u, v);
-        UpdateState(v);
-else
-            if (v  = sstart AND par(v) = u)
-rhs(v) := mins′∈Pred(v)(g(s′) + c(s′, v));
-        if (rhs(v) = ∞)
-par(v) := NULL;
-else
-            par(v) := arg mins′∈Pred(v)(g(s′) + c(s′, v));
-        UpdateState(v);
-        return true
+        while (_startPos != _goalPos)
+        {
+            var oldStart = _startPos;
+            var oldGoal = _goalPos;
+
+            ComputeCostMinimalPath();
+            
+            // no path exists
+            if (_rhs[_goalPos.Item1, _goalPos.Item2] == Infinity)
+            {
+                return Task.CompletedTask;
+                // return false;
+            }
+
+            //TODO: identify a path from sstart to sgoal using the parent pointers;
+            while (target not caught AND target on path from sstart to sgoal
+             && no edge costs changed) {
+                hunter follows path from sstart to sgoal;
+            }
+            if (_startPos == _goalPos)
+            {
+                //FIXME what do we even do here ???
+                return Task.CompletedTask;
+            }
+            _startPos = the current state of the hunter;
+            _goalPos = the current state of the target;
+            _km += Heurisitic(oldGoal, _goalPos);
+            if (oldStart != _startPos)
+            {
+                // shift the map appropriately(which changes sstart and sgoal);
+                //             for all directed edges(u, v) with changed edge costs
+
+                // c_old = c(u, v);
+                // update the edge cost c(u, v);
+                if (c_old > c(u, v))
+                {
+
+                    if (v != _startPos && _rhs[v] > (_gCost[u] + c(u, v)))
+                    {
+                        par(v) = u;
+                        rhs(v) = _gCost[u] + c(u, v);
+                        UpdateState(v);
+                    }
+                }
+                else
+                {
+                    if (v != _startPos && par(v) == u)
+                    {
+                        // _rhs[v] = mins′∈Pred(v)(g(s′) + c(s′, v));
+                        if (_rhs[v] == Infinity)
+                        {
+                            _par(v) = null;
+                        }
+                        else
+                        {
+                            _par(v) = arg mins′∈Pred(v)(_gCost[s′] + c(s′, v));
+                        }
+                        UpdateState(v);
+                    }
+                }
+                // return true;
+            }
+        }
     }
 }
