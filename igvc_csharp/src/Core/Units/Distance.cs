@@ -15,6 +15,11 @@ public struct Distance : IEquatable<Distance>, IConfigSerializable
         Meters = meters;
     }
 
+    public static Distance From(double x, DistanceUnit unit)
+    {
+        return new Distance(1 / unit.FromMeters(x));
+    }
+
 
     public double To(DistanceUnit unit)
         => unit.FromMeters(Meters);

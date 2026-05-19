@@ -410,4 +410,22 @@ public static class Configuration
     {
         public const string Filename = "resources/gps/ENTRY_GPS.csv";
     }
+
+    public static class BigMapSubsystem
+    {
+        /// <summary>
+        /// Width of the autonav course according to the rules
+        /// </summary>
+        public static readonly Distance AutonavCourseWidth = Distance.From(120, DistanceUnit.Feet);
+
+        /// <summary>
+        /// Height of the autonav course according to the rules
+        /// </summary>
+        public static readonly Distance AutonavCourseHeight = Distance.From(120, DistanceUnit.Feet);
+
+        public static readonly (int, int) RobotStartPosition = (
+            (int)AutonavCourseWidth.To(DistanceUnit.Feet)/2,       // centered in the x direction
+            (int)(AutonavCourseHeight.To(DistanceUnit.Feet) * .8)  // and approximately on the bottom if (0, 0) is the center of the course I think
+        );
+    }
 }

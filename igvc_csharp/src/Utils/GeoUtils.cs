@@ -12,7 +12,7 @@ namespace igvc_csharp.Utils
         private const double RadPerDeg = Math.PI / 180.0;
         private const double DegPerRad = 180.0 / Math.PI;
         
-        private static (double east_m, double north_m) GenerateOffsetMeters(LatLng a, LatLng b)
+        public static (double east_m, double north_m) GenerateOffsetMeters(LatLng a, LatLng b)
         {
             var phi0 = a.Latitude * RadPerDeg;
             var lambda0 = a.Longitude * RadPerDeg;
