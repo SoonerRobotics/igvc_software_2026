@@ -22,8 +22,8 @@ public struct ArcCommand : IFlatbufferObject
 
   public ulong Timestamp { get { int o = __p.__offset(4); return o != 0 ? __p.bb.GetUlong(o + __p.bb_pos) : (ulong)0; } }
   public uint SequenceNumber { get { int o = __p.__offset(6); return o != 0 ? __p.bb.GetUint(o + __p.bb_pos) : (uint)0; } }
-  public Messages.Arc.ArcCommandPurpose Purpose { get { int o = __p.__offset(8); return o != 0 ? (Messages.Arc.ArcCommandPurpose)__p.bb.GetSbyte(o + __p.bb_pos) : Messages.Arc.ArcCommandPurpose.UnknownPurpose; } }
-  public Messages.Arc.ArcCommandId CommandId { get { int o = __p.__offset(10); return o != 0 ? (Messages.Arc.ArcCommandId)__p.bb.GetSbyte(o + __p.bb_pos) : Messages.Arc.ArcCommandId.UnknownCommand; } }
+  public Messages.Arc.ArcCommandPurpose Purpose { get { int o = __p.__offset(8); return o != 0 ? (Messages.Arc.ArcCommandPurpose)__p.bb.GetUint(o + __p.bb_pos) : Messages.Arc.ArcCommandPurpose.UnknownPurpose; } }
+  public Messages.Arc.ArcCommandId CommandId { get { int o = __p.__offset(10); return o != 0 ? (Messages.Arc.ArcCommandId)__p.bb.GetUint(o + __p.bb_pos) : Messages.Arc.ArcCommandId.UnknownCommand; } }
   public byte Data(int j) { int o = __p.__offset(12); return o != 0 ? __p.bb.Get(__p.__vector(o) + j * 1) : (byte)0; }
   public int DataLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
@@ -42,17 +42,17 @@ public struct ArcCommand : IFlatbufferObject
     builder.StartTable(5);
     ArcCommand.AddTimestamp(builder, timestamp);
     ArcCommand.AddData(builder, dataOffset);
-    ArcCommand.AddSequenceNumber(builder, sequence_number);
     ArcCommand.AddCommandId(builder, command_id);
     ArcCommand.AddPurpose(builder, purpose);
+    ArcCommand.AddSequenceNumber(builder, sequence_number);
     return ArcCommand.EndArcCommand(builder);
   }
 
   public static void StartArcCommand(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddTimestamp(FlatBufferBuilder builder, ulong timestamp) { builder.AddUlong(0, timestamp, 0); }
   public static void AddSequenceNumber(FlatBufferBuilder builder, uint sequenceNumber) { builder.AddUint(1, sequenceNumber, 0); }
-  public static void AddPurpose(FlatBufferBuilder builder, Messages.Arc.ArcCommandPurpose purpose) { builder.AddSbyte(2, (sbyte)purpose, 0); }
-  public static void AddCommandId(FlatBufferBuilder builder, Messages.Arc.ArcCommandId commandId) { builder.AddSbyte(3, (sbyte)commandId, 0); }
+  public static void AddPurpose(FlatBufferBuilder builder, Messages.Arc.ArcCommandPurpose purpose) { builder.AddUint(2, (uint)purpose, 0); }
+  public static void AddCommandId(FlatBufferBuilder builder, Messages.Arc.ArcCommandId commandId) { builder.AddUint(3, (uint)commandId, 0); }
   public static void AddData(FlatBufferBuilder builder, VectorOffset dataOffset) { builder.AddOffset(4, dataOffset.Value, 0); }
   public static VectorOffset CreateDataVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateDataVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
@@ -75,8 +75,8 @@ static public class ArcCommandVerify
     return verifier.VerifyTableStart(tablePos)
       && verifier.VerifyField(tablePos, 4 /*Timestamp*/, 8 /*ulong*/, 8, false)
       && verifier.VerifyField(tablePos, 6 /*SequenceNumber*/, 4 /*uint*/, 4, false)
-      && verifier.VerifyField(tablePos, 8 /*Purpose*/, 1 /*Messages.Arc.ArcCommandPurpose*/, 1, false)
-      && verifier.VerifyField(tablePos, 10 /*CommandId*/, 1 /*Messages.Arc.ArcCommandId*/, 1, false)
+      && verifier.VerifyField(tablePos, 8 /*Purpose*/, 4 /*Messages.Arc.ArcCommandPurpose*/, 4, false)
+      && verifier.VerifyField(tablePos, 10 /*CommandId*/, 4 /*Messages.Arc.ArcCommandId*/, 4, false)
       && verifier.VerifyVectorOfData(tablePos, 12 /*Data*/, 1 /*byte*/, false)
       && verifier.VerifyTableEnd(tablePos);
   }

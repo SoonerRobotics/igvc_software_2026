@@ -5,7 +5,7 @@
 namespace Messages.Arc
 {
 
-public enum ArcCommandPurpose : sbyte
+public enum ArcCommandPurpose : uint
 {
   UnknownPurpose = 0,
   Request = 1,

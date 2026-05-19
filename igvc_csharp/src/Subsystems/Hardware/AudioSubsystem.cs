@@ -36,30 +36,29 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
         // check for a change in mode
         if (old.Mode != updated.Mode)
         {
-            if (updated.Mode == RobotModeEnum.Autonomous)
+            switch (updated.Mode)
             {
-                if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
-                {
+                case RobotModeEnum.Autonomous when BaseRobot.Instance != null && BaseRobot.Instance.State.Mission == MissionEnum.Autonav:
                     PlaySound("autonav-mode.mp3");
-                }
-                else
-                {
+                    break;
+                case RobotModeEnum.Autonomous:
                     PlaySound("self-drive.mp3");
-                }
-            }
-            else if (updated.Mode == RobotModeEnum.Manual)
-            {
-                PlaySound("self-drive2.mp3");
-            }
-            else if (updated.Mode == RobotModeEnum.Disabled)
-            {
-                //TODO I don't think we need a sound for this (?) but it's here...
+                    break;
+                case RobotModeEnum.Manual:
+                    PlaySound("self-drive2.mp3");
+                    break;
+                case RobotModeEnum.Disabled:
+                    //TODO I don't think we need a sound for this (?) but it's here...
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
+        
         // no change in robot mode, so it must be something else that changed (i.e. mission or mobility)
         else
         {
-            if (BaseRobot.Instance.State.MotionAllowed)
+            if (BaseRobot.Instance != null && BaseRobot.Instance.State.MotionAllowed)
             {
                 PlaySound("mobility-enable.mp3");
             }

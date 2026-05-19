@@ -5,7 +5,7 @@
 namespace Messages.Arc
 {
 
-public enum ArcCommandId : sbyte
+public enum ArcCommandId : uint
 {
   UnknownCommand = 0,
   ToolsStartOpenCvCalibration = 1,
@@ -15,6 +15,9 @@ public enum ArcCommandId : sbyte
   ToolsStopHsvCalibration = 5,
   ToolsEditHsvCalibration = 6,
   ToolsSaveHsvCalibration = 7,
+  CurrentSensorInitialize = 256,
+  CurrentSensorSetBaudrate = 257,
+  CurrentSensorSaveEeprom = 258,
 };
 
 
