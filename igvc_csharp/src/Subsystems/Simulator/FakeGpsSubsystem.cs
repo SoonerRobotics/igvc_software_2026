@@ -10,7 +10,7 @@ using FakeGpsConfig = igvc_csharp.Configuration.FakeGpsSubsystem;
 
 namespace igvc_csharp.src.Subsystems.Simulator;
 
-[Subsystem("FakeGpsSubsystem", Disabled = false)]
+[Subsystem("FakeGpsSubsystem", Disabled = true)]
 public class FakeGpsSubsystem : SubsystemBase
 {
     private List<(double, LatLng)> _data = [];
