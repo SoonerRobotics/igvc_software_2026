@@ -8,7 +8,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CameraSubsystem")]
+[Subsystem("CameraSubsystem", Disabled = false)]
 public class CameraSubsystem : SubsystemBase
 {
     // Configuration
@@ -24,16 +24,16 @@ public class CameraSubsystem : SubsystemBase
 
     [Config("subsystem.camera.reconnect_delay_ms")]
     public static readonly int ReconnectDelayMs = 2000;
-    
+
     // Implementation
 
     private CameraWorker? mLeftWorker;
     private CameraWorker? mRightWorker;
 
     public override Task Init(CancellationToken token)
-    {        
-        mLeftWorker = new CameraWorker("left", LeftCameraPath);
-        mRightWorker = new CameraWorker("right", RightCameraPath);
+    {
+        mLeftWorker = new CameraWorker("left", LeftCameraPath, Logger);
+        mRightWorker = new CameraWorker("right", RightCameraPath, Logger);
 
         Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
 
@@ -48,17 +48,17 @@ public class CameraSubsystem : SubsystemBase
         }
 
         mLeftWorker?.Stop();
-        mLeftWorker = new CameraWorker("left", (string)e.Value);
+        mLeftWorker = new CameraWorker("left", (string)e.Value, Logger);
 
         mRightWorker?.Stop();
-        mRightWorker = new CameraWorker("right", (string)e.Value);
+        mRightWorker = new CameraWorker("right", (string)e.Value, Logger);
 
         return Task.CompletedTask;
     }
 
     // CameraWorker
 
-    public class CameraWorker(string name, string path)
+    public class CameraWorker(string name, string path, ILogger logger)
     {
         private readonly Lock mFrameLock = new();
 
@@ -68,11 +68,13 @@ public class CameraSubsystem : SubsystemBase
 
         public bool IsConnected => mIsConnected;
 
+        private readonly ILogger mLogger = logger;
+
         public Mat? LatestFrame
         {
             get
             {
-                lock(mFrameLock)
+                lock (mFrameLock)
                 {
                     return mLastFrame?.Clone();
                 }
@@ -93,13 +95,15 @@ public class CameraSubsystem : SubsystemBase
                 }
                 catch (Exception ex)
                 {
-                    // TODO: Log
+                    mLogger.LogError("Camera {} encountered an error!\n {}", name, ex);
                 }
-                
+
                 if (!token.IsCancellationRequested)
                 {
                     mIsConnected = false;
-                    // TODO: Log (reconnecting)
+
+                    mLogger.LogWarning("Camera {} reconnecting...", name);
+
                     await Task.Delay(ReconnectDelayMs, token).ConfigureAwait(false);
                 }
             }
@@ -113,12 +117,13 @@ public class CameraSubsystem : SubsystemBase
             using var capture = OpenCapture();
             if (capture is null)
             {
+                logger.LogError("Failed to open camera: {}", name);
                 return;
             }
 
             capture.Set(VideoCaptureProperties.Fps, CameraFps);
             mIsConnected = true;
-            // TODO: Log
+            logger.LogInformation("Camera {} connected!", name);
 
             using var frame = new Mat();
             while (!token.IsCancellationRequested && !mIsStopped)
@@ -126,8 +131,9 @@ public class CameraSubsystem : SubsystemBase
                 var start = DateTime.UtcNow;
                 if (!capture.Read(frame) || frame.Empty())
                 {
-                    // TODO: Log
+                    logger.LogError("Camera {} disconnected!", name);
                     mIsConnected = false;
+
                     return;
                 }
 
@@ -143,9 +149,11 @@ public class CameraSubsystem : SubsystemBase
                 if (remaining > TimeSpan.Zero)
                 {
                     await Task.Delay(remaining, token).ConfigureAwait(false);
-                } else
+                }
+                else
                 {
-                    // TODO: Log we are taking too long to capture frames, low fps
+                    // we are taking too long to capture frames, low fps
+                    logger.LogDebug("Camera {} has low FPS", name);
                 }
             }
         }
@@ -187,7 +195,7 @@ public class CameraSubsystem : SubsystemBase
         public void Cleanup()
         {
             mIsConnected = false;
-            
+
             lock (mFrameLock)
             {
                 mLastFrame?.Dispose();
