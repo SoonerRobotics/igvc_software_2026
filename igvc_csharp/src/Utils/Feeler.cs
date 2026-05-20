@@ -1,4 +1,3 @@
-using System.Drawing;
 using OpenCvSharp;
 
 namespace igvc_csharp.src.Subsystems.Feelers;
@@ -49,7 +48,7 @@ public class Feeler
     public void Update(Mat image)
     {
         int channels = image.Channels();
-        bool success = image.GetArray<int>(out int[] raw_pixels); //FIXME move this outside Update() and have the feeler node itself call it?
+        bool success = image.GetArray(out Vec3b[] raw_pixels); //FIXME move this outside Update() and have the feeler node itself call it?
 
         int x = 0;
         int y = 0;
@@ -62,16 +61,16 @@ public class Feeler
         int y_dir = Max.Y < 0 ? -1 : 1;
 
         double slope = 0;
-        bool slopeIsInfinity = (Max.Y == 0);
+        bool slopeIsInfinity = (Max.X == 0);
 
-        if (slopeIsInfinity)
+        if (!slopeIsInfinity)
         {
             slope = Max.Y / Max.X; // rise over run
         }
 
         // loop until we hit an obstacle or max_length
         bool quit_checking = false;
-        while (!quit_checking) //FIXME having infinite loops sketches me out
+        while (!quit_checking) //FIXME having infinite loops sketches me out ALSO FIXME pass in the cancellation token and check it would be good
         {
             // vertical line, just need to move along the y-axis
             if (slopeIsInfinity)
@@ -117,27 +116,29 @@ public class Feeler
                 // we *probably* exceeded our max, so just set it to max I guess
                 Current = Max;
                 quit_checking = true;
+                continue;
             }
 
             // for every one of the pixel's values (3 for the default BGR for OpenCV, although we should be sending only a B&W image so it should be 1)
             for (int channel = 0; channel < channels; channel++)
             {
-                //reference https://stackoverflow.com/questions/7899108/opencv-get-pixel-channel-value-from-mat-image
-                if (raw_pixels[(coords.X * image.Cols * channels) + (coords.Y * channels) + channel] > 0)
+                if (raw_pixels[(coords.Y * image.Rows) + coords.X][channel] > 0)
                 {
                     // that is our new length
                     Current.X = x * x_dir;
                     Current.Y = y * y_dir;
 
                     quit_checking = true; // and quit so we don't keep looping 'cause we found an obstacle
+                    continue;
                 }
-                else if (Math.Abs(x) > Math.Abs(Max.X)  ||  Math.Abs(y) > Math.Abs(Max.Y))
+                else if (Math.Abs(x) > Math.Abs(Max.X) || Math.Abs(y) > Math.Abs(Max.Y))
                 {
                     // we've gone farther than our maximum, which means we didn't hit an obstacle, so reset
                     Current = Max;
 
                     // and quit checking
                     quit_checking = true;
+                    continue;
                 }
             }
         }
@@ -171,10 +172,21 @@ public class Feeler
     public static Feeler operator +(Feeler a, Feeler b) => new(a.Current + b.Current, a.Color);
     public static Feeler operator -(Feeler a, Feeler b) => new(a.Current - b.Current, a.Color);
 
-    // dot product
+    // normalized dot product, should return like, the cosine of the angle between them
     public static double operator *(Feeler a, Feeler b)
     {
-        return (a.Max.X * b.Max.X) + (a.Max.Y * b.Max.Y);
+        // return (a.Max.X * b.Max.X) + (a.Max.Y * b.Max.Y);
+
+        var aLength = a.Current.Dist(new SCR_Point());
+        var aNormX = a.Current.X / aLength;
+        var aNormY = a.Current.Y / aLength;
+
+        var bLength = b.Current.Dist(new SCR_Point());
+        var bNormX = b.Current.X / bLength;
+        var bNormY = b.Current.Y / bLength;
+
+        //FIXME shouldn't this only normalize one of the feelers? because it's supposed to be like vector projection or something right?
+        return (aNormX * bNormX) + (aNormY * bNormY);
     }
 
     // scalar multiplication

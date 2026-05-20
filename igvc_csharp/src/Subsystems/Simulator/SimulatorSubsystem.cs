@@ -17,7 +17,7 @@ using SocketCANSharp;
 namespace igvc_csharp.Subsystems.Simulator;
 
 [Subsystem("SimulatorSubsystem", Disabled = !Configuration.UseSimulation)]
-public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : SubsystemBase
+public class SimulatorSubsystem : SubsystemBase
 {
     private const Endianness Endianness = Configuration.SimulatorSubsystem.Endianness;
 
@@ -107,8 +107,7 @@ public class SimulatorSubsystem(ControllerSubsystem controllerSubsystem) : Subsy
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Simulator connection error, retrying in {Delay}",
-                    Configuration.SimulatorSubsystem.ReconnectDelay);
+                // Maybe log but it is really obnoxious to have a million log lines about the connection being lost
             }
             finally
             {

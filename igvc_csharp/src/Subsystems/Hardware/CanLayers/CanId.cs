@@ -10,4 +10,9 @@ public enum CanId : uint
     MotorOdometry = 0xE,
     SafetyLights = 0x14,
     HubTelemetry = 0x15,
+    
+    // Current Sensor
+    SSD_COMMAND = 0x3FA,
+    SSD_CURRENT = 0x3F1,
+    SSD_VOLTAGE  = 0x3F3,
 }

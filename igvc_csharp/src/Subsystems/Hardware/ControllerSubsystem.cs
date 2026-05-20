@@ -95,22 +95,24 @@ public class ControllerSubsystem : SubsystemBase
         var count = _sdl.NumJoysticks();
         for (var i = 0; i < count; i++)
         {
-            if (_sdl.IsGameController(i) == SdlBool.True)
+            if (_sdl.IsGameController(i) != SdlBool.True)
             {
-                _controller = _sdl.GameControllerOpen(i);
-                if (_controller == null)
-                {
-                    Logger.LogWarning("Failed to open controller {Index}: {Err}", i, _sdl.GetErrorS());
-                    continue;
-                }
-
-                var joystick = _sdl.GameControllerGetJoystick(_controller);
-                _instanceId = _sdl.JoystickInstanceID(joystick);
-
-                var namePtr = _sdl.GameControllerNameS(_controller);
-                Logger.LogWarning("Connected to controller -> {Name} (instance {Id})", namePtr, _instanceId);
-                return true;
+                continue;
             }
+            
+            _controller = _sdl.GameControllerOpen(i);
+            if (_controller == null)
+            {
+                Logger.LogWarning("Failed to open controller {Index}: {Err}", i, _sdl.GetErrorS());
+                continue;
+            }
+
+            var joystick = _sdl.GameControllerGetJoystick(_controller);
+            _instanceId = _sdl.JoystickInstanceID(joystick);
+
+            var namePtr = _sdl.GameControllerNameS(_controller);
+            Logger.LogWarning("Connected to controller -> {Name} (instance {Id})", namePtr, _instanceId);
+            return true;
         }
 
         return false;
