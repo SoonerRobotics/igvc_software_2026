@@ -53,3 +53,5 @@ replay_pid*
 igvc/target
 
 setup/OpenCV
+
+**/*.Identifier
