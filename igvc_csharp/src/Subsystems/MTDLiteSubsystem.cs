@@ -30,7 +30,7 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
     //FIXME make this configurable, but this is basically the width and height of an autonav course in meters
     private SimplePriorityQueue<(int, int), int> _openSet = new(); //TODO rename to like... "gridMap" or something?
     //FIXME no, _openSet is supposed to be a List<> I think...
-    private int _km = 0;
+    private double _km = 0;
     private int[,] _parents = new int[46, 46]; //FIXME make this size configurable
     private (int, int) _startPos;
     private (int, int) _goalPos;
@@ -78,9 +78,11 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         //k1 = min(self.g[s], self.rhs[s]) + heuristic(self.s_start, s) + self.k_m
         // k2 = min(self.g[s], self.rhs[s])
-        return (
-            Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2]) + Heurisitic(pt, _goalPos) + _km, Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2])
-        );
+        // return (
+        //     Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2]) + Heurisitic(pt, _goalPos) + _km, Math.Min(_gCost[pt.Item1, pt.Item2], _rhs[pt.Item1, pt.Item2])
+        // );
+
+        return -1;
     }
 
     private double Cost((int, int) p1, (int, int) p2)
@@ -107,7 +109,7 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
             {
                 _rhs[x, y] = Infinity;
                 _gCost[x, y] = Infinity;
-                _parents[x, y] = null;
+                // _parents[x, y] = null;
             }
         }
 
@@ -134,57 +136,57 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
         else if (_openSet.Contains(point))
         {
             //FIXME do something if we didn't actually delete it (i.e. if this returns false or if _ and __ are wrong)
-            _openSet.Remove(point, out _, out __);
+            _openSet.Remove(point);
         }
     }
 
     private void ComputeCostMinimalPath()
     {
-        while (_openSet.TryPeek(out topKey, out topPriority) < CalculateKey(_goalPos)
-            || _rhs[_goalPos.Item1, _goalPos.Item2] > _gCost[_goalPos.Item1, _goalPos.Item2])
-        {
-            var workingPt = _openSet.Dequeue();
-            var newMinPriority = CalculateKey(workingPt);
+        // while (_openSet.Dequeue() < CalculateKey(_goalPos)
+        //     || _rhs[_goalPos.Item1, _goalPos.Item2] > _gCost[_goalPos.Item1, _goalPos.Item2])
+        // {
+        //     var workingPt = _openSet.Dequeue();
+        //     var newMinPriority = CalculateKey(workingPt);
 
-            // if our lowest cost node has a lower priority now
-            if (newMinPriority < workingMinPriority)
-            {
-                // then update it ??? FIXME?
-                _openSet.UpdatePriority(workingPt, workingMinPriority);
-            }
-            // otherwise, if the G cost has increased
-            else if (_gCost[workingPt.Item1, workingPt.Item2] > _rhs[workingPt.Item1, workingPt.Item2])
-            {
-                // update the g cost with RHS ???
-                _gCost[workingPt.Item1, workingPt.Item2] = _rhs[workingPt.Item1, workingPt.Item2];
+        //     // if our lowest cost node has a lower priority now
+        //     if (newMinPriority < workingMinPriority)
+        //     {
+        //         // then update it ??? FIXME?
+        //         _openSet.UpdatePriority(workingPt, workingMinPriority);
+        //     }
+        //     // otherwise, if the G cost has increased
+        //     else if (_gCost[workingPt.Item1, workingPt.Item2] > _rhs[workingPt.Item1, workingPt.Item2])
+        //     {
+        //         // update the g cost with RHS ???
+        //         _gCost[workingPt.Item1, workingPt.Item2] = _rhs[workingPt.Item1, workingPt.Item2];
 
-                _openSet.Remove(workingPt); //FIXME actually check if this succeeded
+        //         _openSet.Remove(workingPt); //FIXME actually check if this succeeded
 
-                foreach (var pt in Succ(workingPt))
-                {
-                    if (pt != _startPos && par(pt) == workingPt)
-                    {
-                        _rhs[pt] = Math.Min(???); // ??? line {39} FIXME
-                        if (_rhs[pt] == Infinity)
-                        {
-                            par(pt) = null;
-                        }
-                        else
-                        {
-                            par(pt) = argmin(); // ????? line {43} FIXME
-                        }
-                    }
+        //         foreach (var pt in Succ(workingPt))
+        //         {
+        //             if (pt != _startPos && _parents[pt] == workingPt)
+        //             {
+        //                 // _rhs[pt] = Math.Min(_gCost); // ??? line {39} FIXME
+        //                 if (_rhs[pt] == Infinity)
+        //                 {
+        //                     _parents[pt] = null;
+        //                 }
+        //                 else
+        //                 {
+        //                     // _parents[pt] = argmin(); // ????? line {43} FIXME
+        //                 }
+        //             }
 
-                    UpdateState(pt);
-                }
-            }
-            else
-            {
-                // otherwise this node isn't worth exploring ??? FIXME ???
-                _gCost[workingPt.Item1, workingPt.Item2] = Infinity;
-                //TODO foreach loop (line {36})
-            }
-        }
+        //             UpdateState(pt);
+        //         }
+        //     }
+        //     else
+        //     {
+        //         // otherwise this node isn't worth exploring ??? FIXME ???
+        //         _gCost[workingPt.Item1, workingPt.Item2] = Infinity;
+        //         //TODO foreach loop (line {36})
+        //     }
+        // }
     }
 
     /**
@@ -207,17 +209,16 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
             }
 
             //TODO: identify a path from sstart to sgoal using the parent pointers;
-            while (target not caught AND target on path from sstart to sgoal
-             && no edge costs changed) {
-                hunter follows path from sstart to sgoal;
-            }
+            // while (_currentPos != _goalPos && path.Contains(_goalPos) && no edge costs changed) {
+            //     hunter follows path from sstart to sgoal;
+            // }
             if (_startPos == _goalPos)
             {
                 //FIXME what do we even do here ???
                 return Task.CompletedTask;
             }
-            _startPos = the current state of the hunter;
-            _goalPos = the current state of the target;
+            // _startPos = the current state of the hunter;
+            // _goalPos = the current state of the target;
             _km += Heurisitic(oldGoal, _goalPos);
             if (oldStart != _startPos)
             {
@@ -226,34 +227,36 @@ public class MTDLiteSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                 // c_old = c(u, v);
                 // update the edge cost c(u, v);
-                if (c_old > c(u, v))
-                {
+                // if (c_old > c(u, v))
+                // {
 
-                    if (v != _startPos && _rhs[v] > (_gCost[u] + c(u, v)))
-                    {
-                        par(v) = u;
-                        rhs(v) = _gCost[u] + c(u, v);
-                        UpdateState(v);
-                    }
-                }
-                else
-                {
-                    if (v != _startPos && par(v) == u)
-                    {
-                        // _rhs[v] = mins′∈Pred(v)(g(s′) + c(s′, v));
-                        if (_rhs[v] == Infinity)
-                        {
-                            _par(v) = null;
-                        }
-                        else
-                        {
-                            _par(v) = arg mins′∈Pred(v)(_gCost[s′] + c(s′, v));
-                        }
-                        UpdateState(v);
-                    }
-                }
+                //     if (v != _startPos && _rhs[v] > (_gCost[u] + c(u, v)))
+                //     {
+                //         par(v) = u;
+                //         rhs(v) = _gCost[u] + c(u, v);
+                //         UpdateState(v);
+                //     }
+                // }
+                // else
+                // {
+                //     if (v != _startPos && par(v) == u)
+                //     {
+                //         // _rhs[v] = mins′∈Pred(v)(g(s′) + c(s′, v));
+                //         if (_rhs[v] == Infinity)
+                //         {
+                //             _par(v) = null;
+                //         }
+                //         else
+                //         {
+                //             _par(v) = arg mins′∈Pred(v)(_gCost[s′] + c(s′, v));
+                //         }
+                //         UpdateState(v);
+                //     }
+                // }
                 // return true;
             }
         }
+
+        return Task.CompletedTask;
     }
 }

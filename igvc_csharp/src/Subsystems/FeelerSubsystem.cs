@@ -12,6 +12,7 @@ using igvc_csharp.Core.Hardware;
 using OpenCvSharp;
 using igvc_csharp.src.Subsystems.Feelers;
 using FeelerConfig = igvc_csharp.Configuration.FeelerSubsystem;
+using igvc_csharp.src.Utils;
 
 
 namespace igvc_csharp.src.Subsystems;

@@ -178,10 +178,12 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                 if (AStarConfig.UseAStar)
                 {
+                    Logger.LogInformation("Publishing config space message");
                     //FIXME is this mat gonna have the inflation filter applied to it?
                     // only publish config space message if A* is being used / ran to avoid conflicting with Feelers / Self-Drive
                     var scaled = combinedFiltered.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
-                    var row_array = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
+                    var row_mat = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
+                    row_mat.GetArray<uint>(out var row_array);
 
                     var builder = new FlatBufferBuilder(128);
                     var msgOffset = ConfigSpace.CreateConfigSpace(
@@ -189,7 +191,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         TimeUtils.Now(),
                         AStarConfig.ConfigSpaceWidth,
                         AStarConfig.ConfigSpaceHeight,
-                        new VectorOffset(row_array.ElemSize()) //FIXME I'm pretty sure this is wrong
+                        new VectorOffset(row_array.Length)
                     );
                     builder.Finish(msgOffset.Value);
 
@@ -200,7 +202,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     );
 
                     scaled.Dispose();
-                    row_array.Dispose();
+                    row_mat.Dispose();
                 }
 
                 leftMat.Dispose();
