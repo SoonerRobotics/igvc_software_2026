@@ -1,0 +1,31 @@
+---
+- name: Check if dotnet is already installed
+  stat:
+    path: "{{ ansible_env.HOME }}/.dotnet/dotnet"
+  register: dotnet_bin
+
+- name: Download dotnet-install.sh
+  get_url:
+    url: https://dot.net/v1/dotnet-install.sh
+    dest: /tmp/dotnet-install.sh
+    mode: '0755'
+  when: not dotnet_bin.stat.exists
+
+- name: Run dotnet-install.sh
+  command: /tmp/dotnet-install.sh --channel LTS
+  when: not dotnet_bin.stat.exists
+
+- name: Add .NET to .bashrc
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'export PATH="$HOME/.dotnet:$PATH"'
+    regexp: 'export PATH=.*\.dotnet'
+    state: present
+
+- name: Add .NET to .zshrc
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'export PATH="$HOME/.dotnet:$PATH"'
+    regexp: 'export PATH=.*\.dotnet'
+    state: present
+  ignore_errors: yes
