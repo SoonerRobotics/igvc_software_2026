@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR=$(pwd)
 ZIP_URL="https://cdn.soonerrobotics.org/scr/vn.zip"
 INSTALL_DIR="/usr/local/vectornav"
 TMP_DIR="/tmp/vectornav_install"
@@ -40,3 +41,14 @@ cmake ..
 make -j4
 
 echo "VectorNav SDK installed successfully at $INSTALL_DIR"
+
+# get back to the actual igvc software repository
+cd "$SCRIPT_DIR"
+cd "../igvc_vectornav"
+
+mkdir build
+cd build
+
+# cmake the vectornav CPP executable
+cmake ..
+cmake --build .
