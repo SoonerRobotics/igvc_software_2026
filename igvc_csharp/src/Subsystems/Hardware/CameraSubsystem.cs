@@ -1,0 +1,203 @@
+using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
+using igvc_csharp.Events;
+using igvc_csharp.Utils;
+using igvc_csharp.Utils.Messages;
+using Microsoft.Extensions.Logging;
+using OpenCvSharp;
+
+namespace igvc_csharp.Subsystems.Hardware;
+
+[Subsystem("CameraSubsystem")]
+public class CameraSubsystem : SubsystemBase
+{
+    // Configuration
+
+    [Config("subsystem.camera.left_path")]
+    public static readonly string LeftCameraPath = "0";
+
+    [Config("subsystem.camera.right_path")]
+    public static readonly string RightCameraPath = "1";
+
+    [Config("subsystem.camera.fps")]
+    public static readonly int CameraFps = 12;
+
+    [Config("subsystem.camera.reconnect_delay_ms")]
+    public static readonly int ReconnectDelayMs = 2000;
+    
+    // Implementation
+
+    private CameraWorker? mLeftWorker;
+    private CameraWorker? mRightWorker;
+
+    public override Task Init(CancellationToken token)
+    {        
+        mLeftWorker = new CameraWorker("left", LeftCameraPath);
+        mRightWorker = new CameraWorker("right", RightCameraPath);
+
+        Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
+    {
+        if (!e.Path.StartsWith("subsystem.camera"))
+        {
+            return Task.CompletedTask;
+        }
+
+        mLeftWorker?.Stop();
+        mLeftWorker = new CameraWorker("left", (string)e.Value);
+
+        mRightWorker?.Stop();
+        mRightWorker = new CameraWorker("right", (string)e.Value);
+
+        return Task.CompletedTask;
+    }
+
+    // CameraWorker
+
+    public class CameraWorker(string name, string path)
+    {
+        private readonly Lock mFrameLock = new();
+
+        private Mat? mLastFrame;
+        private volatile bool mIsConnected;
+        private volatile bool mIsStopped = false;
+
+        public bool IsConnected => mIsConnected;
+
+        public Mat? LatestFrame
+        {
+            get
+            {
+                lock(mFrameLock)
+                {
+                    return mLastFrame?.Clone();
+                }
+            }
+        }
+
+        public async Task RunAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested && !mIsStopped)
+            {
+                try
+                {
+                    await ConnectAndCaptureAsync(token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    // TODO: Log
+                }
+                
+                if (!token.IsCancellationRequested)
+                {
+                    mIsConnected = false;
+                    // TODO: Log (reconnecting)
+                    await Task.Delay(ReconnectDelayMs, token).ConfigureAwait(false);
+                }
+            }
+
+            Cleanup();
+        }
+
+        private async Task ConnectAndCaptureAsync(CancellationToken token)
+        {
+            var interval = TimeSpan.FromSeconds(1.0 / CameraFps);
+            using var capture = OpenCapture();
+            if (capture is null)
+            {
+                return;
+            }
+
+            capture.Set(VideoCaptureProperties.Fps, CameraFps);
+            mIsConnected = true;
+            // TODO: Log
+
+            using var frame = new Mat();
+            while (!token.IsCancellationRequested && !mIsStopped)
+            {
+                var start = DateTime.UtcNow;
+                if (!capture.Read(frame) || frame.Empty())
+                {
+                    // TODO: Log
+                    mIsConnected = false;
+                    return;
+                }
+
+                lock (mFrameLock)
+                {
+                    mLastFrame?.Dispose();
+                    mLastFrame = frame.Clone();
+                }
+                BroadcastFrame();
+
+                var elapsed = DateTime.UtcNow - start;
+                var remaining = interval - elapsed;
+                if (remaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(remaining, token).ConfigureAwait(false);
+                } else
+                {
+                    // TODO: Log we are taking too long to capture frames, low fps
+                }
+            }
+        }
+
+        private void BroadcastFrame()
+        {
+            if (mLastFrame == null)
+            {
+                return;
+            }
+
+            byte[] frameBytes;
+            lock (mFrameLock)
+            {
+                frameBytes = CvUtils.FromMat(mLastFrame);
+            }
+
+            var frame = MessageConstructor.CreateImageFrame(1280, 720, name, frameBytes);
+            var msg = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer);
+            EventBus.Instance.Publish(msg);
+        }
+
+        private VideoCapture? OpenCapture()
+        {
+            try
+            {
+                // try iint if available, else use as path
+                var capture = int.TryParse(path, out var idx)
+                    ? new VideoCapture(idx)
+                    : new VideoCapture(path);
+                return capture.IsOpened() ? capture : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public void Cleanup()
+        {
+            mIsConnected = false;
+            
+            lock (mFrameLock)
+            {
+                mLastFrame?.Dispose();
+                mLastFrame = null;
+            }
+        }
+
+        public void Stop()
+        {
+            mIsStopped = true;
+        }
+    }
+}

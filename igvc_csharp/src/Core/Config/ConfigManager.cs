@@ -21,7 +21,7 @@ public static class ConfigManager
 
         foreach (var type in types)
         {
-            foreach (var field in type.GetFields( BindingFlags.Static | BindingFlags.Public))
+            foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.Public))
             {
                 var attr = field.GetCustomAttribute<ConfigAttribute>();
                 if (attr == null)

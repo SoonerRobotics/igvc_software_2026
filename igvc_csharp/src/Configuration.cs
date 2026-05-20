@@ -60,18 +60,6 @@ public static class Configuration
     public static class Hardware
     {
         public static bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-
-        /// <summary>
-        /// The name of the interface where the Canbus is connected to.
-        /// </summary>
-        [Config("hardware.can.interface")]
-        public const string CanbusInterface = "can0";
-
-        /// <summary>
-        /// How often to retry our connection to the Canbus.
-        /// </summary>
-        [Config("hardware.can.timeout")]
-        public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
     }
 
     // Subsystem Constants

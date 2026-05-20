@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading.Channels;
+using igvc_csharp.Events;
+using igvc_csharp.Utils.Messages;
 
 namespace igvc_csharp.Core;
 
@@ -38,6 +40,11 @@ public sealed class EventBus
         {
             ((Subscription<T>)sub).TryWrite(evt);
         }
+    }
+
+    public void Publish(MessageWrapper wrapper)
+    {
+        Publish<MessageWrapperEvent>(new MessageWrapperEvent(wrapper));
     }
 
     private interface ISubscription

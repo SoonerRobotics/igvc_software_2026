@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Subsystems.Simulator;
@@ -17,6 +18,14 @@ public class CanbusSubsystem(
     ChronosSubsystem? chronos
 ) : SubsystemBase
 {
+    // Configuration
+
+    [Config("hardware.can.interface")]
+    public const string CanbusInterface = "can0";
+
+    [Config("hardware.can.timeout")]
+    public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
+
     // Variables
     private CanNetworkInterface? _canNetwork;
     private RawCanSocket? _canSocket;
@@ -68,7 +77,7 @@ public class CanbusSubsystem(
 
     private static CanNetworkInterface? FindNetwork()
     {
-        const string inter = Configuration.Hardware.CanbusInterface;
+        const string inter = CanbusInterface;
         return CanNetworkInterface
             .GetAllInterfaces(true)
             .First(ifc => ifc.Name.Equals(inter));
@@ -168,7 +177,7 @@ public class CanbusSubsystem(
             if (!_connected || _canSocket == null)
             {
                 ConnectSocket();
-                await Task.Delay(Configuration.Hardware.CanbusTimeout, token);
+                await Task.Delay(CanbusTimeout, token);
                 continue;
             }
 
