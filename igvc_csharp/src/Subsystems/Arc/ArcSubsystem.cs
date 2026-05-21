@@ -81,7 +81,7 @@ public class ArcSubsystem : SubsystemBase
 
         _outgoingSendTask = Task.Run(() => ArcSendLoop(_internalCts.Token), _internalCts.Token);
 
-        _server = new JpegServer("http://localhost:8001/");
+        _server = new JpegServer("http://*:8001/");
         _ = _server.StartAsync(token);
 
         Subscribe<MessageWrapperEvent>(OnMessageEvent, token);

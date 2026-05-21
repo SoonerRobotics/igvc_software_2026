@@ -51,7 +51,7 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
 
 export const useRobotStore = create<RobotState>((set, get) => ({
     connected: false,
-    path: "ws://localhost:8080",
+    path: "ws://192.168.1.83:8080",
     setPath: (path: string) => set({ path }),
 
     connect: () => {
