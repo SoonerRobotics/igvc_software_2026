@@ -228,7 +228,7 @@ public static class Configuration
         /// Whether to use feelers or not (as opposed to, e.x. the A* subsystem)
         /// </summary>
         [Config("feelers.use_feelers")]
-        public const bool UseFeelers = false;
+        public const bool UseFeelers = true;
 
         /// <summary>
         /// Default (unbiased) max length of the vision feelers, in pixels
@@ -259,6 +259,13 @@ public static class Configuration
         /// </summary>
         [Config("feelers.balace_feelers")]
         public const bool BalanceFeelers = true;
+
+        /// <summary>
+        /// Whether to use only GPS waypoints and ignore obstacles or not
+        /// </summary>
+        [Config("feelers.use_only_waypoints")]
+        public const bool UseOnlWaypoints = false;
+
         /// <summary>
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
         /// </summary>
