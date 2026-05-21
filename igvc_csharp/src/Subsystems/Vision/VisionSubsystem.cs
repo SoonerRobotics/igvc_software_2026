@@ -36,8 +36,8 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         AddFilters(BaseRobot.Instance.State);
 
-        SubscribeImage("left_view", OnLeftImageReceived, token);
-        SubscribeImage("right_view", OnRightImageReceived, token);
+        SubscribeImage("left", OnLeftImageReceived, token);
+        SubscribeImage("right", OnRightImageReceived, token);
 
         _ = Task.Factory.StartNew(
             () => ImageProcessingTask(token),

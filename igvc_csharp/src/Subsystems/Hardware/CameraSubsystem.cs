@@ -14,13 +14,13 @@ public class CameraSubsystem : SubsystemBase
     // Configuration
 
     [Config("subsystem.camera.left_path")]
-    public static readonly string LeftCameraPath = "0";
+    public static readonly string LeftCameraPath = "/dev/video0";
 
     [Config("subsystem.camera.right_path")]
-    public static readonly string RightCameraPath = "2"; // the global shutter cameras are weird and have 2 /video devices per camera
+    public static readonly string RightCameraPath = "/dev/video2"; // the global shutter cameras are weird and have 2 /video devices per camera
 
     [Config("subsystem.camera.fps")]
-    public static readonly int CameraFps = 12;
+    public static readonly int CameraFps = 12; //TODO is there a reason this is here instead of in Configuration.cs?
 
     [Config("subsystem.camera.reconnect_delay_ms")]
     public static readonly int ReconnectDelayMs = 2000;
