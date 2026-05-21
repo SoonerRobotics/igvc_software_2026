@@ -9,7 +9,7 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-[Subsystem("YoloTestSubsystem", Disabled = false)]
+[Subsystem("YoloTestSubsystem", Disabled = true)]
 public class YoloTestSubsystem : SubsystemBase
 {
     private YoloDetector? _detector;

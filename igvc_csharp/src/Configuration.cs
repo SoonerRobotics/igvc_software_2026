@@ -21,7 +21,7 @@ public static class Configuration
     /// Determines if the robot will use the simulator.
     /// </summary>
     [Config("simulation.enabled")]
-    public const bool UseSimulation = true;
+    public const bool UseSimulation = false;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -252,13 +252,13 @@ public static class Configuration
         /// How many feelers to make across the specified arc.
         /// </summary>
         [Config("feelers.num_feelers")]
-        public const int NumFeelers = 32;
+        public const int NumFeelers = 24;
 
         /// <summary>
         /// TODO
         /// </summary>
         [Config("feelers.balace_feelers")]
-        public const bool BalanceFeelers = true;
+        public const bool BalanceFeelers = false;
 
         /// <summary>
         /// Whether to use only GPS waypoints and ignore obstacles or not

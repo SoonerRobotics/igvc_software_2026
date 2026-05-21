@@ -1,3 +1,4 @@
+using igvc_csharp.src.Utils;
 using OpenCvSharp;
 
 namespace igvc_csharp.src.Subsystems.Feelers;
@@ -26,13 +27,18 @@ public class Feeler
         Color = color;
     }
 
+    public override string ToString()
+    {
+        return $"({Current.X}, {Current.Y})";
+    }
+
     public void Draw(Mat image)
     {
         image.Line(
-            CenterCoordinates(new SCR_Point(0, 0), image.Rows, image.Cols).GetOpenCvPoint(),
-            CenterCoordinates(Current, image.Rows, image.Cols).GetOpenCvPoint(),
+            CenterCoordinates(new SCR_Point(0, 0), image.Width, image.Height).GetOpenCvPoint(),
+            CenterCoordinates(Current, image.Width, image.Height).GetOpenCvPoint(),
             Lerp(Color), //FIXME who do we want to control color interpolation???
-            2 //FIXME line width
+            3
         );
     }
 
@@ -149,13 +155,20 @@ public class Feeler
         Max *= amount;
     }
 
-    //FIXME if we are only doing 1 forward camera and no others then we should change this to only center the x coordinate and have the y coordinates be elsewhere
-    // or make it configurable or something is probably the better answer...
+    /// <summary>
+    /// Copied and pasted from https://github.com/SoonerRobotics/autonav_software_2025/blob/main/autonav_ws/src/autonav_feelers/src/feeler.cpp
+    /// flip y coordinate, because if the top-left corner of an image is the origin, 
+    /// then the x axis will still work like normal (left is negative, etc) but the y axis will not
+    /// </summary>
+    /// <param name="p"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    /// <returns></returns>
     public static SCR_Point CenterCoordinates(SCR_Point p, int width, int height)
     {
         return new SCR_Point(
-            p.X + width / 2,
-            p.Y + height / 2
+            p.X + (width / 2),
+            -p.Y + (height / 2) //FIXME we want this to be lower in the image because it's not 4 cameras right?
         );
     }
 
