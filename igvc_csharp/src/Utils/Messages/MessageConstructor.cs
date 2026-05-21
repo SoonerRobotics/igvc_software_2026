@@ -78,25 +78,4 @@ public static class MessageConstructor
         
         return CanMessage.GetRootAsCanMessage(new ByteBuffer(builder.SizedByteArray()));
     }
-
-    public static ArcHistogram CreateHistogram(ColorUtils.ColorRange range, int padding = 0)
-    {
-        // var builder = new FlatBufferBuilder(1024);
-        // range = range.WithPadding(padding);
-        // var histogramOffset = ArcHistogram.CreateArcHistogram(
-        //     builder,
-        //     TimeUtilities.Now(),
-        //     0,
-        //     (float)range.MinHue,
-        //     (float)range.MaxHue,
-        //     (float)range.MinSaturation,
-        //     (float)range.MaxSaturation,
-        //     (float)range.MinValue,
-        //     (float)range.MaxValue
-        // );
-        // builder.Finish(histogramOffset.Value);
-        //
-        // return ArcHistogram.GetRootAsArcHistogram(new ByteBuffer(builder.SizedByteArray()));
-        return ArcHistogram.GetRootAsArcHistogram(null);
-    }
 }

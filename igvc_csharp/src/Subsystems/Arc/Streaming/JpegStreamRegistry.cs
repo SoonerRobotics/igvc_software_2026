@@ -20,7 +20,6 @@ public static class JpegStreamRegistry
 
     public static void Publish(string streamId, byte[] jpegBytes)
     {
-        Console.WriteLine($"Publishing to stream {streamId}, size: {jpegBytes.Length} bytes");
         var channel = GetOrCreate(streamId);
         channel.Writer.TryWrite(jpegBytes);
     }

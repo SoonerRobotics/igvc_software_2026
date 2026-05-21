@@ -24,6 +24,7 @@
       <PackageReference Include="OpenCvSharp4.official.runtime.linux-x64" Version="4.13.0.20260329" />
       <PackageReference Include="SocketCANSharp" Version="0.13.0" />
       <PackageReference Include="Silk.NET.SDL" Version="2.22.0" />
+      <PackageReference Include="Stereolabs.zed" Version="5.3.0" />
       <PackageReference Include="System.CommandLine" Version="2.0.2" />
       <PackageReference Include="System.IO.Hashing" Version="10.0.1" />
       <PackageReference Include="YoloSharp.Gpu" Version="6.1.0" />

@@ -1,5 +1,7 @@
 using igvc_csharp.Core;
 using igvc_csharp.Core.Chronos;
+using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Utils;
 using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp;
@@ -9,6 +11,7 @@ public static class Logging
 
     private static ILoggerFactory? _factory;
     private static AbstractChronosSubsystem? _chronos;
+    private static ArcSubsystem? _arc;
 
     private static ILoggerFactory Factory
     {
@@ -22,18 +25,19 @@ public static class Logging
             _factory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(Configuration.Logging.Level);
-                builder.AddConsole();
+                builder.AddSimpleConsole(options =>
+                {
+                    options.SingleLine = true;
+                    options.TimestampFormat = "HH:mm:ss ";
+                });                
                 builder.AddProvider(new LogInterceptorProvider((cat, level, id, message, ex) =>
                 {
-                    // Try and get the Chronos instance
-                    if (_chronos == null)
-                    {
-                        _chronos = BaseRobot.Instance?.GetSubsystem<AbstractChronosSubsystem>();
-                        if (_chronos == null)
-                        {
-                            return;
-                        }
+                    // Try and get the Chronos/Arc instance
+                    _chronos ??= BaseRobot.Instance?.GetSubsystem<AbstractChronosSubsystem>();
+                    _arc ??= BaseRobot.Instance?.GetSubsystem<ArcSubsystem>();
 
+                    if (_chronos != null)
+                    {
                         // Cat (string), Level (byte), EventId (int), EventName (string), Message (string), ExceptionExists (bool), ExceptionMessage (string)
                         var ms = new MemoryStream();
                         using var bw = new BinaryWriter(ms);
@@ -48,6 +52,18 @@ public static class Logging
                             bw.Write(ex.ToString());
                         }
                         _chronos?.WriteEntry(EntryTypeId.SessionLog, ms.ToArray());
+                    }
+
+                    if (_arc != null)
+                    {
+                        var msg = ArcUtils.CreateArcData_Log(
+                            cat,
+                            (byte)level,
+                            id.Id,
+                            id.Name ?? string.Empty,
+                            message
+                        );
+                        _arc.BroadcastAsync(msg, CancellationToken.None).ConfigureAwait(false);
                     }
                 }));
             });

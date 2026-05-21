@@ -37,7 +37,7 @@ public sealed class SubsystemProperty<T> : AbstractSubsystemProperty
     {
         value = val;
         history.Enqueue(new SubsystemPropertyUpdate<T>(key, val));
-        parent.OnPropertyUpdated(key, val);
+        parent?.OnPropertyUpdated(key, val); //FIXME we need to make parent not null or something I think?
     }
 
     public T? Get()

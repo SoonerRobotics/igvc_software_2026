@@ -7,10 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace igvc_csharp.Subsystems;
 
-[Subsystem("ManualControlSubsystem", DependsOn=[
-    typeof(ControllerSubsystem),
-    typeof(ChronosSubsystem)
-])]
+[Subsystem("ManualControlSubsystem")]
 public class ManualControlSubsystem(
     ControllerSubsystem controller,
     ChronosSubsystem chronos,
@@ -37,15 +34,12 @@ public class ManualControlSubsystem(
         while (await timer.WaitForNextTickAsync(token))
         {
             // Only send in manual mode
-            if (IgvcRobot.Instance?.State.Mode != RobotModeEnum.Manual)
+            if (BaseRobot.Instance?.State.Mode != RobotModeEnum.Manual)
             {
                 continue;
             }
             
-            // Logger.LogDebug("Sending velocities: Forward={ForwardVelocity} m/s, Sideways={SidewaysVelocity} m/s, Angular={AngularVelocity} rad/s",
-            //     _forwardVelocity, _sidewaysVelocity, _angularVelocity);
             canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
-            // canbus?.MotorControl.SetVelocities(1, _sidewaysVelocity, _angularVelocity);
         }
     }
 
@@ -131,10 +125,10 @@ public class ManualControlSubsystem(
             }
 
             _dpadDepressedAt = null;
-            SetRobotMission(IgvcRobot.Instance?.State.Mission == MissionEnum.Autonav
+            SetRobotMission(BaseRobot.Instance?.State.Mission == MissionEnum.Autonav
                 ? MissionEnum.Selfdrive
                 : MissionEnum.Autonav);
-            Logger.LogDebug("Switching Mission: {Mission}", IgvcRobot.Instance?.State.Mission);
+            Logger.LogDebug("Switching Mission: {Mission}", BaseRobot.Instance?.State.Mission);
         };
         
         // Rotation

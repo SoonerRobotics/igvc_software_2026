@@ -5,17 +5,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Channels;
-using System.Threading.Tasks;
-using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc.Streaming;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Messages.Arc;
-using Messages.Performance;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -38,7 +34,7 @@ public class ArcSubsystem : SubsystemBase
         {
             SingleReader = true,
             SingleWriter = false,
-            FullMode     = BoundedChannelFullMode.DropOldest
+            FullMode = BoundedChannelFullMode.DropOldest
         });
 
     private readonly Dictionary<ArcCommandId, List<MethodInfo>> _commandMethods = new();
@@ -65,6 +61,7 @@ public class ArcSubsystem : SubsystemBase
                 value = [];
                 _commandMethods[attrib.Command] = value;
             }
+
             value.Add(method);
         }
 
@@ -115,7 +112,9 @@ public class ArcSubsystem : SubsystemBase
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Arc send loop crashed");
@@ -192,15 +191,23 @@ public class ArcSubsystem : SubsystemBase
         catch
         {
             _clients.TryRemove(guid, out _);
-            try { socket.Dispose(); } catch { /* ignore */ }
+            try
+            {
+                socket.Dispose();
+            }
+            catch
+            {
+                /* ignore */
+            }
         }
     }
 
     // Keep old signature for any external callers
     public Task SendToClient(Guid guid, byte[] message, CancellationToken token = default)
     {
-        if (!_clients.TryGetValue(guid, out var socket)) return Task.CompletedTask;
-        return SendToClient(guid, socket, new ArraySegment<byte>(message), token);
+        return !_clients.TryGetValue(guid, out var socket)
+            ? Task.CompletedTask
+            : SendToClient(guid, socket, new ArraySegment<byte>(message), token);
     }
 
     private static async Task WaitForPortAsync(int port, CancellationToken token)
@@ -214,10 +221,19 @@ public class ArcSubsystem : SubsystemBase
                 listener.Start();
                 return;
             }
-            catch (SocketException) { }
+            catch (SocketException)
+            {
+            }
             finally
             {
-                try { listener?.Stop(); } catch { /* ignore */ }
+                try
+                {
+                    listener?.Stop();
+                }
+                catch
+                {
+                    /* ignore */
+                }
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(500), token);
@@ -233,16 +249,31 @@ public class ArcSubsystem : SubsystemBase
 
         foreach (var (_, socket) in _clients)
         {
-            try { await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server Shutdown", CancellationToken.None); }
-            catch { /* ignore */ }
+            try
+            {
+                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server Shutdown", CancellationToken.None);
+            }
+            catch
+            {
+                /* ignore */
+            }
+
             socket.Dispose();
         }
+
         _clients.Clear();
 
         if (_host != null)
         {
-            try   { await _host.StopAsync(TimeSpan.FromSeconds(5)); }
-            catch { /* ignore */ }
+            try
+            {
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+            }
+            catch
+            {
+                /* ignore */
+            }
+
             _host.Dispose();
             _host = null;
         }
@@ -278,7 +309,7 @@ public class ArcSubsystem : SubsystemBase
             return;
         }
 
-        var socket   = await ctx.WebSockets.AcceptWebSocketAsync();
+        var socket = await ctx.WebSockets.AcceptWebSocketAsync();
         var clientId = Guid.NewGuid();
         _clients[clientId] = socket;
 
@@ -288,7 +319,7 @@ public class ArcSubsystem : SubsystemBase
 
     private async Task ReceiveLoop(Guid clientId, WebSocket socket, CancellationToken token)
     {
-        var readBuffer  = ArrayPool<byte>.Shared.Rent(Configuration.ArcSubsystem.ReceiveBufferSize);
+        var readBuffer = ArrayPool<byte>.Shared.Rent(Configuration.ArcSubsystem.ReceiveBufferSize);
         var accumulator = new MessageAccumulator(
             Endianness,
             wrapper =>
@@ -312,7 +343,9 @@ public class ArcSubsystem : SubsystemBase
                 accumulator.Append(readBuffer.AsSpan(0, result.Count));
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "ARC receive error for client {ClientId}", clientId);
@@ -322,7 +355,15 @@ public class ArcSubsystem : SubsystemBase
             ArrayPool<byte>.Shared.Return(readBuffer);
             accumulator.Dispose();
             _clients.TryRemove(clientId, out _);
-            try { socket.Dispose(); } catch { /* ignore */ }
+            try
+            {
+                socket.Dispose();
+            }
+            catch
+            {
+                /* ignore */
+            }
+
             Logger.LogInformation("ARC client disconnected {ClientId}", clientId);
         }
     }
@@ -345,7 +386,7 @@ public class ArcSubsystem : SubsystemBase
                 var clazz = method.DeclaringType;
                 if (clazz == null) continue;
 
-                var instance   = IgvcRobot.Instance.GetSubsystem(clazz);
+                var instance = BaseRobot.Instance?.GetSubsystem(clazz);
                 var parameters = method.GetParameters();
                 switch (parameters.Length)
                 {

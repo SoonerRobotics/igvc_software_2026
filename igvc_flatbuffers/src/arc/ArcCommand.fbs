@@ -1,6 +1,6 @@
 namespace {NAMESPACE_PLACEHOLDER}.arc;
 
-enum ArcCommandId : byte {
+enum ArcCommandId : uint {
     // Default
     UnknownCommand = 0x00,
 
@@ -14,9 +14,14 @@ enum ArcCommandId : byte {
     ToolsStopHsvCalibration = 0x05,
     ToolsEditHsvCalibration = 0x06,
     ToolsSaveHsvCalibration = 0x07,
+
+    // Current Sensor
+    CurrentSensorInitialize = 0x100,
+    CurrentSensorSetBaudrate = 0x101,
+    CurrentSensorSaveEeprom = 0x102,
 }
 
-enum ArcCommandPurpose : byte {
+enum ArcCommandPurpose : uint {
     // Default
     UnknownPurpose = 0x00,
 
@@ -26,10 +31,10 @@ enum ArcCommandPurpose : byte {
 }
 
 table ArcCommand {
-    // The timestamp of the image frame in microseconds
+    // The timestamp of the arc command in microseconds
     timestamp: ulong;
 
-    // The sequence number of the image frame
+    // The sequence number of the arc command
     sequence_number: uint;
 
     // The purpose of this arc command, 0 = request and 1 = acknowledgment

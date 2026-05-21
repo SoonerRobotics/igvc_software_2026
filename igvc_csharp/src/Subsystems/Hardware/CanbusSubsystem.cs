@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Subsystems.Simulator;
@@ -11,14 +12,20 @@ using SocketCANSharp.Network;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CanbusSubsystem", DependsOn = [
-    typeof(ChronosSubsystem)
-])]
+[Subsystem("CanbusSubsystem")]
 public class CanbusSubsystem(
-    SimulatorSubsystem? simulatorSubsystem,
-    ChronosSubsystem chronos
+    // SimulatorSubsystem? simulatorSubsystem,
+    ChronosSubsystem? chronos
 ) : SubsystemBase
 {
+    // Configuration
+
+    [Config("hardware.can.interface")]
+    public const string CanbusInterface = "can0";
+
+    [Config("hardware.can.timeout")]
+    public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
+
     // Variables
     private CanNetworkInterface? _canNetwork;
     private RawCanSocket? _canSocket;
@@ -29,11 +36,13 @@ public class CanbusSubsystem(
     // Layers
     public SafetyLightsLayer SafetyLights = null!;
     public MotorControlLayer MotorControl = null!;
+    public CurrentSensorLayer CurrentSensor = null!;
     
     public override Task Init(CancellationToken token)
     {
         SafetyLights = new SafetyLightsLayer(this);
         MotorControl = new MotorControlLayer(this);
+        CurrentSensor = new CurrentSensorLayer(this);
         
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
@@ -68,7 +77,7 @@ public class CanbusSubsystem(
 
     private static CanNetworkInterface? FindNetwork()
     {
-        const string inter = Configuration.Hardware.CanbusInterface;
+        const string inter = CanbusInterface;
         return CanNetworkInterface
             .GetAllInterfaces(true)
             .First(ifc => ifc.Name.Equals(inter));
@@ -168,7 +177,7 @@ public class CanbusSubsystem(
             if (!_connected || _canSocket == null)
             {
                 ConnectSocket();
-                await Task.Delay(Configuration.Hardware.CanbusTimeout, token);
+                await Task.Delay(CanbusTimeout, token);
                 continue;
             }
 
@@ -181,7 +190,7 @@ public class CanbusSubsystem(
                     continue;
                 }
                 
-                chronos.WriteCan(frame);
+                chronos?.WriteCan(frame);
                 EventBus.Instance.Publish(new CanFrameEvent(frame));
             }
             catch (ObjectDisposedException ex)
@@ -202,7 +211,7 @@ public class CanbusSubsystem(
         // If we are simulator, write to it instead
         if (Configuration.UseSimulation)
         {
-            simulatorSubsystem?.SendCanFrame(frame);
+            // simulatorSubsystem?.SendCanFrame(frame);
             return;
         }
         

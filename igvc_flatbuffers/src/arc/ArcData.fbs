@@ -1,0 +1,17 @@
+namespace {NAMESPACE_PLACEHOLDER}.arc;
+
+table ArcData {
+    // The timestamp of the arc data in microseconds
+    timestamp: ulong;
+
+    // The sequence number of the arc data
+    sequence_number: uint;
+
+    // The identifier for this arc data
+    data_identifier: string;
+
+    // The actual data payload, stored as a byte vector
+    data_payload: [ubyte];
+}
+
+root_type ArcData;

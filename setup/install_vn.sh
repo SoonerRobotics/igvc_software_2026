@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR=$(pwd)
 ZIP_URL="https://cdn.soonerrobotics.org/scr/vn.zip"
 INSTALL_DIR="/usr/local/vectornav"
 TMP_DIR="/tmp/vectornav_install"
+USER_TO_ADD=${logname}
 
 # check if /usr/local/vectornav exists
 if [ -d "$INSTALL_DIR" ]; then
@@ -40,3 +42,17 @@ cmake ..
 make -j4
 
 echo "VectorNav SDK installed successfully at $INSTALL_DIR"
+
+# get back to the actual igvc software repository
+cd "$SCRIPT_DIR"
+cd "../igvc_vectornav"
+
+mkdir build
+cd build
+
+# cmake the vectornav CPP executable
+cmake ..
+cmake --build .
+
+# add user to dialout group
+sudo adduser $USER_TO_ADD dialout

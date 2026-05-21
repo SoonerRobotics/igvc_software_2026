@@ -1,12 +1,4 @@
-using System.Collections.Concurrent;
-using System.Reflection.Metadata;
-using System.Runtime.InteropServices;
 using igvc_csharp.Core;
-using igvc_csharp.Events;
-using igvc_csharp.Messages;
-using igvc_csharp.Subsystems;
-using igvc_csharp.Subsystems.Arc;
-using igvc_csharp.Subsystems.Simulator;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
@@ -17,14 +9,9 @@ namespace igvc_csharp.Subsystems.Hardware;
 
 
 //TODO: make this subsystem like, configurable and everything
-[Subsystem("AudioSubsystem", DependsOn = [typeof(ChronosSubsystem)])]
-public class AudioSubsystem(
-    SimulatorSubsystem? simulatorSubsystem,
-    ChronosSubsystem chronos
-) : SubsystemBase
+[Subsystem("AudioSubsystem")]
+public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
 {
-    private bool _isPlayingSound = false;
-    private string _currentPlayingSound = ""; //FIXME not sure if we need/want this
     private Process? _process;
 
     public override Task Init(CancellationToken token)
@@ -46,35 +33,32 @@ public class AudioSubsystem(
 
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
-        //Logger.LogDebug("YES WE ARE GETTING CALLED!!!!");
-        
         // check for a change in mode
         if (old.Mode != updated.Mode)
         {
-            if (updated.Mode == RobotModeEnum.Autonomous)
+            switch (updated.Mode)
             {
-                if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
-                {
+                case RobotModeEnum.Autonomous when BaseRobot.Instance != null && BaseRobot.Instance.State.Mission == MissionEnum.Autonav:
                     PlaySound("autonav-mode.mp3");
-                }
-                else
-                {
+                    break;
+                case RobotModeEnum.Autonomous:
                     PlaySound("self-drive.mp3");
-                }
-            }
-            else if (updated.Mode == RobotModeEnum.Manual)
-            {
-                PlaySound("self-drive2.mp3");
-            }
-            else if (updated.Mode == RobotModeEnum.Disabled)
-            {
-                //TODO I don't think we need a sound for this (?) but it's here...
+                    break;
+                case RobotModeEnum.Manual:
+                    PlaySound("self-drive2.mp3");
+                    break;
+                case RobotModeEnum.Disabled:
+                    //TODO I don't think we need a sound for this (?) but it's here...
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
+        
         // no change in robot mode, so it must be something else that changed (i.e. mission or mobility)
         else
         {
-            if (BaseRobot.Instance.State.MotionAllowed)
+            if (BaseRobot.Instance != null && BaseRobot.Instance.State.MotionAllowed)
             {
                 PlaySound("mobility-enable.mp3");
             }
@@ -106,7 +90,7 @@ public class AudioSubsystem(
     {
         SetOperatingState(SubsystemState.Operating);
 
-        string relativeFilename = FileUtils.GetFileRelativeToRoot("resources/" + filename);
+        string relativeFilename = FileUtils.GetFileRelativeToRoot("resources/audio/" + filename);
 
         Logger.LogDebug("Playing sound: " + relativeFilename);
 
@@ -116,7 +100,7 @@ public class AudioSubsystem(
             playSound.StartInfo.FileName = "ffplay"; //TODO FIXME
             playSound.StartInfo.CreateNoWindow = true; // no GUI on the headless NUC
             playSound.StartInfo.ErrorDialog = false;
-            playSound.StartInfo.Arguments = " -nodisp -volume 100 -autoexit " + relativeFilename; //FIXME any other ffplay arguments we need to pass
+            playSound.StartInfo.Arguments = " -nodisp -volume 100 -autoexit -loglevel 8 " + relativeFilename; //FIXME any other ffplay arguments we need to pass
 
             // I'm pretty sure this is non-blocking so we should keep track of it
             // there's a .WaitForExit() and a Kill() and a HasExited we can use and check
@@ -128,10 +112,9 @@ public class AudioSubsystem(
 
     private Task StopAllSounds(CancellationToken token)
     {
-        _process.Kill();
-        _isPlayingSound = false;
+        _process?.Kill();
 
-        // SetOperatingState(SubsystemState.Idle);
+        SetOperatingState(SubsystemState.Idle);
 
         return Task.CompletedTask;
     }
@@ -140,8 +123,7 @@ public class AudioSubsystem(
     {
         SetOperatingState(SubsystemState.ShuttingDown);
 
-        _process.Kill();
-        _isPlayingSound = false;
+        _process?.Kill();
 
         SetOperatingState(SubsystemState.Shutdown);
 

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
@@ -13,16 +12,16 @@ using igvc_csharp.Core.Hardware;
 using OpenCvSharp;
 using igvc_csharp.src.Subsystems.Feelers;
 using FeelerConfig = igvc_csharp.Configuration.FeelerSubsystem;
+using igvc_csharp.src.Utils;
 
 
-namespace igvc_csharp.scr.Subsystems;
+namespace igvc_csharp.src.Subsystems;
 
 [Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // actual feeler stuff
     private List<Feeler> _feelers = [];
-    private Feeler _headingArrow = new();
     private Feeler _gpsFeeler = new();
 
     // pid controllers
@@ -40,7 +39,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     // GPS stuff
     private VectornavReport _position;
-    private LatLng? _startGpsPos;
     private LatLng? _goalPoint;
 
     // OpenCV stuff
@@ -65,14 +63,16 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         BuildFeelers();
 
         // subscribers
+        Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
+
         SubscribeImage(
-            "front_view",
+            "combined_view",
             OnDebugImageReceived,
             token
         );
 
         SubscribeImage(
-            "front_transformed_view",
+            "combined_filtered",
             OnMaskReceived,
             token
         );
@@ -139,6 +139,37 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
+    private void ResetPIDs()
+    {
+        _drivingPID = new(
+            FeelerConfig.DriveKp,
+            FeelerConfig.DriveKi,
+            FeelerConfig.DriveKd
+        );
+
+        _headingPID = new(
+           FeelerConfig.HeadingKp,
+           FeelerConfig.HeadingKi,
+           FeelerConfig.HeadingKd
+       );
+    }
+
+    private Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
+    {
+        if (!e.Path.StartsWith("feelers"))
+        {
+            return Task.CompletedTask;
+        }
+
+        // build new feelers
+        BuildFeelers();
+
+        // get new PID constants
+        ResetPIDs();
+
+        return Task.CompletedTask;
+    }
+
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         //FIXME should we be in charge of this? I think canbus could handle this automatically...
@@ -164,11 +195,15 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
     {
         _debugFrameChannel.Writer.TryWrite(frame);
+
         return Task.CompletedTask;
     }
     private Task OnMaskReceived(ImageFrame frame, CancellationToken token)
     {
         _maskFrameChannel.Writer.TryWrite(frame);
+
+        SetOperatingState(SubsystemState.Operating);
+
         return Task.CompletedTask;
     }
 
@@ -182,7 +217,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
     {
         _goalPoint = new(msg.Latitude, msg.Longitude);
-        
+
         return Task.CompletedTask;
     }
 
@@ -195,9 +230,17 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         {
             while (!token.IsCancellationRequested)
             {
+                if (!FeelerConfig.UseFeelers)
+                {
+                    //FIXME is there something better to do here? Like transition to shutdown and find a way to come back? or just trut in someone restarting the code?
+                    await Task.Delay(5000, token);
+                    continue;
+                }
+
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
                 if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous)
                 {
+                    //FIXME should we be setting safetyLights or should it be setting automatically?
                     canbus.SafetyLights.SetAutonomous();
 
                     if (State == SubsystemState.Operating)
@@ -209,6 +252,12 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                         var debugImg = CvUtils.AsMat(debugFrame);
                         var mask = CvUtils.AsMat(maskFrame);
+
+                        // zero the mask to ignore all obstacles
+                        if (FeelerConfig.UseOnlWaypoints)
+                        {
+                            mask.SetTo(0);
+                        }
 
                         // make the master Feeler that will actually dictate the robot's direction
                         var controlFeeler = new Feeler(new SCR_Point(), new Scalar(200, 200, 0));
@@ -238,7 +287,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
 
                         // perform feeler obstacle detection
-                        //TODO: add a "use only waypoints" config option like A* has that just sets the mask to 0s so we ignore all obstacles
                         foreach (var feeler in _feelers)
                         {
                             //TODO this could be multithreaded or something (if it's that big of a performance hit, that is)

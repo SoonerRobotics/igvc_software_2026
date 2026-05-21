@@ -1,28 +1,22 @@
-using System.Diagnostics;
-using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
-using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-namespace igvc_csharp.Subsystems.Simulator;
+namespace igvc_csharp.src.Subsystems.Simulator;
 
 [Subsystem("FakeCameraSubsystem", Disabled = true)]
 public class FakeCameraSubsystem : SubsystemBase
 {
-    private readonly Channel<ImageFrame> _frameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
-    {
-        SingleReader = true,
-        SingleWriter = true,
-        FullMode = BoundedChannelFullMode.DropOldest
-    });
+    private VideoCapture? _video;
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
+
+        _video = new VideoCapture(FileUtils.GetFileRelativeToRoot(Configuration.FakeCameraSubsystemConfig.Filename));
 
         _ = Task.Factory.StartNew(
             () => ImagePublishingTask(token),
@@ -38,34 +32,85 @@ public class FakeCameraSubsystem : SubsystemBase
 
     private async Task ImagePublishingTask(CancellationToken token)
     {
+        bool EOF = false;
+        int frame = 0;
+        ulong startTime = TimeUtils.Now();
+        bool set = false;
+
         try
         {
-            while (!token.IsCancellationRequested)
+            while (!token.IsCancellationRequested && !EOF)
             {
                 SetOperatingState(SubsystemState.Operating);
 
-                var frame = await _frameChannel.Reader.ReadAsync(token);
+                Mat combined = new();
+                if (_video == null || !_video.Read(combined))
+                {
+                    Logger.LogInformation(" === END OF VIDEO ===");
+                    EOF = true;
+                    continue;
+                }
 
-                var mat = CvUtils.AsMat(frame);
+                if (TimeUtils.Now() - startTime > 10_000 && !set) // wait 2 seconds before setting this
+                {
+                    BaseRobot.Instance.SetMission(MissionEnum.Autonav);
+                    BaseRobot.Instance.SetMobility(true);
+                    BaseRobot.Instance.SetMode(RobotModeEnum.Autonomous);
 
-                var frameBytes = CvUtils.FromMat(mat);
-                var newFrame = MessageConstructor.CreateImageFrame(
-                    frame.Width,
-                    frame.Height,
-                    "front_view",
-                    frameBytes
+                    set = true;
+                }
+
+                Mat leftMat = combined.SubMat(0, combined.Height, 0, combined.Width / 2);
+                Mat rightMat = combined.SubMat(0, combined.Height, combined.Width / 2, combined.Width);
+
+                var leftFrame = MessageConstructor.CreateImageFrame(
+                    (uint)leftMat.Width,
+                    (uint)leftMat.Height,
+                    "left_view",
+                    CvUtils.FromMat(leftMat)
                 );
 
-                var wrappedFrame = MessageWrapper.From(
+                var wrappedLeft = MessageWrapper.From(
                     MessageType.ImageFrame,
-                    newFrame.ByteBuffer.ToFullArray()
+                    leftFrame.ByteBuffer.ToFullArray()
                 );
 
-                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+                var rightFrame = MessageConstructor.CreateImageFrame(
+                    (uint)rightMat.Width,
+                    (uint)rightMat.Height,
+                    "right_view",
+                    CvUtils.FromMat(rightMat)
+                );
 
-                mat.Dispose();
+                var wrappedRight = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    rightFrame.ByteBuffer.ToFullArray()
+                );
 
-                // await time.sleep(FPS);
+                var fullFrame = MessageConstructor.CreateImageFrame(
+                    (uint)combined.Width,
+                    (uint)combined.Height,
+                    "combined_view",
+                    CvUtils.FromMat(combined)
+                );
+
+                var wrappedFull = MessageWrapper.From(
+                    MessageType.ImageFrame,
+                    fullFrame.ByteBuffer.ToFullArray()
+                );
+
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedLeft));
+                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRight));
+                // EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFull));
+
+                combined.Dispose();
+                leftMat.Dispose();
+                rightMat.Dispose();
+
+                Logger.LogDebug("publishing frame: " + frame);
+                frame++;
+
+                await Task.Delay((int)(60 * 1000 / Configuration.FakeCameraSubsystemConfig.FPS), token);
             }
         }
         catch (OperationCanceledException)
@@ -77,5 +122,16 @@ public class FakeCameraSubsystem : SubsystemBase
             Logger.LogError(ex, "Image publishing task crashed");
             SetOperatingState(SubsystemState.Errored);
         }
+
+        await Shutdown();
+    }
+
+    public override Task Shutdown()
+    {
+        _video?.Release();
+
+        SetOperatingState(SubsystemState.Shutdown);
+
+        return Task.CompletedTask;
     }
 }
