@@ -185,7 +185,7 @@ int main() {
     while (g_running) {
         auto mSensor = std::make_shared<VN::Sensor>();
 
-        VN::Error connectError = mSensor->autoConnect("/dev/autonav-vn");
+        VN::Error connectError = mSensor->autoConnect("/dev/igvc-vn");
         if (connectError != VN::Error::None) {
             spdlog::error("VECTORNAV_CONNECTION_FAILED_{}", VN::errorCodeToString(connectError));
             std::this_thread::sleep_for(std::chrono::seconds(1));

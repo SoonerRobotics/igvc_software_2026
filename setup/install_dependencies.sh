@@ -24,7 +24,3 @@ sudo apt install --reinstall \
 
 # SDL
 sudo apt install -y libsdl2-dev
-
-# TODO: Automatically add systemd services
-# TODO: Automatically add udev rules
-
