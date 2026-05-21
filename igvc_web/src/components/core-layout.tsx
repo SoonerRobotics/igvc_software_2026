@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SettingsIcon, LayoutDashboard, Camera, Clock, LineStyle, MessageSquare, BatteryFull } from "lucide-react";
 import { useRobotStore } from "@/lib/robot";
+import LoadingOverlay from "./loading";
 
 const NAV_LINKS = [
     { label: "Dashboard", path: "/", icon: <LayoutDashboard size={14} /> },
@@ -12,14 +13,20 @@ const NAV_LINKS = [
     { label: "Subsystems", path: "/subsystems", icon: <LineStyle size={14} /> },
     { label: "Logs", path: "/logs", icon: <MessageSquare size={14} /> },
     { label: "Power", path: "/electrical", icon: <BatteryFull size={14} /> },
+    { label: "Canbus", path: "/canbus", icon: <BatteryFull size={14} /> },
 ];
 
 export default function CoreLayout(props: { children?: React.ReactNode }) {
     const connect = useRobotStore((s) => s.connect);
+    const connected = useRobotStore((s) => s.connected);
 
     useEffect(() => {
-        connect("ws://localhost:8080");
+        connect();
     }, []);
+
+    if (!connected) {
+        return <LoadingOverlay />;
+    }
 
     return (
         <div className="flex h-full flex-row bg-dark">

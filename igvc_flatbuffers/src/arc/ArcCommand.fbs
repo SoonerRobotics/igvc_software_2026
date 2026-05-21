@@ -31,10 +31,10 @@ enum ArcCommandPurpose : uint {
 }
 
 table ArcCommand {
-    // The timestamp of the image frame in microseconds
+    // The timestamp of the arc command in microseconds
     timestamp: ulong;
 
-    // The sequence number of the image frame
+    // The sequence number of the arc command
     sequence_number: uint;
 
     // The purpose of this arc command, 0 = request and 1 = acknowledgment
