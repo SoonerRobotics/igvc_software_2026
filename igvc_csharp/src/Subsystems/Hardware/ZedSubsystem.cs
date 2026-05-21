@@ -5,7 +5,7 @@ using sl;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("ZedSubsystem")]
+[Subsystem("ZedSubsystem", Disabled = Configuration.UseSimulation)]
 public class ZedSubsystem : SubsystemBase
 {
     // Implementation

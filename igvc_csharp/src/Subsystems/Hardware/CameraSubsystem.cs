@@ -8,7 +8,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CameraSubsystem", Disabled = false)]
+[Subsystem("CameraSubsystem", Disabled = Configuration.UseSimulation)]
 public class CameraSubsystem : SubsystemBase
 {
     // Configuration

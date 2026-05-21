@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+    /* Base */
+    --color-dark: #030303;
+    --color-surface: #1A1A1B;
+    --color-surface-2: #242425;
+    --color-surface-3: #2E2E2F;
+
+    /* Crimson scale */
+    --color-crimson: #DC143C;
+    --color-crimson-bright: #FF2050;
+    /* hover states */
+    --color-crimson-muted: #8B0D24;
+    /* deep accents */
+    --color-crimson-dim: rgba(220, 20, 60, 0.15);
+    /* subtle fills */
+    --color-crimson-glow: rgba(220, 20, 60, 0.35);
+    /* borders/rings */
+
+    /* Text */
+    --color-text-primary: #EDEDED;
+    --color-text-secondary: #8A8A8C;
+    --color-text-muted: #4A4A4C;
+
+    /* Borders */
+    --color-border: rgba(255, 255, 255, 0.07);
+    --color-border-crimson: rgba(220, 20, 60, 0.4);
+}
