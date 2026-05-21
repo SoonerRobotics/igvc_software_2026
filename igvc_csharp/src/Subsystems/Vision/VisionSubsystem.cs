@@ -138,6 +138,8 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     Cv2.HConcat([leftMat, rightMat], combinedFiltered);
                 }
 
+                Logger.LogInformation("Mat type: {}", combinedFiltered.Type());
+
                 // only publish the combined view of the filters, not left and right seperately
                 var combinedFilteredBytes = CvUtils.FromMat(combinedFiltered);
                 var newFrame = MessageConstructor.CreateImageFrame(
@@ -183,9 +185,11 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     // only publish config space message if A* is being used / ran to avoid conflicting with Feelers / Self-Drive
                     var scaled = combinedFiltered.Resize(new Size(AStarConfig.ConfigSpaceWidth, AStarConfig.ConfigSpaceHeight), 0, 0, InterpolationFlags.Linear);
                     var row_mat = scaled.Reduce(ReduceDimension.Row, ReduceTypes.Max, MatType.CV_8U); //FIXME not sure if that is correct
-                    row_mat.GetArray<uint>(out var row_array);
+                    row_mat.ConvertTo(row_mat, MatType.CV_8UC1); // convert down to single
+                    
+                    row_mat.GetArray<byte>(out var row_array);
 
-                    var builder = new FlatBufferBuilder(128);
+                    var builder = new FlatBufferBuilder(8192);
                     var msgOffset = ConfigSpace.CreateConfigSpace(
                         builder,
                         TimeUtils.Now(),

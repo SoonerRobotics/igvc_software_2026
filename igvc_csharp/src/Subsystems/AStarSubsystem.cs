@@ -22,7 +22,7 @@ public class AStarSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private LatLng? _position;
     private LatLng? _lastPosition;
     private double _heading = 0;
-    private uint[] _configSpace = [];
+    private byte[] _configSpace = [];
     private PurePursuit _purePursuit = new();
 
     public override Task Init(CancellationToken token)

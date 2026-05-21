@@ -41,7 +41,7 @@ height():number {
 
 data(index: number):number|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readUint32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+  return offset ? this.bb!.readUint8(this.bb!.__vector(this.bb_pos + offset) + index) : 0;
 }
 
 dataLength():number {
@@ -49,9 +49,9 @@ dataLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-dataArray():Uint32Array|null {
+dataArray():Uint8Array|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? new Uint32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+  return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
 static startConfigSpace(builder:flatbuffers.Builder) {
@@ -74,21 +74,16 @@ static addData(builder:flatbuffers.Builder, dataOffset:flatbuffers.Offset) {
   builder.addFieldOffset(3, dataOffset, 0);
 }
 
-static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint32Array):flatbuffers.Offset;
-/**
- * @deprecated This Uint8Array overload will be removed in the future.
- */
-static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
-static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint32Array|Uint8Array):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
+static createDataVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
   for (let i = data.length - 1; i >= 0; i--) {
-    builder.addInt32(data[i]!);
+    builder.addInt8(data[i]!);
   }
   return builder.endVector();
 }
 
 static startDataVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
+  builder.startVector(1, numElems, 1);
 }
 
 static endConfigSpace(builder:flatbuffers.Builder):flatbuffers.Offset {
