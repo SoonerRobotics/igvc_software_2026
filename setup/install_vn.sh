@@ -5,6 +5,7 @@ SCRIPT_DIR=$(pwd)
 ZIP_URL="https://cdn.soonerrobotics.org/scr/vn.zip"
 INSTALL_DIR="/usr/local/vectornav"
 TMP_DIR="/tmp/vectornav_install"
+USER_TO_ADD=${logname}
 
 # check if /usr/local/vectornav exists
 if [ -d "$INSTALL_DIR" ]; then
@@ -52,3 +53,6 @@ cd build
 # cmake the vectornav CPP executable
 cmake ..
 cmake --build .
+
+# add user to dialout group
+sudo adduser $USER_TO_ADD dialout

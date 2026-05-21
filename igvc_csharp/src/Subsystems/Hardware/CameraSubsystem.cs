@@ -17,7 +17,7 @@ public class CameraSubsystem : SubsystemBase
     public static readonly string LeftCameraPath = "0";
 
     [Config("subsystem.camera.right_path")]
-    public static readonly string RightCameraPath = "1";
+    public static readonly string RightCameraPath = "2"; // the global shutter cameras are weird and have 2 /video devices per camera
 
     [Config("subsystem.camera.fps")]
     public static readonly int CameraFps = 12;
@@ -32,10 +32,28 @@ public class CameraSubsystem : SubsystemBase
 
     public override Task Init(CancellationToken token)
     {
+        SetOperatingState(SubsystemState.Starting);
+
         mLeftWorker = new CameraWorker("left", LeftCameraPath, Logger);
         mRightWorker = new CameraWorker("right", RightCameraPath, Logger);
 
         Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
+
+        _ = Task.Factory.StartNew(
+           () => mLeftWorker.RunAsync(token),
+           token,
+           TaskCreationOptions.LongRunning,
+           TaskScheduler.Default
+       );
+
+        _ = Task.Factory.StartNew(
+            () => mRightWorker.RunAsync(token),
+            token,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default
+        );
+
+        SetOperatingState(SubsystemState.Ready);
 
         return Task.CompletedTask;
     }
@@ -153,7 +171,7 @@ public class CameraSubsystem : SubsystemBase
                 else
                 {
                     // we are taking too long to capture frames, low fps
-                    logger.LogDebug("Camera {} has low FPS", name);
+                    // logger.LogDebug("Camera {} has low FPS", name);
                 }
             }
         }
@@ -180,7 +198,7 @@ public class CameraSubsystem : SubsystemBase
         {
             try
             {
-                // try iint if available, else use as path
+                // try int if available, else use as path
                 var capture = int.TryParse(path, out var idx)
                     ? new VideoCapture(idx)
                     : new VideoCapture(path);

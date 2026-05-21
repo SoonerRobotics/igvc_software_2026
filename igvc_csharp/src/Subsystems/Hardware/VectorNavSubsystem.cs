@@ -11,7 +11,7 @@ using VectornavReport = Messages.VectornavReport;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem", Disabled = true)]
+[Subsystem("VectorNavSubsystem", Disabled = false)]
 public class VectorNavSubsystem() : SubsystemBase
 {
     private Task? _readTask;
@@ -55,6 +55,7 @@ public class VectorNavSubsystem() : SubsystemBase
         {
             SetOperatingState(SubsystemState.Errored);
             SetError("CONNECTION_FAILED");
+            Logger.LogWarning("Vectornav conection failed!");
             return;
         }
 
@@ -62,6 +63,8 @@ public class VectorNavSubsystem() : SubsystemBase
         {
             SetOperatingState(SubsystemState.Errored);
             SetError("SENSOR_SETUP_FAILED");
+            Logger.LogError("Vectornav setup failed!");
+
             return;
         }
 

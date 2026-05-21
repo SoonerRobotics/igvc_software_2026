@@ -12,6 +12,9 @@ sudo apt install -y ffmpeg
 # OpenCV
 sudo apt install -y libopencv-dev
 
+# Camera stuff
+sudo apt install -y v4l-utils
+
 # Bluetooth
 sudo apt install --reinstall \
   bluez \
@@ -24,3 +27,6 @@ sudo apt install --reinstall \
 
 # SDL
 sudo apt install -y libsdl2-dev
+
+# add user to video group
+sudo adduser $USER_TO_ADD video
