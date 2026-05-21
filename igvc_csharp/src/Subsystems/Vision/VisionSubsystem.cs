@@ -84,15 +84,16 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 new Point(0, 0), new Point(100, 100), new Point(50, 50)]
             ));
 
-            _filters.Add(new TopDownFilter(
-                [
-                new Point2f(220, 200),
-                new Point2f(420, 200),
-                new Point2f(580, 420),
-                new Point2f(60, 420)
-                ],
-                new Size(80, 80)
-            ));
+            //FIXME the output size kinda wrong tho...
+            // _filters.Add(new TopDownFilter(
+            //     [
+            //     new Point2f(220, 200),
+            //     new Point2f(420, 200),
+            //     new Point2f(580, 420),
+            //     new Point2f(60, 420)
+            //     ],
+            //     new Size(80, 80)
+            // ));
         }
 
         // if (Configuration.AStarConfig.UseAStar)

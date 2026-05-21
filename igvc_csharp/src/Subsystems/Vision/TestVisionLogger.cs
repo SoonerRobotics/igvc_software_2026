@@ -26,9 +26,25 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
         FullMode = BoundedChannelFullMode.DropOldest
     });
 
+    private readonly Channel<ImageFrame> _combinedChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
+
+    private readonly Channel<ImageFrame> _combinedFilteredChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
+
     // videowriters
     private VideoWriter _leftWriter;
     private VideoWriter _rightWriter;
+    private VideoWriter _combinedWriter;
+    private VideoWriter _combinedFilteredWriter;
 
     public override Task Init(CancellationToken token)
     {
@@ -49,6 +65,18 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
             token
         );
 
+        SubscribeImage(
+            "combined_view",
+            OnCombinedImageReceived,
+            token
+        );
+
+        SubscribeImage(
+            "combined_filtered",
+            OnFilteredImageReceived,
+            token
+        );
+
         _ = Task.Factory.StartNew(
             () => WriteCameraFrames(token),
             token,
@@ -56,12 +84,14 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
             TaskScheduler.Default
         );
 
-        // _ = Task.Factory.StartNew(
-        //     () => WriteAllFrames(token),
-        //     token,
-        //     TaskCreationOptions.LongRunning,
-        //     TaskScheduler.Default
-        // );
+        _ = Task.Factory.StartNew(
+            () => WriteAllFrames(token),
+            token,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default
+        );
+
+        SetRobotMission(MissionEnum.Autonav);
 
         SetOperatingState(SubsystemState.Ready);
 
@@ -74,6 +104,8 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
         //FIXME also the resolution definitely I think maybe? yes definitely, I spent more time than I'd like to admit trying to debug why writes were failing.
         _leftWriter = new VideoWriter(FileUtils.GetFileRelativeToRoot("resources/video/camera_left.avi"), VideoCaptureAPIs.ANY, FourCC.MJPG, 12, new Size(640, 480), true);
         _rightWriter = new VideoWriter(FileUtils.GetFileRelativeToRoot("resources/video/camera_right.avi"), VideoCaptureAPIs.ANY, FourCC.MJPG, 12, new Size(640, 480), true);
+        _combinedWriter = new VideoWriter(FileUtils.GetFileRelativeToRoot("resources/video/camera_combined.avi"), VideoCaptureAPIs.ANY, FourCC.MJPG, 12, new Size(640+640, 480), true);
+        _combinedFilteredWriter = new VideoWriter(FileUtils.GetFileRelativeToRoot("resources/video/filtered_combined.avi"), VideoCaptureAPIs.ANY, FourCC.MJPG, 12, new Size(640+640, 480), true);
 
         if (!_leftWriter.IsOpened() || !_rightWriter.IsOpened())
         {
@@ -87,11 +119,26 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
 
         return Task.CompletedTask;
     }
+
     private Task OnRightImageReceived(ImageFrame frame, CancellationToken token)
     {
         _rightChannel.Writer.TryWrite(frame);
 
         SetOperatingState(SubsystemState.Operating);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnCombinedImageReceived(ImageFrame frame, CancellationToken token)
+    {
+        _combinedChannel.Writer.TryWrite(frame);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnFilteredImageReceived(ImageFrame frame, CancellationToken token)
+    {
+        _combinedFilteredChannel.Writer.TryWrite(frame);
 
         return Task.CompletedTask;
     }
@@ -119,6 +166,41 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
                 }
 
                 // Logger.LogDebug("WROTE FRAMES!");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Test video logging task crashed");
+        }
+    }
+
+    private async Task WriteAllFrames(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                //TODO: feeler images, indiviaul filtered frames, A* debug, etc.
+                var combinedFrame = await _combinedChannel.Reader.ReadAsync(token);
+                var filteredFrame = await _combinedFilteredChannel.Reader.ReadAsync(token);
+
+                var combinedImage = CvUtils.AsMat(combinedFrame);
+                var filteredImage = CvUtils.AsMat(filteredFrame);
+
+                _combinedWriter.Write(combinedImage);
+                _combinedFilteredWriter.Write(filteredImage);
+
+                // Logger.LogInformation("filtered size: {}", filteredImage.Size());
+                // Logger.LogInformation("filtered channels: {}", filteredImage.Channels());
+
+                if (combinedImage.Empty() || filteredImage.Empty())
+                {
+                    Logger.LogError("Camera frames are empty!");
+                }
             }
         }
         catch (OperationCanceledException)
