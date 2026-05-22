@@ -168,7 +168,7 @@ public class Feeler
     {
         return new SCR_Point(
             p.X + (width / 2),
-            -p.Y + (height / 2) //FIXME we want this to be lower in the image because it's not 4 cameras right?
+            -p.Y + (int)(height * Configuration.FeelerSubsystem.YPercentage)
         );
     }
 

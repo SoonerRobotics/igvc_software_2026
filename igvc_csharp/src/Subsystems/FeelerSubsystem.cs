@@ -207,6 +207,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         SetOperatingState(SubsystemState.Operating);
 
+        //FIXME REMOVE THIS ONCE WE GET STUFF WORKING !!!!!!!!!!!
         if (!_hasSent)
         {
             SetMobility(true);

@@ -331,6 +331,13 @@ public static class Configuration
         [Config("feelers.forward_bias_weight")]
         public const int ForwardBiasWeight = 75;
 
+        /// <summary>
+        /// How far up the image to center the feelers from, as a percentage.
+        /// Ex. 0.5 would be dead center.
+        /// </summary>
+        [Config("feelers.y_percentage")]
+        public const double YPercentage = 0.9;
+
 
         // control-related config
         /// <summary>
