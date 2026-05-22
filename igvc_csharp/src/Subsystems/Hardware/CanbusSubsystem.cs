@@ -155,7 +155,7 @@ public class CanbusSubsystem(
                     continue;
                 }
                 
-                Logger.LogDebug("Writing can with frame id: {FrameId}", frame.CanId);
+                // Logger.LogDebug("Writing can with frame id: {FrameId}", frame.CanId);
             }
             catch (ObjectDisposedException ex)
             {

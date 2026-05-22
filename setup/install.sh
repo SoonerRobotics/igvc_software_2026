@@ -4,6 +4,8 @@ SCRIPTS=(
     "./install_dependencies.sh"
     "./install_dotnet.sh"
     "./install_vn.sh"
+    "./install_gui.sh"
+    # "./install_controller.sh"
 )
 
 for script in "${SCRIPTS[@]}"; do

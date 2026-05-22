@@ -10,7 +10,7 @@ export default function Camera(props: CameraProps)
                 {props.id}
             </div>
 
-            <img src={`http://localhost:8001/${props.id}`} className="w-full h-full object-cover" />
+            <img src={`http://192.168.1.83:8001/${props.id}`} className="w-full h-full object-cover" />
         </div>
     )
 }

@@ -1,4 +1,5 @@
 ﻿using igvc_csharp.Core;
+using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Utils.Messages;
@@ -11,21 +12,22 @@ namespace igvc_csharp.Subsystems.Hardware;
 [Subsystem("CurrentSensorSubsystem")]
 public class CurrentSensorSubsystem(
     CanbusSubsystem canbus,
-    ChronosSubsystem? chronos 
+    ChronosSubsystem? chronos
 ) : SubsystemBase
 {
-    private readonly SubsystemProperty<double> _pCurrentMa = new("current_ma", 1200);
-    private readonly SubsystemProperty<double> _pVoltageMv = new("voltage_mv", 1200);
+    private readonly SubsystemProperty<double> _pCurrentMa = new("current", 1200);
+    private readonly SubsystemProperty<double> _pVoltageMv = new("voltage", 1200);
 
     public override Task Init(CancellationToken token)
     {
-        SubscribeMessage<CanFrame>(MessageType.CanFrame, OnCanMessage, token);
+        Subscribe<CanFrameEvent>(OnCanMessage, token);
         
         return Task.CompletedTask;
     }
 
-    private Task OnCanMessage(CanFrame frame, CancellationToken token)
+    private Task OnCanMessage(CanFrameEvent frameEvent, CancellationToken token)
     {
+        var frame = frameEvent.Frame;
         switch (frame.CanId)
         {
             case (uint)CanId.SSD_CURRENT:
@@ -33,6 +35,7 @@ public class CurrentSensorSubsystem(
                 var currentMa = CurrentSensorLayer.ParseCurrent(frame);
                 chronos?.WriteCurrentSense(currentMa);
                 _pCurrentMa.Set(currentMa);
+                // Logger.LogInformation("Current sensor reading: {Current} amps", currentMa);
                 break;
             }
             case (uint)CanId.SSD_VOLTAGE:
@@ -40,12 +43,13 @@ public class CurrentSensorSubsystem(
                 var currentMv = CurrentSensorLayer.ParseVoltage(frame);
                 chronos?.WriteVoltageSense(currentMv);
                 _pVoltageMv.Set(currentMv);
+                // Logger.LogInformation("Voltage sensor reading: {Voltage} volts", currentMv);
                 break;
             }
         }
         
         return Task.CompletedTask;
-    }
+    }   
     
     // Arc Commands
     

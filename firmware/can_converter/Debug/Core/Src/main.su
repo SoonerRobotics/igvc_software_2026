@@ -1,11 +1,11 @@
 ../Core/Src/main.cpp:22:14:SwerveDrive* InitSwerveDrive()	32	static
 ../Core/Src/main.cpp:88:6:void encode_motor_odom_le(const MotorOdometryMsg*, uint8_t*)	16	static
 ../Core/Src/main.cpp:100:5:int main()	56	static
-../Core/Src/main.cpp:145:13:void SendOdometry(const SwerveDriveState&)	64	static
-../Core/Src/main.cpp:168:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	112	static
-../Core/Src/main.cpp:208:13:void MX_CAN1_Init()	48	static
-../Core/Src/main.cpp:249:13:void MX_CAN2_Init()	8	static
-../Core/Src/main.cpp:273:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	72	static
-../Core/Src/main.cpp:292:13:void MX_GPIO_Init()	40	static
-../Core/Src/main.cpp:311:6:void SystemClock_Config()	120	static
-../Core/Src/main.cpp:366:6:void Error_Handler()	4	static,ignoring_inline_asm
+../Core/Src/main.cpp:141:13:void SendOdometry(const SwerveDriveState&)	64	static
+../Core/Src/main.cpp:164:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	112	static
+../Core/Src/main.cpp:204:13:void MX_CAN1_Init()	48	static
+../Core/Src/main.cpp:245:13:void MX_CAN2_Init()	8	static
+../Core/Src/main.cpp:269:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	72	static
+../Core/Src/main.cpp:288:13:void MX_GPIO_Init()	40	static
+../Core/Src/main.cpp:307:6:void SystemClock_Config()	120	static
+../Core/Src/main.cpp:362:6:void Error_Handler()	4	static,ignoring_inline_asm

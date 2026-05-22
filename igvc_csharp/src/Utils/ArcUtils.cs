@@ -25,6 +25,17 @@ public static class ArcUtils
         );
     }
 
+    public static MessageWrapper CreateArcData_PropertyChanged(string subsystem, string property, string value)
+    {
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+        bw.Write(subsystem);
+        bw.Write(property);
+        bw.Write(value);
+        var data = ms.ToArray();
+        return CreateArcDataWrapper("property_changed", data);
+    }
+
     public static MessageWrapper CreateArcData_Log(
         string cat,
         byte level,

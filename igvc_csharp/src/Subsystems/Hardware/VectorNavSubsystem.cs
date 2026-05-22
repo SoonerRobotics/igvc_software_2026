@@ -55,7 +55,7 @@ public class VectorNavSubsystem() : SubsystemBase
         {
             SetOperatingState(SubsystemState.Errored);
             SetError("CONNECTION_FAILED");
-            Logger.LogWarning("Vectornav conection failed!");
+            // Logger.LogWarning("Vectornav conection failed!");
             return;
         }
 

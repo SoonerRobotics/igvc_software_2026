@@ -8,7 +8,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.src.Subsystems.Vision;
 
-[Subsystem("TestVisionLogger", Disabled = false)]
+[Subsystem("TestVisionLogger", Disabled = true)]
 public class TestVisionLoggerSubsystem() : SubsystemBase
 {
     // subscriber frame channels

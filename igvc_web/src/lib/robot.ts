@@ -4,7 +4,7 @@ import { MessageAccumulator } from "./arc/accumulator";
 import { MessageType } from "./arc/type";
 import { ArcData } from "./messages/messages/arc";
 import { ByteBuffer } from "flatbuffers";
-import { ArcLog, buildArcData_Log } from "./arc/data";
+import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged } from "./arc/data";
 
 type RobotState = {
     connected: boolean;
@@ -28,20 +28,40 @@ function clearConnectTimeout() {
     }
 }
 
+function getSavedPath() {
+    // ensure client
+    if (typeof window === "undefined") {
+        return "ws://localhost:8080";
+    }
+
+    const saved = localStorage.getItem("robotPath");
+    return saved ?? "ws://localhost:8080";
+}
+
+function savePath(path: string) {
+    localStorage.setItem("robotPath", path);
+}
+
 function onMessage(msg: MessageWrapper, set: (state: any) => void) {
     if (msg.type === MessageType.ArcData)
     {
         const data = ArcData.getRootAsArcData(new ByteBuffer(msg.toBytes()));
-        console.log("[robot] ArcData", {
-            identifier: data.dataIdentifier(),
-            dataLength: data.dataPayloadLength(),
-            timestamp: data.timestamp(),
-            sequenceNumber: data.sequenceNumber()
-        });
+        // console.log("[robot] ArcData", {
+        //     identifier: data.dataIdentifier(),
+        //     dataLength: data.dataPayloadLength(),
+        //     timestamp: data.timestamp(),
+        //     sequenceNumber: data.sequenceNumber()
+        // });
         if (data.dataIdentifier() === "log")
         {
             const log = buildArcData_Log(data.dataPayloadArray()!);
             set((state: any) => ({ logs: [...state.logs, log] }));
+        }
+
+        if (data.dataIdentifier() == "property_changed")
+        {
+            const d = buildArcData_PropertyChanged(data.dataPayloadArray()!);
+            console.log("[robot] Property Changed", d);
         }
         return;
     }
@@ -51,7 +71,7 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
 
 export const useRobotStore = create<RobotState>((set, get) => ({
     connected: false,
-    path: "ws://localhost:8080",
+    path: getSavedPath(),
     setPath: (path: string) => set({ path }),
 
     connect: () => {
@@ -86,6 +106,7 @@ export const useRobotStore = create<RobotState>((set, get) => ({
         ws.onopen = () => {
             clearConnectTimeout();
             set({ connected: true });
+            savePath(get().path);
         };
 
         ws.onclose = () => {

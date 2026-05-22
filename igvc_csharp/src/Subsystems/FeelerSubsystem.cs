@@ -20,6 +20,9 @@ namespace igvc_csharp.src.Subsystems;
 [Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
+
+    private bool _hasSent = false;
+
     // actual feeler stuff
     private List<Feeler> _feelers = [];
     private Feeler _gpsFeeler = new();
@@ -111,7 +114,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         var angle_increment = new Angle(FeelerConfig.AngularWidth / FeelerConfig.NumFeelers, false);
 
         // default to blue FIXME we want lerp to be automatic right?
-        var defaultColor = new Scalar(100, 100, 200);
+        var defaultColor = new Scalar(200, 75, 75);
 
         for (var angle = start_angle; angle < end_angle; angle += angle_increment)
         {
@@ -204,6 +207,16 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         SetOperatingState(SubsystemState.Operating);
 
+        //FIXME REMOVE THIS ONCE WE GET STUFF WORKING !!!!!!!!!!!
+        if (!_hasSent)
+        {
+            SetMobility(true);
+            SetRobotMission(MissionEnum.Autonav);
+            SetRobotMode(RobotModeEnum.Autonomous);
+
+            _hasSent = true;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -245,6 +258,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                     if (State == SubsystemState.Operating)
                     {
+                        await BuildFeelers(); //FIXME
+
                         //TODO these might need to be moved out of here if they don't update fast enough for the watchdog on the motor control code...
                         // either that or update canbus.MotorControl to continually send the last motor command, although that has safety issues of its own...
                         var debugFrame = await _debugFrameChannel.Reader.ReadAsync(token);
@@ -260,7 +275,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
 
                         // make the master Feeler that will actually dictate the robot's direction
-                        var controlFeeler = new Feeler(new SCR_Point(), new Scalar(200, 200, 0));
+                        var controlFeeler = new Feeler(new SCR_Point(), new Scalar(25, 250, 25));
 
                         // bias all Feelers forwards
                         var forwardFeeler = new Feeler(new SCR_Point(0, FeelerConfig.ForwardBiasWeight));
@@ -277,7 +292,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                             var dist = current_gps.Distance(_goalPoint).To(DistanceUnit.Meters);
                             var headingError = GeoUtils.EstimateHeading(current_gps, _goalPoint).Value.To(AngleUnit.Degrees);
 
-                            _gpsFeeler = new Feeler(new SCR_Point(dist, headingError), new Scalar(150, 235, 150));
+                            _gpsFeeler = new Feeler(new SCR_Point(dist, headingError), new Scalar(250, 50, 50));
 
                             // calculate gps bias for every feeler
                             foreach (var feeler in _feelers)
@@ -321,6 +336,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
                         _gpsFeeler.Draw(debugImg);
                         controlFeeler.Draw(debugImg);
+
+                        // Logger.LogInformation("Control feeler: {}", controlFeeler);
 
                         // publish debug image
                         var frameBytes = CvUtils.FromMat(debugImg);
