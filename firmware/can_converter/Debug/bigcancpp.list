@@ -4179,9 +4179,9 @@ static void MX_CAN1_Init(void)
  800286a:	4b2c      	ldr	r3, [pc, #176]	@ (800291c <_ZL12MX_CAN1_Initv+0xb8>)
  800286c:	4a2c      	ldr	r2, [pc, #176]	@ (8002920 <_ZL12MX_CAN1_Initv+0xbc>)
  800286e:	601a      	str	r2, [r3, #0]
-  hcan1.Init.Prescaler = 20;
+  hcan1.Init.Prescaler = 16;
  8002870:	4b2a      	ldr	r3, [pc, #168]	@ (800291c <_ZL12MX_CAN1_Initv+0xb8>)
- 8002872:	2214      	movs	r2, #20
+ 8002872:	2210      	movs	r2, #16
  8002874:	605a      	str	r2, [r3, #4]
   hcan1.Init.Mode = CAN_MODE_NORMAL;
  8002876:	4b29      	ldr	r3, [pc, #164]	@ (800291c <_ZL12MX_CAN1_Initv+0xb8>)
