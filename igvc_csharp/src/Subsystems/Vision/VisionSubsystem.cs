@@ -14,7 +14,8 @@ namespace igvc_csharp.Subsystems.Vision;
 [Subsystem("VisionSubsystem", Disabled = false)]
 public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
-    private readonly List<IFilter> _filters = [];
+    private readonly List<IFilter> _leftFilters = [];
+    private readonly List<IFilter> _rightFilters = [];
 
     private readonly OpenCvImageWindow _window = new("Vision Output");
 
@@ -54,7 +55,9 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         SetOperatingState(SubsystemState.Starting);
 
-        _filters.Clear();
+        _leftFilters.Clear();
+        _rightFilters.Clear();
+
         AddFilters(updated);
 
         if (updated.Mission == MissionEnum.Autonav)
@@ -73,38 +76,51 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private void AddFilters(RobotState newState)
     {
-        _filters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
+        // standard lane / obstacle detection
+        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
+        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
 
         if (newState.Mission == MissionEnum.Autonav)
         {
-            // insert as the first filter
-            _filters.Insert(0, new BlurFilter(5, 3, BlurFilter.BlurMethod.BoxBlur));
+            // insert as the first filter (don't want to blur if we're doing SelfDrive)
+            _leftFilters.Insert(0, new BlurFilter(Configuration.VisionSubsystem.BlurRadius, Configuration.VisionSubsystem.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
+            _rightFilters.Insert(0, new BlurFilter(Configuration.VisionSubsystem.BlurRadius, Configuration.VisionSubsystem.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
 
-            _filters.Add(new RegionFilter([
-                new Point(0, 0), new Point(100, 100), new Point(50, 50)]
+            //TODO: make region of disinterest configurable, although I don't think we'll actually need it...
+            // _leftFilters.Add(new RegionFilter([
+            //     new Point(0, 0), new Point(100, 100), new Point(50, 50)]
+            // ));
+
+            // _rightFilters.Add(new RegionFilter([
+            //     new Point(0, 0), new Point(100, 100), new Point(50, 50)]
+            // ));
+
+            _leftFilters.Add(new TopDownFilter(
+                Configuration.VisionSubsystem.leftSourcePoints,
+                Configuration.VisionSubsystem.leftDestPoints,
+                new Size(640, 480)
+                // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
 
-            //FIXME the output size kinda wrong tho...
-            // _filters.Add(new TopDownFilter(
-            //     [
-            //     new Point2f(220, 200),
-            //     new Point2f(420, 200),
-            //     new Point2f(580, 420),
-            //     new Point2f(60, 420)
-            //     ],
-            //     new Size(80, 80)
-            // ));
+            _rightFilters.Add(new TopDownFilter(
+                Configuration.VisionSubsystem.rightSourcePoints,
+                Configuration.VisionSubsystem.rightDestPoints,
+                new Size(640, 480)
+                // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
+            ));
         }
 
         // if (Configuration.AStarConfig.UseAStar)
         // {
         //     // don't need this for anything but A* (e.g. not for feelers)
-        //     _filters.Add(new InflationFilter());
+        //     _leftFilters.Add(new InflationFilter());
+        //     _rightFilters.Add(new InflationFilter());
         // }
 
         if (newState.Mission == MissionEnum.Selfdrive)
         {
-            _filters.Add(new LaneDetectionFilter());
+            _leftFilters.Add(new LaneDetectionFilter());
+            _rightFilters.Add(new LaneDetectionFilter());
         }
     }
 
@@ -120,8 +136,9 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var leftMat = CvUtils.AsMat(leftFrame);
                 var rightMat = CvUtils.AsMat(rightFrame);
 
-                leftMat = _filters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
-                rightMat = _filters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
+                //TODO: parallelize these? I know we run super fast anyways but still I don't like it...
+                leftMat = _leftFilters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
+                rightMat = _rightFilters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
 
                 var combinedFiltered = new Mat();
 

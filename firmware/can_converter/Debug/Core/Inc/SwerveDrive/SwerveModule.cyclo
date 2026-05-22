@@ -1,6 +1,5 @@
 /opt/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.linux64_1.0.100.202509120712/tools/arm-none-eabi/include/c++/13.3.1/cmath:146:3:constexpr float std::atan2(float, float)	1
 /opt/st/stm32cubeide_2.0.0/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.linux64_1.0.100.202509120712/tools/arm-none-eabi/include/c++/13.3.1/cmath:438:3:constexpr float std::sqrt(float)	1
-../Core/Inc/SwerveDrive/SwerveModule.h:40:12:double SwerveModule::getCurrentAngleRad() const	1
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:15:7:float radiansA(double)	1
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:19:1:SwerveModule::SwerveModule(SwerveModuleConfig)	1
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:30:7:float SwerveModule::getDriveDelta()	2

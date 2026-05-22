@@ -160,6 +160,53 @@ public static class Configuration
         /// </summary>
         [Config("vision.blur_strength")]
         public const int BlurStrength = 3;
+
+        //FIXME make flattening configurable from the GUI
+        // For flattening, the order is [ TL, TR, BL, BR ]
+
+        /// <summary>
+        /// The source points for the left camera image flattening
+        /// </summary>
+        public static readonly Point2f[] leftSourcePoints =
+        [
+            new(180, 100), //TODO: since these are the only 2 points actually modified, do something?
+            new(640, 100), // same here
+            new(0, 480),
+            new(640, 480)
+        ];
+
+        /// <summary>
+        /// The destination points for the left camera image flattening
+        /// </summary>
+        public static readonly Point2f[] leftDestPoints =
+        [
+            new(0, 0),
+            new(640, 0),
+            new(270, 480), // same here
+            new(470, 480)  // same here
+        ];
+
+        /// <summary>
+        /// The source points for the right camera image flattening
+        /// </summary>
+        public static readonly Point2f[] rightSourcePoints =
+        [
+            new(0, 100),     // same here
+            new(470, 100),   // same here
+            new(0, 480),
+            new(640, 480)
+        ];
+
+        /// <summary>
+        /// The destination points for the right camera image flattening
+        /// </summary>
+        public static readonly Point2f[] rightDestPoints =
+        [
+            new(0, 0),
+            new(640, 0),
+            new(100, 480),   // same here
+            new(340, 480)    // same here
+        ];
     }
 
     public static class DriveSubsystem
@@ -183,16 +230,16 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(200);
 
         [Config("drive.invert_forward")]
         public static readonly bool InvertForwardVelocity = false;
 
         [Config("drive.invert_sideways")]
-        public static readonly bool InvertSidewaysVelocity = false;
+        public static readonly bool InvertSidewaysVelocity = true;
 
         [Config("drive.invert_angular")]
-        public static readonly bool InvertAngularVelocity = false;
+        public static readonly bool InvertAngularVelocity = true;
 
         [Config("drive.update_frequency")]
         public static readonly TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(100);
