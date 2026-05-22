@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 using igvc_csharp.Events;
 using igvc_csharp.Messages;
+using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
@@ -37,6 +39,8 @@ public class SubsystemBase : ISubsystem
     private List<AbstractSubsystemProperty> _properties = [];
     private SubsystemProperty<string> _pError = new("error");
 
+    private ArcSubsystem? _arcSubsystem;
+
     // IGVC Stuff
 
     protected SubsystemBase()
@@ -59,9 +63,10 @@ public class SubsystemBase : ISubsystem
         // Assign "Parent" of each property to this subsystem, it is protected
         foreach (var prop in _properties)
         {
-            var parentField = typeof(AbstractSubsystemProperty).GetField("parent", BindingFlags.Instance | BindingFlags.NonPublic);
+            var parentField = typeof(AbstractSubsystemProperty).GetField("parent", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             if (parentField != null)
             {
+                Logger.LogTrace("Registering property {Property} for subsystem {Subsystem}", prop, Name);
                 parentField.SetValue(prop, this);
             }
         }
@@ -69,8 +74,14 @@ public class SubsystemBase : ISubsystem
 
     public void OnPropertyUpdated(string key, object? value)
     {
-        // TODO: Broadcast property update
-        Logger.LogTrace("Subsystem({}) property updated: {} = {}", Name, key, value);
+        _arcSubsystem ??= BaseRobot.Instance?.GetSubsystem<ArcSubsystem>();
+        if (_arcSubsystem != null)
+        {
+            _ = _arcSubsystem.BroadcastAsync(
+                ArcUtils.CreateArcData_PropertyChanged(Name, key, value?.ToString() ?? "null"),
+                CancellationToken.None
+            );
+        }
     }
 
     protected void Subscribe<TEvent>(

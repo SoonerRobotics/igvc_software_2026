@@ -183,16 +183,16 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
+        public static readonly AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(200);
 
         [Config("drive.invert_forward")]
         public static readonly bool InvertForwardVelocity = false;
 
         [Config("drive.invert_sideways")]
-        public static readonly bool InvertSidewaysVelocity = false;
+        public static readonly bool InvertSidewaysVelocity = true;
 
         [Config("drive.invert_angular")]
-        public static readonly bool InvertAngularVelocity = false;
+        public static readonly bool InvertAngularVelocity = true;
 
         [Config("drive.update_frequency")]
         public static readonly TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(100);
