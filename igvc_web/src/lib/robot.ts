@@ -5,6 +5,7 @@ import { MessageType } from "./arc/type";
 import { ArcData } from "./messages/messages/arc";
 import { ByteBuffer } from "flatbuffers";
 import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged } from "./arc/data";
+import { VectornavReport } from "./messages/messages/vectornav-report";
 
 type RobotState = {
     connected: boolean;
@@ -15,6 +16,7 @@ type RobotState = {
 
     // Data
     logs: ArcLog[];
+    vectornav?: VectornavReport;
 };
 
 let ws: WebSocket | null = null;
@@ -63,6 +65,18 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
             const d = buildArcData_PropertyChanged(data.dataPayloadArray()!);
             console.log("[robot] Property Changed", d);
         }
+        return;
+    }
+
+    if (msg.type == MessageType.VectorNav)
+    {
+        const data = VectornavReport.getRootAsVectornavReport(new ByteBuffer(msg.toBytes()));
+        console.log("[robot] VectorNav", {
+            latitude: data.latitude(),
+            longitude: data.longitude(),
+            yaw: data.yaw()
+        });
+        set({ vectornav: data });
         return;
     }
 
@@ -140,5 +154,5 @@ export const useRobotStore = create<RobotState>((set, get) => ({
     },
 
     // Data
-    logs: []
+    logs: [],
 }));
