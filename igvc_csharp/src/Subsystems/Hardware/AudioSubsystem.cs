@@ -28,6 +28,13 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
 
         SetOperatingState(SubsystemState.Ready);
 
+        _ = Task.Factory.StartNew(
+            () => PlaySound("robot-code-start.mp3"),
+            token,
+            TaskCreationOptions.None,
+            TaskScheduler.Default
+        );
+
         return Task.CompletedTask;
     }
 
@@ -39,7 +46,8 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
             switch (updated.Mode)
             {
                 case RobotModeEnum.Autonomous when BaseRobot.Instance != null && BaseRobot.Instance.State.Mission == MissionEnum.Autonav:
-                    PlaySound("autonav-mode.mp3");
+                    // PlaySound("autonav-mode.mp3"); //FIXME this is temporary
+                    PlaySound("waypoints-start.mp3");
                     break;
                 case RobotModeEnum.Autonomous:
                     PlaySound("self-drive.mp3");
