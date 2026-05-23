@@ -84,8 +84,7 @@ static void wait_for_strip(WS28XX_HandleTypeDef *ws, uint32_t dma_id) {
 }
 
 void chase_mode(void) {
-    static uint16_t head_a = 0;
-    static uint16_t head_b = 0;
+    static uint16_t head = 0;
 
     // Clear all LEDs
     for (uint16_t i = 0; i < NUM_LEDS; i++) {
@@ -93,43 +92,59 @@ void chase_mode(void) {
         WS28XX_SetPixel_RGB(&ws28xx_b, i, 0, 0, 0);
     }
 
-    // Draw chase trail for strip A (blue)
+    // Draw same chase trail for both strips
     for (int16_t t = CHASE_LENGTH - 1; t >= 0; t--) {
-        int16_t pos = (int16_t)head_a - t;
+        int16_t pos = (int16_t)head - t;
         if (pos < 0) pos += NUM_LEDS;
 
         uint8_t brightness = 255 - ((uint16_t)t * 255 / CHASE_LENGTH);
-        WS28XX_SetPixel_RGB(&ws28xx_a, (uint16_t)pos,
-            borg == 0 ? 0 : 255,
-            (uint16_t)150 * brightness / 255,
-            (uint16_t)255 * brightness / 255);
+        uint8_t r = borg ? brightness : 0;
+        uint8_t g = (uint8_t)((uint32_t)brightness * 150 / 255);
+        uint8_t b = brightness;
+
+        WS28XX_SetPixel_RGB(&ws28xx_a, (uint16_t)pos, r, g, b);
+        WS28XX_SetPixel_RGB(&ws28xx_b, (uint16_t)pos, r, g, b);
     }
 
-    // Draw chase trail for strip B (red/orange)
-    for (int16_t t = CHASE_LENGTH - 1; t >= 0; t--) {
-        int16_t pos = (int16_t)head_b - t;
-        if (pos < 0) pos += NUM_LEDS;
-
-        uint8_t brightness = 255 - ((uint16_t)t * 255 / CHASE_LENGTH);
-        WS28XX_SetPixel_RGB(&ws28xx_b, (uint16_t)pos,
-            (uint16_t)255 * brightness / 255,
-            (uint16_t)80  * brightness / 255,
-            0);
-    }
-
-    // Update strip A
+    // Wait for any previous DMA to finish, then fire both transfers
     wait_for_strip(&ws28xx_a, TIM_DMA_ID_CC3);
+    wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
+
     WS28XX_Update(&ws28xx_a);
-    wait_for_strip(&ws28xx_a, TIM_DMA_ID_CC3);
-
-    // Update strip B
-    wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
     WS28XX_Update(&ws28xx_b);
+
+    // Wait for both to complete before next frame
+    wait_for_strip(&ws28xx_a, TIM_DMA_ID_CC3);
     wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
 
-    head_a = (head_a + 1) % NUM_LEDS;
-    head_b = (head_b + 1) % NUM_LEDS;
+    head = (head + 1) % NUM_LEDS;
     HAL_Delay(CHASE_SPEED);
+}
+
+void mode_flash(void) {
+    static uint8_t flash_on = 1;
+    static uint32_t last_toggle = 0;
+
+    uint32_t now = HAL_GetTick();
+    uint32_t interval = flash_on ? FLASH_ON_MS : FLASH_OFF_MS;
+
+    if ((now - last_toggle) >= interval) {
+        flash_on = !flash_on;
+        last_toggle = now;
+
+        uint8_t val = flash_on ? 255 : 0;
+        for (uint16_t i = 0; i < NUM_LEDS; i++) {
+            WS28XX_SetPixel_RGB(&ws28xx_a, i, val, val, val);
+            WS28XX_SetPixel_RGB(&ws28xx_b, i, val, val, val);
+        }
+
+        wait_for_strip(&ws28xx_a, TIM_DMA_ID_CC3);
+        wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
+        WS28XX_Update(&ws28xx_a);
+        WS28XX_Update(&ws28xx_b);
+        wait_for_strip(&ws28xx_a, TIM_DMA_ID_CC3);
+        wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
+    }
 }
 
 void mode_estopped(void) {
@@ -243,6 +258,7 @@ int main(void)
 
 //	  HAL_Delay(250);
 	  chase_mode();
+    // mode_flash();
   }
     /* USER CODE END WHILE */
 
