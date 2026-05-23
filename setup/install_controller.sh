@@ -2,6 +2,8 @@
 
 cd $HOME
 
+USER_TO_ADD=${logname}
+
 # get repository
 git clone https://github.com/atar-axis/xpadneo.git
 
@@ -10,6 +12,13 @@ sudo apt-get install -y dkms linux-headers-$(uname -r)
 
 # run install script
 sudo ./install.sh
+
+# add to "input" group
+sudo usermod -aG input $USER_TO_ADD
+
+#FIXME idk if these commands will actually work
+sudo echo "options hid_xpadneo disable_shift_mode=1" > /etc/modprobe.d/99-xpadneo-quirks.conf
+sudo echo "options hid_xpadneo disable_mouse=1" > /etc/modprobe.d/99-xpadneo-quirks.conf
 
 #TODO: might need to edit the dkms configuration file:
 # sudo nano /etc/dkms/framework.conf
