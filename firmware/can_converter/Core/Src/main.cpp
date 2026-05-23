@@ -22,7 +22,7 @@ SwerveDriveState cmd{};
 SwerveDrive* InitSwerveDrive() {
 
 	static SwerveModuleConfig fl_config = {
-	        .x_pos =  0.3048,
+	        .x_pos =  0.6604,
 	        .y_pos =  0.3048,
 	        .drive_motor_id = 1,
 	        .angle_motor_id = 2,
@@ -31,7 +31,7 @@ SwerveDrive* InitSwerveDrive() {
 	    };
 
 	    static SwerveModuleConfig fr_config = {
-	        .x_pos =  0.3048,
+	        .x_pos =  0.6604,
 	        .y_pos = -0.3048,
 	        .drive_motor_id = 4,
 	        .angle_motor_id = 3,
@@ -40,7 +40,7 @@ SwerveDrive* InitSwerveDrive() {
 	    };
 
 	    static SwerveModuleConfig bl_config = {
-	        .x_pos = -0.3048,
+	        .x_pos = -0.6604,
 	        .y_pos =  0.3048,
 	        .drive_motor_id = 5,
 	        .angle_motor_id = 6,
@@ -49,7 +49,7 @@ SwerveDrive* InitSwerveDrive() {
 	    };
 
 	    static SwerveModuleConfig br_config = {
-	        .x_pos = -0.3048,
+	        .x_pos = -0.6604,
 	        .y_pos = -0.3048,
 	        .drive_motor_id = 8,
 	        .angle_motor_id = 7,
