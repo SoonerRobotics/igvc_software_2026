@@ -140,6 +140,13 @@ public class CameraSubsystem : SubsystemBase
             }
 
             capture.Set(VideoCaptureProperties.Fps, CameraFps);
+            capture.Set(VideoCaptureProperties.AutoExposure, 0);
+            capture.Set(VideoCaptureProperties.AutoFocus, 0);
+            capture.Set(VideoCaptureProperties.AutoWB, 0);
+            capture.Set(VideoCaptureProperties.Brightness, 1.5);
+            capture.Set(VideoCaptureProperties.FrameHeight, 480);
+            capture.Set(VideoCaptureProperties.FrameWidth, 640);
+
             mIsConnected = true;
             logger.LogInformation("Camera {} connected!", name);
 

@@ -25,7 +25,9 @@ public sealed class HsvFilter : IFilter
         _outputMode = outputMode;
 
         var (minH, minS, minV) = range.Lower.ToHsv();
+        // Console.WriteLine(minH + " " + minS + " " + minV);
         var (maxH, maxS, maxV) = range.Upper.ToHsv();
+        // Console.WriteLine(maxH + " " + maxS + " " + maxV);
         
         _wrapsHue = minH > maxH;
 

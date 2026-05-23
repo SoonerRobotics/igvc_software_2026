@@ -140,7 +140,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(180, 95, 160)
+            ColorUtils.Color.FromHsv(179, 150, 170)
         );
 
         [Config("vision.yellow_threshold")]
@@ -162,7 +162,7 @@ public static class Configuration
         public const int BlurStrength = 3;
 
         //FIXME make flattening configurable from the GUI
-        // For flattening, the order is [ TL, TR, BL, BR ]
+        // For flattening, the order is [ TL, TR, BR, BL ]
 
         /// <summary>
         /// The source points for the left camera image flattening
@@ -171,8 +171,8 @@ public static class Configuration
         [
             new(180, 100), //TODO: since these are the only 2 points actually modified, do something?
             new(640, 100), // same here
+            new(640, 480),
             new(0, 480),
-            new(640, 480)
         ];
 
         /// <summary>
@@ -182,8 +182,8 @@ public static class Configuration
         [
             new(0, 0),
             new(640, 0),
+            new(470, 480), // same here
             new(270, 480), // same here
-            new(470, 480)  // same here
         ];
 
         /// <summary>
@@ -193,8 +193,8 @@ public static class Configuration
         [
             new(0, 100),     // same here
             new(470, 100),   // same here
+            new(640, 480),
             new(0, 480),
-            new(640, 480)
         ];
 
         /// <summary>
@@ -204,8 +204,8 @@ public static class Configuration
         [
             new(0, 0),
             new(640, 0),
+            new(340, 480),   // same here
             new(100, 480),   // same here
-            new(340, 480)    // same here
         ];
     }
 

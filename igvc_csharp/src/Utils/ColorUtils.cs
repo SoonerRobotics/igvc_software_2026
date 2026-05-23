@@ -47,6 +47,7 @@ public static class ColorUtils
             return new Color(r, g, b, a);
         }
 
+        //FIXME this breaks when h is 180
         public static Color FromHsv(int h, int s, int v)
         {
             h = Assertions.IntInRange(h, 0, 180);

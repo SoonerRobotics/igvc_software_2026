@@ -9,6 +9,8 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
+using VisionConfig = igvc_csharp.Configuration.VisionSubsystem;
+
 namespace igvc_csharp.Subsystems.Vision;
 
 [Subsystem("VisionSubsystem", Disabled = false)]
@@ -77,8 +79,8 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private void AddFilters(RobotState newState)
     {
         // standard lane / obstacle detection
-        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForRange));
-        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForRange));
+        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
+        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
 
         if (newState.Mission == MissionEnum.Autonav)
         {
@@ -99,14 +101,14 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 Configuration.VisionSubsystem.leftSourcePoints,
                 Configuration.VisionSubsystem.leftDestPoints,
                 new Size(640, 480)
-                // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
+            // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
 
             _rightFilters.Add(new TopDownFilter(
                 Configuration.VisionSubsystem.rightSourcePoints,
                 Configuration.VisionSubsystem.rightDestPoints,
                 new Size(640, 480)
-                // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
+            // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
         }
 
@@ -172,6 +174,28 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // also publish the raw combined view for debug purposes
                 var leftRaw = CvUtils.AsMat(leftFrame);
                 var rightRaw = CvUtils.AsMat(rightFrame);
+
+                // draw flattening points
+                var flattenPolyColor = new Scalar(0, 100, 0);
+                List<List<Point>> leftDebugPts = [new(), new()];
+                for (int i = 0; i < 4; i++)
+                {
+                    leftDebugPts[0].Add((Point)VisionConfig.leftSourcePoints[i]);
+                    leftDebugPts[1].Add((Point)VisionConfig.leftDestPoints[i]);
+                }
+                leftRaw.Polylines(leftDebugPts, true, flattenPolyColor, 3);
+
+                List<List<Point>> rightDebugPts = [new(), new()];
+                for (int i = 0; i < 4; i++)
+                {
+                    rightDebugPts[0].Add((Point)VisionConfig.rightSourcePoints[i]);
+                    rightDebugPts[1].Add((Point)VisionConfig.rightDestPoints[i]);
+                }
+                rightRaw.Polylines(rightDebugPts, true, flattenPolyColor, 3);
+
+
+                // draw region of disinterest
+                //TODO
 
                 var combinedRaw = new Mat();
                 Cv2.HConcat([leftRaw, rightRaw], combinedRaw);
