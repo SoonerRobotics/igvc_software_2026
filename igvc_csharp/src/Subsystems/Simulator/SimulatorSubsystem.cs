@@ -81,6 +81,8 @@ public class SimulatorSubsystem : SubsystemBase
         while (!token.IsCancellationRequested)
         {
             TcpClient? client = null;
+            using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+
             try
             {
                 SetOperatingState(SubsystemState.Idle);
@@ -90,31 +92,32 @@ public class SimulatorSubsystem : SubsystemBase
                 await client.ConnectAsync(
                     Configuration.SimulatorSubsystem.Host,
                     Configuration.SimulatorSubsystem.Port,
-                    token
+                    connectionCts.Token
                 );
 
                 SetOperatingState(SubsystemState.Operating);
 
                 _stream = client.GetStream();
-                var readTask = ReceiveLoop(client, token);
-                var writeTask = WriteLoop(_stream, token);
+                var readTask = ReceiveLoop(client, connectionCts.Token);
+                var writeTask = WriteLoop(_stream, connectionCts.Token);
+
+                // Whichever loop exits first (disconnect, error) cancels the other
+                var first = await Task.WhenAny(readTask, writeTask);
+                await connectionCts.CancelAsync();
+
                 await Task.WhenAll(readTask, writeTask);
             }
-            catch (OperationCanceledException) { break; }
-            catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted })
-            {
-                // Socket cancelled cleanly
-            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
+            catch (IOException ex) when (ex.InnerException is SocketException { SocketErrorCode: SocketError.OperationAborted }) { }
             catch (Exception ex)
             {
-                // Maybe log but it is really obnoxious to have a million log lines about the connection being lost
+                Logger.LogDebug(ex, "Simulator connection lost, reconnecting...");
             }
             finally
             {
                 _stream = null;
                 try { client?.Dispose(); } catch { /* ignore */ }
                 _client = null;
-
                 DrainSendChannel();
             }
 
@@ -158,10 +161,14 @@ public class SimulatorSubsystem : SubsystemBase
         try
         {
             var stream = client.GetStream();
-            while (!token.IsCancellationRequested && client.Connected)
+            while (!token.IsCancellationRequested)
             {
                 var bytesRead = await stream.ReadAsync(readBuffer, token);
-                if (bytesRead == 0) break;
+                if (bytesRead == 0)
+                {
+                    throw new EndOfStreamException("Simulator connection lost");
+                }
+
                 accumulator.Append(readBuffer.AsSpan(0, bytesRead));
             }
         }
