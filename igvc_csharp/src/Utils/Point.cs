@@ -29,6 +29,11 @@ public struct SCR_Point : IEquatable<SCR_Point>, IComparable<SCR_Point>
         Y = (int)(rho * Math.Sin(theta.To(AngleUnit.Radians)));
     }
 
+    public override string ToString()
+    {
+        return "(" + X + ", " + Y + ")";
+    }
+
     public double Dist(SCR_Point other)
     {
         //FIXME double check if these are in the right order ?
@@ -71,7 +76,7 @@ public struct SCR_Point : IEquatable<SCR_Point>, IComparable<SCR_Point>
 
     public static SCR_Point operator -(SCR_Point a, SCR_Point b) => new(a.X - b.X, a.Y - b.Y);
 
-    public static SCR_Point operator *(SCR_Point a, double scalar) => new(a.X * scalar, a.Y * scalar);
+    public static SCR_Point operator *(SCR_Point a, double scalar) => new((int)(a.X * scalar), (int)(a.Y * scalar));
 
-    public static SCR_Point operator /(SCR_Point a, double scalar) => new(a.X / scalar, a.Y / scalar);
+    public static SCR_Point operator /(SCR_Point a, double scalar) => new((int)(a.X / scalar), (int)(a.Y / scalar));
 }

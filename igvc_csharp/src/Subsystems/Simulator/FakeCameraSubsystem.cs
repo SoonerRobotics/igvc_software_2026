@@ -51,11 +51,11 @@ public class FakeCameraSubsystem : SubsystemBase
                     continue;
                 }
 
-                if (TimeUtils.Now() - startTime > 10_000 && !set) // wait 2 seconds before setting this
+                if (TimeUtils.Now() - startTime > 5_000 && !set) // wait X seconds before setting this
                 {
-                    BaseRobot.Instance.SetMission(MissionEnum.Autonav);
-                    BaseRobot.Instance.SetMobility(true);
-                    BaseRobot.Instance.SetMode(RobotModeEnum.Autonomous);
+                    BaseRobot.Instance?.SetMission(MissionEnum.Autonav);
+                    BaseRobot.Instance?.SetMobility(true);
+                    BaseRobot.Instance?.SetMode(RobotModeEnum.Autonomous);
 
                     set = true;
                 }
@@ -66,7 +66,7 @@ public class FakeCameraSubsystem : SubsystemBase
                 var leftFrame = MessageConstructor.CreateImageFrame(
                     (uint)leftMat.Width,
                     (uint)leftMat.Height,
-                    "left_view",
+                    "left",
                     CvUtils.FromMat(leftMat)
                 );
 
@@ -78,7 +78,7 @@ public class FakeCameraSubsystem : SubsystemBase
                 var rightFrame = MessageConstructor.CreateImageFrame(
                     (uint)rightMat.Width,
                     (uint)rightMat.Height,
-                    "right_view",
+                    "right",
                     CvUtils.FromMat(rightMat)
                 );
 

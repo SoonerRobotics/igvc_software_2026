@@ -128,7 +128,8 @@ public class Feeler
             // for every one of the pixel's values (3 for the default BGR for OpenCV, although we should be sending only a B&W image so it should be 1)
             for (int channel = 0; channel < channels; channel++)
             {
-                if (raw_pixels[(coords.Y * image.Rows) + coords.X][channel] > 0)
+                //FIXME make like a configurable obstacleThreshold like A*?
+                if (raw_pixels[(coords.Y * image.Rows) + coords.X][channel] > 254)
                 {
                     // that is our new length
                     Current.X = x * x_dir;
@@ -152,7 +153,8 @@ public class Feeler
 
     public void Bias(double amount)
     {
-        Max *= amount;
+        //FIXME we're gonna have to reintroduce the _original_unbiased_max again probably
+        Max += (Max * amount);
     }
 
     /// <summary>

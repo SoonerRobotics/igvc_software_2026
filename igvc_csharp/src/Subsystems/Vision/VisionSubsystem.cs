@@ -17,7 +17,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private readonly List<IFilter> _leftFilters = [];
     private readonly List<IFilter> _rightFilters = [];
 
-    private readonly OpenCvImageWindow _window = new("Vision Output");
+    // private readonly OpenCvImageWindow _window = new("Vision Output");
 
     private readonly Channel<ImageFrame> _leftChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
@@ -77,8 +77,8 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private void AddFilters(RobotState newState)
     {
         // standard lane / obstacle detection
-        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
-        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold));
+        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForRange));
+        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForRange));
 
         if (newState.Mission == MissionEnum.Autonav)
         {
@@ -146,7 +146,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 {
                     combinedFiltered = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
 
-                    _window.EnqueueJpeg(CvUtils.FromMat(combinedFiltered));
+                    // _window.EnqueueJpeg(CvUtils.FromMat(combinedFiltered));
                 }
                 else if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
                 {

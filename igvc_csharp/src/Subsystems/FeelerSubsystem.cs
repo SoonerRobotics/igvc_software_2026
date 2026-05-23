@@ -20,9 +20,6 @@ namespace igvc_csharp.src.Subsystems;
 [Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
-
-    private bool _hasSent = false;
-
     // actual feeler stuff
     private List<Feeler> _feelers = [];
     private Feeler _gpsFeeler = new();
@@ -45,6 +42,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private LatLng? _goalPoint;
 
     // OpenCV stuff
+    private OpenCvImageWindow _debugWindow = new("feeler debug window");
+    private OpenCvImageWindow _filteredWindow = new("filtered debug window");
     private readonly Channel<ImageFrame> _debugFrameChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
         SingleReader = true,
@@ -207,16 +206,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         SetOperatingState(SubsystemState.Operating);
 
-        //FIXME REMOVE THIS ONCE WE GET STUFF WORKING !!!!!!!!!!!
-        if (!_hasSent)
-        {
-            SetMobility(true);
-            SetRobotMission(MissionEnum.Autonav);
-            SetRobotMode(RobotModeEnum.Autonomous);
-
-            _hasSent = true;
-        }
-
         return Task.CompletedTask;
     }
 
@@ -251,7 +240,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 }
 
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
-                if (BaseRobot.Instance.State.Mode == RobotModeEnum.Autonomous)
+                if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous)
                 {
                     //FIXME should we be setting safetyLights or should it be setting automatically?
                     canbus.SafetyLights.SetAutonomous();
@@ -269,7 +258,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         var mask = CvUtils.AsMat(maskFrame);
 
                         // zero the mask to ignore all obstacles
-                        if (FeelerConfig.UseOnlWaypoints)
+                        if (FeelerConfig.UseOnlyWaypoints)
                         {
                             mask.SetTo(0);
                         }
@@ -281,7 +270,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         var forwardFeeler = new Feeler(new SCR_Point(0, FeelerConfig.ForwardBiasWeight));
                         foreach (var feeler in _feelers)
                         {
+                            // Logger.LogInformation("forwardFeeler * {} = {}", feeler, forwardFeeler * feeler);
+                            // var tempMax = feeler.Max;
                             feeler.Bias(forwardFeeler * feeler);
+                            // Logger.LogInformation("max {} bias by {} = {}", tempMax, forwardFeeler * feeler, feeler.Max);
                         }
 
                         // bias towards GPS
@@ -289,8 +281,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         {
                             var current_gps = new LatLng(_position.Latitude, _position.Longitude);
 
-                            var dist = current_gps.Distance(_goalPoint).To(DistanceUnit.Meters);
-                            var headingError = GeoUtils.EstimateHeading(current_gps, _goalPoint).Value.To(AngleUnit.Degrees);
+                            double dist = current_gps.Distance(_goalPoint).To(DistanceUnit.Meters);
+                            double headingError = GeoUtils.EstimateHeading(current_gps, _goalPoint)?.To(AngleUnit.Degrees) ?? 0;
 
                             _gpsFeeler = new Feeler(new SCR_Point(dist, headingError), new Scalar(250, 50, 50));
 
@@ -317,7 +309,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                                 (float)Math.Clamp(_drivingPID.Calculate(controlFeeler.Current.Y), -FeelerConfig.MaxDriveSpeed, FeelerConfig.MaxDriveSpeed),
                                 (float)0.0, //FIXME we need to figure out strafing
                                 (float)Math.Clamp(_headingPID.Calculate(controlFeeler.Current.X), -FeelerConfig.MaxTurnSpeed, FeelerConfig.MaxTurnSpeed)
-                                );
+                            );
                         }
                         else
                         {
@@ -337,7 +329,17 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         _gpsFeeler.Draw(debugImg);
                         controlFeeler.Draw(debugImg);
 
+                        // Feeler debugFeeler = new(new SCR_Point(-100, 100), new Scalar(30, 30, 250));
+                        // debugFeeler.Draw(debugImg);
+
                         // Logger.LogInformation("Control feeler: {}", controlFeeler);
+
+                        // uncomment for debug window (not on affogato tho)
+                        if (Configuration.UseSimulation)
+                        {
+                            _filteredWindow.EnqueueJpeg(mask.ToBytes());
+                            _debugWindow.EnqueueJpeg(debugImg.ToBytes());
+                        }
 
                         // publish debug image
                         var frameBytes = CvUtils.FromMat(debugImg);
@@ -374,5 +376,13 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         {
             Logger.LogError(ex, "Feeler task crashed");
         }
+    }
+
+    public override Task Shutdown()
+    {
+        _filteredWindow.Dispose();
+        _debugWindow.Dispose();
+
+        return Task.CompletedTask;
     }
 }

@@ -281,7 +281,7 @@ public static class Configuration
         /// Default (unbiased) max length of the vision feelers, in pixels
         /// </summary>
         [Config("feelers.max_length")]
-        public const int MaxLength = 100;
+        public const int MaxLength = 200;
 
         /// <summary>
         /// The starting angle of the 1st feeler, in degrees. 0 degrees is the positive x-axis
@@ -299,19 +299,19 @@ public static class Configuration
         /// How many feelers to make across the specified arc.
         /// </summary>
         [Config("feelers.num_feelers")]
-        public const int NumFeelers = 24;
+        public const int NumFeelers = 32;
 
         /// <summary>
         /// TODO
         /// </summary>
         [Config("feelers.balace_feelers")]
-        public const bool BalanceFeelers = false;
+        public const bool BalanceFeelers = true;
 
         /// <summary>
         /// Whether to use only GPS waypoints and ignore obstacles or not
         /// </summary>
         [Config("feelers.use_only_waypoints")]
-        public const bool UseOnlWaypoints = false;
+        public const bool UseOnlyWaypoints = false;
 
         /// <summary>
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds
@@ -452,7 +452,7 @@ public static class Configuration
         /// <summary>
         /// Frames to publish per second
         /// </summary>
-        public const double FPS = 15;
+        public const double FPS = 60; //FIXME I don't think this gets actually respected very well
     }
 
     public static class FakeGpsSubsystem
