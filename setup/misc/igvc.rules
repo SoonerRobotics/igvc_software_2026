@@ -1,5 +1,5 @@
 SUBSYSTEM=="net", ACTION=="add", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", \
-    RUN+="/usr/sbin/ip link set can0 type can bitrate 100000", \
+    RUN+="/usr/sbin/ip link set can0 type can bitrate 125000", \
     RUN+="/usr/sbin/ip link set can0 up"
     
 # slcan — pass the real kernel name (ttyACM0), not the symlink
