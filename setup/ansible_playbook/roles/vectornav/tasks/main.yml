@@ -1,0 +1,57 @@
+---
+- name: Check if VectorNav is already installed
+  stat:
+    path: /usr/local/vectornav
+  register: vn_dir
+
+- name: Download and install VectorNav SDK
+  block:
+    - name: Create temporary directory for VectorNav
+      file:
+        path: /tmp/vectornav_install
+        state: directory
+
+    - name: Download VectorNav zip
+      get_url:
+        url: https://cdn.soonerrobotics.org/scr/vn.zip
+        dest: /tmp/vectornav_install/vn.zip
+
+    - name: Unzip VectorNav SDK
+      unarchive:
+        src: /tmp/vectornav_install/vn.zip
+        dest: /tmp/vectornav_install
+        remote_src: yes
+
+    - name: Ensure install directory exists
+      file:
+        path: /usr/local/vectornav
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+      become: yes
+
+    - name: Copy contents to /usr/local/vectornav
+      copy:
+        src: /tmp/vectornav_install/vn_contents/
+        dest: /usr/local/vectornav/
+        remote_src: yes
+      become: yes
+
+    - name: Create build directory
+      file:
+        path: /usr/local/vectornav/cpp/build
+        state: directory
+
+    - name: Run CMake and Make
+      shell: |
+        cmake ..
+        make -j{{ ansible_processor_vcpus | default(4) }}
+      args:
+        chdir: /usr/local/vectornav/cpp/build
+        creates: /usr/local/vectornav/cpp/build/src/libVnSensor.so
+
+    - name: Cleanup temporary files
+      file:
+        path: /tmp/vectornav_install
+        state: absent
+  when: not vn_dir.stat.exists

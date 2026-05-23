@@ -1,0 +1,40 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install general dependencies
+  apt:
+    name:
+      - git
+      - unzip
+      - curl
+      - cmake
+      - build-essential
+      - can-utils
+      - ffmpeg
+      - libsdl2-dev
+    state: present
+  become: yes
+
+- name: Install OpenCV (PC only)
+  apt:
+    name: libopencv-dev
+    state: present
+  when: not is_jetson
+  become: yes
+
+- name: Install Bluetooth and Audio tools
+  apt:
+    name:
+      - bluez
+      - bluez-tools
+      - linux-firmware
+      - xboxdrv
+      - steam-devices
+      - pulseaudio
+      - pulseaudio-module-bluetooth
+    state: present
+  become: yes

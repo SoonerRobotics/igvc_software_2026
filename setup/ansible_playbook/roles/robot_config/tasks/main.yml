@@ -1,0 +1,43 @@
+---
+- name: Install udev rules
+  copy:
+    src: files/igvc.rules
+    dest: /etc/udev/rules.d/99-igvc.rules
+  notify: reload udev
+  become: yes
+
+- name: Install systemd service for SLCAN
+  copy:
+    src: files/igvc-can-slcan@.service
+    dest: /etc/systemd/system/igvc-can-slcan@.service
+  notify: reload systemd
+  become: yes
+
+- name: Attempt to load SLCAN module
+  modprobe:
+    name: slcan
+    state: present
+  ignore_errors: yes
+  become: yes
+
+- name: Ensure SLCAN persists on boot (if available)
+  lineinfile:
+    path: /etc/modules
+    line: "slcan"
+    state: present
+  when: not is_jetson
+  ignore_errors: yes
+  become: yes
+
+- name: Enable and start PulseAudio (user-level)
+  systemd:
+    name: pulseaudio
+    enabled: yes
+    state: started
+    scope: user
+
+- name: Restart Bluetooth service
+  systemd:
+    name: bluetooth
+    state: restarted
+  become: yes

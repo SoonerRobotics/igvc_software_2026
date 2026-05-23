@@ -1,0 +1,22 @@
+---
+- name: Setup IGVC Robot Environment
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Check if we are on a Jetson platform
+      stat:
+        path: /etc/nv_tegra_release
+      register: jetson_check
+
+    - name: Set platform facts
+      set_fact:
+        is_jetson: "{{ jetson_check.stat.exists }}"
+        is_arm: "{{ ansible_architecture == 'aarch64' }}"
+
+  roles:
+    - common
+    - dotnet
+    - vectornav
+    - robot_config
