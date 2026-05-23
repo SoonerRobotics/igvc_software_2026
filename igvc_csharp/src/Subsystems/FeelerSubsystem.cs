@@ -99,7 +99,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
             TaskScheduler.Default
         );
 
-        SetOperatingState(SubsystemState.Ready);
+        SetOperatingState(SubsystemState.Idle);
+        
         return Task.CompletedTask;
     }
 
@@ -115,6 +116,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // default to blue FIXME we want lerp to be automatic right?
         var defaultColor = new Scalar(200, 75, 75);
 
+        // Logger.LogInformation("start angle: {}", start_angle);
+
         for (var angle = start_angle; angle < end_angle; angle += angle_increment)
         {
             int x = (int)(FeelerConfig.MaxLength * Math.Cos(angle.To(AngleUnit.Radians)));
@@ -126,13 +129,17 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // build some feelers on the other side of the cone/arc formed from start_angle to end_angle
         if (FeelerConfig.BalanceFeelers)
         {
-            var flipped_start = (start_angle + new Angle(180, false)).WrapAngle();
-            var flipped_end = (flipped_start + new Angle(FeelerConfig.AngularWidth, false)).WrapAngle();
+            var flipped_start = start_angle + new Angle(180, false);
+            // Logger.LogInformation("flipped angle: {}", flipped_start);
+            var flipped_end = flipped_start + new Angle(FeelerConfig.AngularWidth, false);
+            // Logger.LogInformation("flipped end: {}", flipped_end);
 
             for (var angle = flipped_start; angle < flipped_end; angle += angle_increment)
             {
                 int x = (int)(FeelerConfig.MaxLength * Math.Cos(angle.To(AngleUnit.Radians)));
                 int y = (int)(FeelerConfig.MaxLength * Math.Sin(angle.To(AngleUnit.Radians)));
+
+                // Logger.LogInformation("adding feeler: {}, {}", x, y);
 
                 _feelers.Add(new Feeler(new SCR_Point(x, y), defaultColor));
             }
@@ -204,7 +211,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         _maskFrameChannel.Writer.TryWrite(frame);
 
-        SetOperatingState(SubsystemState.Operating);
+        SetOperatingState(SubsystemState.Ready);
 
         return Task.CompletedTask;
     }
@@ -245,7 +252,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     //FIXME should we be setting safetyLights or should it be setting automatically?
                     canbus.SafetyLights.SetAutonomous();
 
-                    if (State == SubsystemState.Operating)
+                    if (State == SubsystemState.Ready)
                     {
                         await BuildFeelers(); //FIXME
 
@@ -255,7 +262,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         var maskFrame = await _maskFrameChannel.Reader.ReadAsync(token);
 
                         var debugImg = CvUtils.AsMat(debugFrame);
-                        var mask = CvUtils.AsMat(maskFrame);
+                        var preMask = CvUtils.AsMat(maskFrame);
+
+                        //TODO maybe fix this in like, the vision subsystem? but for now is fine I think
+                        var mask = preMask.CvtColor(ColorConversionCodes.BGR2GRAY);
 
                         // zero the mask to ignore all obstacles
                         if (FeelerConfig.UseOnlyWaypoints)

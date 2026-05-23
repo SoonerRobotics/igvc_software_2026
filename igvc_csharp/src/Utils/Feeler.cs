@@ -54,7 +54,14 @@ public class Feeler
     public void Update(Mat image)
     {
         int channels = image.Channels();
-        bool success = image.GetArray(out Vec3b[] raw_pixels); //FIXME move this outside Update() and have the feeler node itself call it?
+
+        //FIXME we should like, automatically convert it maybe? Idk if I like throwing exceptions in what is basically a util class...
+        if (channels > 1)
+        {
+            throw new ArgumentException("Image must be single-channel (i.e. grayscale)!");
+        }
+
+        bool success = image.GetArray(out byte[] raw_pixels); //FIXME move this outside Update() and have the feeler node itself call it?
 
         int x = 0;
         int y = 0;
@@ -114,10 +121,10 @@ public class Feeler
             }
 
             // then center the coordinates
-            var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), image.Rows, image.Cols);
+            var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), image.Cols, image.Rows);
 
             // check for out-of-bounds
-            if (coords.X < 0 || coords.X > image.Rows || coords.Y < 0 || coords.Y > image.Cols)
+            if (coords.X < 0 || coords.X > image.Cols || coords.Y < 0 || coords.Y > image.Rows)
             {
                 // we *probably* exceeded our max, so just set it to max I guess
                 Current = Max;
@@ -125,28 +132,28 @@ public class Feeler
                 continue;
             }
 
-            // for every one of the pixel's values (3 for the default BGR for OpenCV, although we should be sending only a B&W image so it should be 1)
-            for (int channel = 0; channel < channels; channel++)
+            // Console.WriteLine("(" + coords.X + ", " + coords.Y + ")");
+
+            //FIXME make like a configurable obstacleThreshold like A*?
+            if (raw_pixels[(coords.Y * image.Rows) + coords.X] > 0)
             {
-                //FIXME make like a configurable obstacleThreshold like A*?
-                if (raw_pixels[(coords.Y * image.Rows) + coords.X][channel] > 254)
-                {
-                    // that is our new length
-                    Current.X = x * x_dir;
-                    Current.Y = y * y_dir;
+                // that is our new length
+                Current.X = x * x_dir;
+                Current.Y = y * y_dir;
 
-                    quit_checking = true; // and quit so we don't keep looping 'cause we found an obstacle
-                    continue;
-                }
-                else if (Math.Abs(x) > Math.Abs(Max.X) || Math.Abs(y) > Math.Abs(Max.Y))
-                {
-                    // we've gone farther than our maximum, which means we didn't hit an obstacle, so reset
-                    Current = Max;
+                quit_checking = true; // and quit so we don't keep looping 'cause we found an obstacle
 
-                    // and quit checking
-                    quit_checking = true;
-                    continue;
-                }
+                // Console.WriteLine("Got stopped at pixel: (" + coords.X + ", " + coords.Y + ") with value: " + raw_pixels[(coords.Y * image.Cols) + coords.X][channel]);
+                continue;
+            }
+            else if (Math.Abs(x) > Math.Abs(Max.X) || Math.Abs(y) > Math.Abs(Max.Y))
+            {
+                // we've gone farther than our maximum, which means we didn't hit an obstacle, so reset
+                Current = Max;
+
+                // and quit checking
+                quit_checking = true;
+                continue;
             }
         }
     }
@@ -154,7 +161,11 @@ public class Feeler
     public void Bias(double amount)
     {
         //FIXME we're gonna have to reintroduce the _original_unbiased_max again probably
-        Max += (Max * amount);
+        // Max += (Max * amount);
+        // if (amount > 0)
+        // {
+        //     Max *= amount;
+        // }
     }
 
     /// <summary>

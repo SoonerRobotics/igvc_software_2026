@@ -329,7 +329,7 @@ public static class Configuration
         /// The maximum amount each feeler should be biased by the forward feeler, in pixels
         /// </summary>
         [Config("feelers.forward_bias_weight")]
-        public const int ForwardBiasWeight = 75;
+        public const int ForwardBiasWeight = 20;
 
         /// <summary>
         /// How far up the image to center the feelers from, as a percentage.

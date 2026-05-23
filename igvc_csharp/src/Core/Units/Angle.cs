@@ -19,20 +19,6 @@ public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
         }
     }
 
-    public Angle WrapAngle()
-    {
-        if (Radians > Math.Tau)
-        {
-            Radians -= Math.PI;
-        }
-        else if (Radians < 0)
-        {
-            Radians += Math.PI;
-        }
-
-        return this; //FIXME does this even work???
-    }
-
     public double To(AngleUnit unit) => unit.FromRadians(Radians);
 
     public bool Equals(Angle other) => Radians.Equals(other.Radians);
