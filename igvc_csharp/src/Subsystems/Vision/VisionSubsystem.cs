@@ -79,14 +79,14 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private void AddFilters(RobotState newState)
     {
         // standard lane / obstacle detection
-        _leftFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
-        _rightFilters.Add(new HsvFilter(Configuration.VisionSubsystem.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
+        _leftFilters.Add(new HsvFilter(VisionConfig.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
+        _rightFilters.Add(new HsvFilter(VisionConfig.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
 
         if (newState.Mission == MissionEnum.Autonav)
         {
             // insert as the first filter (don't want to blur if we're doing SelfDrive)
-            _leftFilters.Insert(0, new BlurFilter(Configuration.VisionSubsystem.BlurRadius, Configuration.VisionSubsystem.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
-            _rightFilters.Insert(0, new BlurFilter(Configuration.VisionSubsystem.BlurRadius, Configuration.VisionSubsystem.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
+            _leftFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
+            _rightFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
 
             //TODO: make region of disinterest configurable, although I don't think we'll actually need it...
             // _leftFilters.Add(new RegionFilter([
@@ -98,15 +98,15 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
             // ));
 
             _leftFilters.Add(new TopDownFilter(
-                Configuration.VisionSubsystem.leftSourcePoints,
-                Configuration.VisionSubsystem.leftDestPoints,
+                VisionConfig.leftSourcePoints,
+                VisionConfig.leftDestPoints,
                 new Size(640, 480)
             // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
 
             _rightFilters.Add(new TopDownFilter(
-                Configuration.VisionSubsystem.rightSourcePoints,
-                Configuration.VisionSubsystem.rightDestPoints,
+                VisionConfig.rightSourcePoints,
+                VisionConfig.rightDestPoints,
                 new Size(640, 480)
             // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
@@ -175,23 +175,44 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var leftRaw = CvUtils.AsMat(leftFrame);
                 var rightRaw = CvUtils.AsMat(rightFrame);
 
-                // draw flattening points
-                var flattenPolyColor = new Scalar(0, 100, 0);
-                List<List<Point>> leftDebugPts = [new(), new()];
-                for (int i = 0; i < 4; i++)
+                //FIXME this is temporary
+                if (true)
                 {
-                    leftDebugPts[0].Add((Point)VisionConfig.leftSourcePoints[i]);
-                    leftDebugPts[1].Add((Point)VisionConfig.leftDestPoints[i]);
-                }
-                leftRaw.Polylines(leftDebugPts, true, flattenPolyColor, 3);
+                    var leftFilter = new TopDownFilter(
+                        VisionConfig.leftSourcePoints,
+                        VisionConfig.leftDestPoints,
+                        new Size(640, 480)
+                    // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
+                    );
 
-                List<List<Point>> rightDebugPts = [new(), new()];
-                for (int i = 0; i < 4; i++)
-                {
-                    rightDebugPts[0].Add((Point)VisionConfig.rightSourcePoints[i]);
-                    rightDebugPts[1].Add((Point)VisionConfig.rightDestPoints[i]);
+                    var rightFilter = new TopDownFilter(
+                        VisionConfig.rightSourcePoints,
+                        VisionConfig.rightDestPoints,
+                        new Size(640, 480)
+                    // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
+                    );
+
+                    leftRaw = leftFilter.Apply(leftRaw);
+                    rightRaw = rightFilter.Apply(rightRaw);
                 }
-                rightRaw.Polylines(rightDebugPts, true, flattenPolyColor, 3);
+
+                // draw flattening points
+                // var flattenPolyColor = new Scalar(0, 100, 0);
+                // List<List<Point>> leftDebugPts = [new(), new()];
+                // for (int i = 0; i < 4; i++)
+                // {
+                //     leftDebugPts[0].Add((Point)VisionConfig.leftSourcePoints[i]);
+                //     leftDebugPts[1].Add((Point)VisionConfig.leftDestPoints[i]);
+                // }
+                // leftRaw.Polylines(leftDebugPts, true, flattenPolyColor, 3);
+
+                // List<List<Point>> rightDebugPts = [new(), new()];
+                // for (int i = 0; i < 4; i++)
+                // {
+                //     rightDebugPts[0].Add((Point)VisionConfig.rightSourcePoints[i]);
+                //     rightDebugPts[1].Add((Point)VisionConfig.rightDestPoints[i]);
+                // }
+                // rightRaw.Polylines(rightDebugPts, true, flattenPolyColor, 3);
 
 
                 // draw region of disinterest
