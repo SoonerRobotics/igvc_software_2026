@@ -124,7 +124,7 @@ public class Feeler
             var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), image.Cols, image.Rows);
 
             // check for out-of-bounds
-            if (coords.X < 0 || coords.X > image.Cols || coords.Y < 0 || coords.Y > image.Rows)
+            if (coords.X < 0 || coords.X >= image.Cols || coords.Y < 0 || coords.Y >= image.Rows)
             {
                 // we *probably* exceeded our max, so just set it to max I guess
                 Current = Max;
@@ -135,7 +135,7 @@ public class Feeler
             // Console.WriteLine("(" + coords.X + ", " + coords.Y + ")");
 
             //FIXME make like a configurable obstacleThreshold like A*?
-            if (raw_pixels[(coords.Y * image.Rows) + coords.X] > 0)
+            if (raw_pixels[(coords.Y * image.Cols) + coords.X] > 0)
             {
                 // that is our new length
                 Current.X = x * x_dir;
@@ -143,10 +143,10 @@ public class Feeler
 
                 quit_checking = true; // and quit so we don't keep looping 'cause we found an obstacle
 
-                // Console.WriteLine("Got stopped at pixel: (" + coords.X + ", " + coords.Y + ") with value: " + raw_pixels[(coords.Y * image.Cols) + coords.X][channel]);
+                // Console.WriteLine("Got stopped at pixel: (" + coords.X + ", " + coords.Y + ") with value: " + raw_pixels[(coords.Y * image.Rows) + coords.X]);
                 continue;
             }
-            else if (Math.Abs(x) > Math.Abs(Max.X) || Math.Abs(y) > Math.Abs(Max.Y))
+            else if (Math.Abs(x) >= Math.Abs(Max.X) || Math.Abs(y) >= Math.Abs(Max.Y))
             {
                 // we've gone farther than our maximum, which means we didn't hit an obstacle, so reset
                 Current = Max;

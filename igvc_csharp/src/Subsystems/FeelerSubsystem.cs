@@ -100,7 +100,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         );
 
         SetOperatingState(SubsystemState.Idle);
-        
+
         return Task.CompletedTask;
     }
 

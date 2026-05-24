@@ -84,16 +84,16 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
             TaskScheduler.Default
         );
 
-        _ = Task.Factory.StartNew(
-            () => WriteAllFrames(token),
-            token,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default
-        );
+        // _ = Task.Factory.StartNew(
+        //     () => WriteAllFrames(token),
+        //     token,
+        //     TaskCreationOptions.LongRunning,
+        //     TaskScheduler.Default
+        // );
 
-        SetRobotMission(MissionEnum.Autonav);
+        // SetRobotMission(MissionEnum.Autonav);
 
-        SetOperatingState(SubsystemState.Ready);
+        // SetOperatingState(SubsystemState.Ready);
 
         return Task.CompletedTask;
     }

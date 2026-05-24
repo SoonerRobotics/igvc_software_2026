@@ -293,7 +293,7 @@ public static class Configuration
         /// How large the arc of feelers is, in degrees (determines where the last feeler is placed)
         /// </summary>
         [Config("feelers.angular_width")]
-        public const double AngularWidth = 180 - 20;
+        public const double AngularWidth = 180 - (AngleOffset * 2);
 
         /// <summary>
         /// How many feelers to make across the specified arc.
