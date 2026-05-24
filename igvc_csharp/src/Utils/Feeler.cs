@@ -51,17 +51,13 @@ public class Feeler
      * 
      * FIXME TODO we should pass this a pointer not the whole matrix so we can throw it into some threads.
      */
-    public void Update(Mat image)
+    public void Update(byte[] pixels, int channels, int width, int height)
     {
-        int channels = image.Channels();
-
         //FIXME we should like, automatically convert it maybe? Idk if I like throwing exceptions in what is basically a util class...
         if (channels > 1)
         {
             throw new ArgumentException("Image must be single-channel (i.e. grayscale)!");
         }
-
-        bool success = image.GetArray(out byte[] raw_pixels); //FIXME move this outside Update() and have the feeler node itself call it?
 
         int x = 0;
         int y = 0;
@@ -78,7 +74,7 @@ public class Feeler
 
         if (!slopeIsInfinity)
         {
-            slope = Max.Y / Max.X; // rise over run
+            slope = (double)Max.Y / (double)Max.X; // rise over run
         }
 
         // loop until we hit an obstacle or max_length
@@ -121,21 +117,21 @@ public class Feeler
             }
 
             // then center the coordinates
-            var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), image.Cols, image.Rows);
+            var coords = CenterCoordinates(new SCR_Point(x * x_dir, y * y_dir), width, height);
 
+            // Console.WriteLine("(" + coords.X + ", " + coords.Y + ")");
+            
             // check for out-of-bounds
-            if (coords.X < 0 || coords.X >= image.Cols || coords.Y < 0 || coords.Y >= image.Rows)
+            if (coords.X < 0 || coords.X >= width || coords.Y < 0 || coords.Y >= height)
             {
                 // we *probably* exceeded our max, so just set it to max I guess
                 Current = Max;
                 quit_checking = true;
-                continue;
             }
 
-            // Console.WriteLine("(" + coords.X + ", " + coords.Y + ")");
 
             //FIXME make like a configurable obstacleThreshold like A*?
-            if (raw_pixels[(coords.Y * image.Cols) + coords.X] > 0)
+            else if (pixels[(coords.Y * width) + coords.X] > 0)
             {
                 // that is our new length
                 Current.X = x * x_dir;
@@ -143,8 +139,7 @@ public class Feeler
 
                 quit_checking = true; // and quit so we don't keep looping 'cause we found an obstacle
 
-                // Console.WriteLine("Got stopped at pixel: (" + coords.X + ", " + coords.Y + ") with value: " + raw_pixels[(coords.Y * image.Rows) + coords.X]);
-                continue;
+                // Console.WriteLine("Got stopped at pixel: (" + coords.X + ", " + coords.Y + ") with value: " + pixels[(coords.Y * width) + coords.X]);
             }
             else if (Math.Abs(x) >= Math.Abs(Max.X) || Math.Abs(y) >= Math.Abs(Max.Y))
             {
@@ -153,7 +148,6 @@ public class Feeler
 
                 // and quit checking
                 quit_checking = true;
-                continue;
             }
         }
     }

@@ -140,7 +140,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static readonly ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(179, 150, 170)
+            ColorUtils.Color.FromHsv(179, 200, 170)
         );
 
         [Config("vision.yellow_threshold")]
@@ -170,8 +170,8 @@ public static class Configuration
         public static readonly Point2f[] leftSourcePoints =
         [
             new(180, 100), //TODO: since these are the only 2 points actually modified, do something?
-            new(640, 100), // same here
-            new(640, 480),
+            new(640 - 60, 100), // same here
+            new(640 - 60, 480),
             new(0, 480),
         ];
 
@@ -182,8 +182,8 @@ public static class Configuration
         [
             new(0, 0),
             new(640, 0),
-            new(470, 480), // same here
-            new(270, 480), // same here
+            new(640, 480), // same here
+            new(0, 480), // same here
         ];
 
         /// <summary>
@@ -191,10 +191,10 @@ public static class Configuration
         /// </summary>
         public static readonly Point2f[] rightSourcePoints =
         [
-            new(0, 100),     // same here
+            new(0 + 60, 100),     // same here
             new(470, 100),   // same here
             new(640, 480),
-            new(0, 480),
+            new(0 + 60, 480),
         ];
 
         /// <summary>
@@ -204,8 +204,8 @@ public static class Configuration
         [
             new(0, 0),
             new(640, 0),
-            new(340, 480),   // same here
-            new(100, 480),   // same here
+            new(640, 480),   // same here
+            new(0, 480),   // same here
         ];
     }
 
@@ -281,7 +281,7 @@ public static class Configuration
         /// Default (unbiased) max length of the vision feelers, in pixels
         /// </summary>
         [Config("feelers.max_length")]
-        public const int MaxLength = 200;
+        public const int MaxLength = 250;
 
         /// <summary>
         /// The starting angle of the 1st feeler, in degrees. 0 degrees is the positive x-axis

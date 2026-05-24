@@ -304,10 +304,17 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                         }
 
                         // perform feeler obstacle detection
+                        bool success = mask.GetArray(out byte[] raw_pixels);
+                        if (!success)
+                        {
+                            Logger.LogError("Couldn't get raw pixel data!");
+                            continue;
+                        }
+
                         foreach (var feeler in _feelers)
                         {
                             //TODO this could be multithreaded or something (if it's that big of a performance hit, that is)
-                            feeler.Update(mask);
+                            feeler.Update(raw_pixels, mask.Channels(), mask.Cols, mask.Rows);
                             controlFeeler += feeler;
                         }
 
