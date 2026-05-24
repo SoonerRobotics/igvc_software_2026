@@ -28,6 +28,9 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
 
         SetOperatingState(SubsystemState.Ready);
 
+        //FIXME we need to run this command on startup or something
+        //  pactl set-sink-volume @DEFAULT_SINK@ 150%
+
         _ = Task.Factory.StartNew(
             () => PlaySound("robot-code-start.mp3"),
             token,
@@ -45,12 +48,16 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
         {
             switch (updated.Mode)
             {
-                case RobotModeEnum.Autonomous when BaseRobot.Instance != null && BaseRobot.Instance.State.Mission == MissionEnum.Autonav:
-                    // PlaySound("autonav-mode.mp3"); //FIXME this is temporary
-                    PlaySound("waypoints-start.mp3");
-                    break;
                 case RobotModeEnum.Autonomous:
-                    PlaySound("self-drive.mp3");
+                    if (updated.Mission == MissionEnum.Autonav)
+                    {
+                        // PlaySound("autonav-mode.mp3"); //FIXME this is temporary
+                        PlaySound("waypoints-start.mp3");
+                    }
+                    else
+                    {
+                        PlaySound("self-drive.mp3");
+                    }
                     break;
                 case RobotModeEnum.Manual:
                     PlaySound("self-drive2.mp3");
@@ -62,15 +69,31 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
                     throw new ArgumentOutOfRangeException();
             }
         }
-        
+        // check for mission change
+        else if (old.Mission != updated.Mission)
+        {
+            switch (updated.Mission)
+            {
+                case MissionEnum.Autonav:
+                    PlaySound("self-drive.mp3");
+                    break;
+                case MissionEnum.Selfdrive:
+                    PlaySound("self-drive.mp3"); //FIXME
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
         // no change in robot mode, so it must be something else that changed (i.e. mission or mobility)
         else
         {
-            if (BaseRobot.Instance != null && BaseRobot.Instance.State.MotionAllowed)
+            //FIXME do we even want to play these? I guess if nothing else has changed, for when mob-start is pressed on the e-stop remote,
+            // but otherwise it's just going to overlap other sounds, no?
+            if (!old.MotionAllowed && updated.MotionAllowed)
             {
                 PlaySound("mobility-enable.mp3");
             }
-            else
+            else if (old.MotionAllowed && !updated.MotionAllowed)
             {
                 PlaySound("mobility-stop.mp3");
             }
@@ -108,7 +131,7 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
             playSound.StartInfo.FileName = "ffplay"; //TODO FIXME
             playSound.StartInfo.CreateNoWindow = true; // no GUI on the headless NUC
             playSound.StartInfo.ErrorDialog = false;
-            playSound.StartInfo.Arguments = " -nodisp -volume 100 -autoexit -loglevel 8 " + relativeFilename; //FIXME any other ffplay arguments we need to pass
+            playSound.StartInfo.Arguments = " -nodisp -volume 150 -autoexit -loglevel 8 " + relativeFilename; //FIXME any other ffplay arguments we need to pass
 
             // I'm pretty sure this is non-blocking so we should keep track of it
             // there's a .WaitForExit() and a Kill() and a HasExited we can use and check
