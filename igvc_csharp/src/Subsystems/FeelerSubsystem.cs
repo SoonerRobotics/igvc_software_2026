@@ -181,26 +181,11 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
-        //FIXME should we be in charge of this? I think canbus could handle this automatically...
-        if (old.Mode == RobotModeEnum.Autonomous && updated.Mode != RobotModeEnum.Autonomous)
-        {
-            canbus.SafetyLights.SetAutonomous();
-        }
-        else if (updated.Mode == RobotModeEnum.Autonomous)
-        {
-            canbus.SafetyLights.SetAutonomous();
-        }
-        else if (updated.Mode == RobotModeEnum.Manual)
-        {
-            canbus.SafetyLights.SetManual();
-        }
-        else
-        {
-            canbus.SafetyLights.SetDisabled(); //FIXME ???
-        }
+        //FIXME we should like, rebuild feelers? Update config?
 
         return Task.CompletedTask;
     }
+    
     private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
     {
         _debugFrameChannel.Writer.TryWrite(frame);
@@ -249,9 +234,6 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
                 if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous)
                 {
-                    //FIXME should we be setting safetyLights or should it be setting automatically?
-                    canbus.SafetyLights.SetAutonomous();
-
                     if (State == SubsystemState.Ready)
                     {
                         await BuildFeelers(); //FIXME
