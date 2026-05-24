@@ -156,10 +156,10 @@ public class Feeler
     {
         //FIXME we're gonna have to reintroduce the _original_unbiased_max again probably
         // Max += (Max * amount);
-        // if (amount > 0)
-        // {
-        //     Max *= amount;
-        // }
+        if (amount > 0)
+        {
+            Max += (Max * amount);
+        }
     }
 
     /// <summary>

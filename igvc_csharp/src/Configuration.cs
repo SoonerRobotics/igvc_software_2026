@@ -287,7 +287,7 @@ public static class Configuration
         /// The starting angle of the 1st feeler, in degrees. 0 degrees is the positive x-axis
         /// </summary>
         [Config("feelers.angle_offset")]
-        public const double AngleOffset = 20;
+        public const double AngleOffset = 11;
 
         /// <summary>
         /// How large the arc of feelers is, in degrees (determines where the last feeler is placed)
@@ -305,7 +305,7 @@ public static class Configuration
         /// TODO
         /// </summary>
         [Config("feelers.balace_feelers")]
-        public const bool BalanceFeelers = true;
+        public const bool BalanceFeelers = false;
 
         /// <summary>
         /// Whether to use only GPS waypoints and ignore obstacles or not
@@ -329,7 +329,7 @@ public static class Configuration
         /// The maximum amount each feeler should be biased by the forward feeler, in pixels
         /// </summary>
         [Config("feelers.forward_bias_weight")]
-        public const int ForwardBiasWeight = 20;
+        public const int ForwardBiasWeight = 5;
 
         /// <summary>
         /// How far up the image to center the feelers from, as a percentage.
@@ -344,25 +344,25 @@ public static class Configuration
         /// The maximum forward velocity that feelers is allowed to command, in meters per second
         /// </summary>
         [Config("feelers.max_drive_speed")]
-        public const double MaxDriveSpeed = 5;
+        public const double MaxDriveSpeed = 1;
 
         /// <summary>
         /// The maximum sideways velocity that feelers is allowed to command, in meters per second
         /// </summary>
         [Config("feelers.max_strafe_speed")]
-        public const double MaxStrafeSpeed = 5;
+        public const double MaxStrafeSpeed = 1;
 
         /// <summary>
         /// The maximum rotational velocity that feelers is allowed to command, in radians per second
         /// </summary>
         [Config("feelers.max_turn_speed")]
-        public const double MaxTurnSpeed = 5;
+        public const double MaxTurnSpeed = 1;
 
         /// <summary>
         /// The proportional constant for the drive PID
         /// </summary>
         [Config("feelers.drive_kp")]
-        public const double DriveKp = 0.001;
+        public const double DriveKp = 0.0005;
 
         /// <summary>
         /// The integral constant for the drive PID
@@ -374,13 +374,13 @@ public static class Configuration
         /// The derivative constant for the drive PID
         /// </summary>
         [Config("feelers.drive_kd")]
-        public const double DriveKd = 0.0001;
+        public const double DriveKd = 0.0;
 
         /// <summary>
         /// The proportional constant for the heading PID
         /// </summary>
         [Config("feelers.heading_kp")]
-        public const double HeadingKp = 0.001;
+        public const double HeadingKp = 0.003;
 
         /// <summary>
         /// The integral constant for the heading PID
@@ -392,7 +392,7 @@ public static class Configuration
         /// The derivative constant for the heading PID
         /// </summary>
         [Config("feelers.heading_kd")]
-        public const double HeadingKd = 0.0001;
+        public const double HeadingKd = 0.0;
     }
 
     public static class WaypointSubsystem

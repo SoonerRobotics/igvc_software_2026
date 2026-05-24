@@ -196,7 +196,7 @@ public class CameraSubsystem : SubsystemBase
                 frameBytes = CvUtils.FromMat(mLastFrame);
             }
 
-            var frame = MessageConstructor.CreateImageFrame(1280, 720, name, frameBytes);
+            var frame = MessageConstructor.CreateImageFrame(640, 480, name, frameBytes);
             var msg = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer);
             EventBus.Instance.Publish(msg);
         }

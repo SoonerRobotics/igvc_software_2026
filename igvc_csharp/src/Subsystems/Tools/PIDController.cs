@@ -28,11 +28,15 @@ public class PIDController(double kP, double kI, double kD)
         {
             timeElapsed = LastTime - TimeUtils.Now();
         }
-        LastTime = TimeUtils.Now();
+        LastTime = TimeUtils.Now(); //FIXME timeElapsed is being set to 0
 
         double error = Setpoint - reading;
 
-        double errorDerivative = (error - LastError) / timeElapsed;
+        double errorDerivative = 0;
+        if (timeElapsed != 0)
+        {
+            errorDerivative = (error - LastError) / timeElapsed;
+        }
 
         LastError = error;
 
