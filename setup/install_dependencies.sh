@@ -9,6 +9,9 @@ sudo apt install git unzip curl cmake build-essential -y
 # Audible Feedback
 sudo apt install -y ffmpeg
 
+# CAN Utils
+sudo apt install -y can-utils
+
 # OpenCV
 sudo apt install -y libopencv-dev
 
