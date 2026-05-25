@@ -50,7 +50,11 @@
 #define STRIP_A_DIR     1
 #define STRIP_B_DIR    -1
 
-int borg = 0;
+static uint8_t g_brightness = 128; // 50% brightness; 255 = full
+
+static inline uint8_t scale(uint8_t val) {
+    return (uint8_t)((uint32_t)val * g_brightness / 255);
+}
 
 /* USER CODE END PTD */
 
@@ -69,9 +73,6 @@ int borg = 0;
 /* USER CODE BEGIN PV */
 WS28XX_HandleTypeDef ws28xx_a;
 WS28XX_HandleTypeDef ws28xx_b;
-
-FDCAN_TxHeaderTypeDef TxHeader1;
-uint8_t TxData1[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,8 +101,7 @@ typedef struct {
 	uint16_t unused;
 } SafetyLightsState;
 
-static volatile SafetyLightsState g_lights = { .mode = MODE_DEFAULT, .r = 0,
-		.g = 150, .b = 255, .speed = 1000, };
+static volatile SafetyLightsState g_lights = { .mode = MODE_CHASING, .r = 0, .g = 150, .b = 255, .speed = 1000, };
 
 /* USER CODE BEGIN 0 */
 
@@ -126,10 +126,18 @@ static void update_both_strips(void) {
 	wait_for_strip(&ws28xx_b, TIM_DMA_ID_CC4);
 }
 
+static void WS28_WRAPPED_SetPixel_RGB(WS28XX_HandleTypeDef* hLed, uint16_t i, uint8_t r, uint8_t g, uint8_t b)
+{
+	uint8_t sr = scale(r);
+	uint8_t sg = scale(g);
+	uint8_t sb = scale(b);
+	WS28XX_SetPixel_RGB(hLed, i, sr, sg, sb);
+}
+
 static void set_all(uint8_t r, uint8_t g, uint8_t b) {
 	for (uint16_t i = 0; i < NUM_LEDS; i++) {
-		WS28XX_SetPixel_RGB(&ws28xx_a, i, r, g, b);
-		WS28XX_SetPixel_RGB(&ws28xx_b, i, r, g, b);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, i, r, g, b);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, i, r, g, b);
 	}
 }
 
@@ -147,8 +155,8 @@ void mode_chasing(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
 		uint8_t pg = (uint8_t) ((uint32_t) g * bright / 255);
 		uint8_t pb = (uint8_t) ((uint32_t) b * bright / 255);
 
-		WS28XX_SetPixel_RGB(&ws28xx_a, (uint16_t) pos, pr, pg, pb);
-		WS28XX_SetPixel_RGB(&ws28xx_b, (uint16_t) pos, pr, pg, pb);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, (uint16_t) pos, pr, pg, pb);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, (uint16_t) pos, pr, pg, pb);
 	}
 
 	update_both_strips();
@@ -156,15 +164,9 @@ void mode_chasing(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
 	HAL_Delay(speed / NUM_LEDS);
 }
 
-void mode_solid(uint8_t r, uint8_t g, uint8_t b, uint8_t force) {
-    static uint8_t last_r = 0xFF, last_g = 0xFF, last_b = 0xFF;
-
-    if (!force && r == last_r && g == last_g && b == last_b)
-        return;
-
-    last_r = r; last_g = g; last_b = b;
-    set_all(r, g, b);
-    update_both_strips();
+void mode_solid(uint8_t r, uint8_t g, uint8_t b) {
+	set_all(r, g, b);
+	update_both_strips();
 }
 
 void mode_blinking(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
@@ -179,9 +181,23 @@ void mode_blinking(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
 		last_toggle = now;
 
 		if (flash_on)
-			set_all(r, g, b);
+		{
+			for (uint16_t i = 0; i < NUM_LEDS; i++) {
+				WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, i, r, g, b);
+			}
+			for (uint16_t i = 0; i < NUM_LEDS; i++) {
+				WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, i, 0, 0, 0);
+			}
+		}
 		else
-			set_all(0, 0, 0);
+		{
+			for (uint16_t i = 0; i < NUM_LEDS; i++) {
+				WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, i, r, g, b);
+			}
+			for (uint16_t i = 0; i < NUM_LEDS; i++) {
+				WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, i, 0, 0, 0);
+			}
+		}
 
 		update_both_strips();
 	}
@@ -231,8 +247,8 @@ void mode_rainbow(uint16_t speed) {
 			break;
 		}
 
-		WS28XX_SetPixel_RGB(&ws28xx_a, i, pr, pg, pb);
-		WS28XX_SetPixel_RGB(&ws28xx_b, i, pr, pg, pb);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, i, pr, pg, pb);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, i, pr, pg, pb);
 	}
 
 	update_both_strips();
@@ -242,8 +258,8 @@ void mode_rainbow(uint16_t speed) {
 
 void mode_estopped(void) {
 	for (int16_t t = 0; t < NUM_LEDS; t++) {
-		WS28XX_SetPixel_RGB(&ws28xx_a, t, 255, 255, 255);
-		WS28XX_SetPixel_RGB(&ws28xx_b, t, 255, 255, 255);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_a, t, 255, 255, 255);
+		WS28_WRAPPED_SetPixel_RGB(&ws28xx_b, t, 255, 255, 255);
 	}
 
 	update_both_strips();
@@ -290,17 +306,6 @@ int main(void) {
 	HAL_Delay(10);
 	__HAL_TIM_MOE_ENABLE(&htim1);
 
-	/* Configure Tx header - Classic CAN frame, 8 bytes, ID 0x11 */
-	TxHeader1.Identifier = 0x11;
-	TxHeader1.IdType = FDCAN_STANDARD_ID;
-	TxHeader1.TxFrameType = FDCAN_DATA_FRAME;
-	TxHeader1.DataLength = FDCAN_DLC_BYTES_8;
-	TxHeader1.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-	TxHeader1.BitRateSwitch = FDCAN_BRS_OFF;
-	TxHeader1.FDFormat = FDCAN_CLASSIC_CAN; /* Must match FrameFormat in Init */
-	TxHeader1.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-	TxHeader1.MessageMarker = 0;
-
 	/* Start FDCAN peripheral - REQUIRED before any Tx/Rx */
 	if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK) {
 		Error_Handler();
@@ -327,14 +332,12 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-z		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
+		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
 			mode_estopped();
 			continue;
 		}
 
-		static SafetyLightsMode last_mode = MODE_DEFAULT;
-		uint8_t mode_changed = (mode != last_mode);
-		last_mode = mode;
+		SafetyLightsMode mode = g_lights.mode;
 		uint8_t r = g_lights.r;
 		uint8_t g = g_lights.g;
 		uint8_t b = g_lights.b;
@@ -345,7 +348,7 @@ z		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
 			mode_chasing(r, g, b, speed);
 			break;
 		case MODE_SOLID:
-			mode_solid(r, g, b, mode_changed);
+			mode_solid(r, g, b);
 			break;
 		case MODE_BLINKING:
 			mode_blinking(r, g, b, speed);

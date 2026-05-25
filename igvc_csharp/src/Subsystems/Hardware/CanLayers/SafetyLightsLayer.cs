@@ -42,7 +42,7 @@ public class SafetyLightsLayer(CanbusSubsystem canbus)
         canbus.SendCanFrame(new CanFrame((uint)CanId.SafetyLights, bytes));
     }
 
-    public void Set(SafetyLightsMode mode, ColorUtils.Color color, ushort speed = 1000)
+    public void Set(SafetyLightsMode mode, ColorUtils.Color color, ushort speed = 3000)
         => SetRaw(new SafetyLightsPacket(mode, color, speed));
 
     public void SetAutonomous() => Set(SafetyLightsMode.Blinking, ColorUtils.Color.Autonomous);
