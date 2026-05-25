@@ -1,6 +1,4 @@
 // lib/arc/config.ts
-// Parses the JSON payloads inside ArcData wrappers for config identifiers.
-// The C# side encodes all config payloads as UTF-8 JSON in the dataPayload field.
 
 export type ConfigSnapshot = {
     keys: Record<string, unknown>;
@@ -23,42 +21,36 @@ export type ConfigAck = {
     message?: string;
 };
 
-function decodeJson<T>(payload: Uint8Array): T {
-    return JSON.parse(new TextDecoder().decode(payload)) as T;
-}
-
-export function parseConfigSnapshot(payload: Uint8Array): ConfigSnapshot {
-    return decodeJson<ConfigSnapshot>(payload);
-}
-
-export function parseConfigKeyChanged(payload: Uint8Array): ConfigKeyChanged {
-    return decodeJson<ConfigKeyChanged>(payload);
-}
-
-export function parseConfigPresetList(payload: Uint8Array): ConfigPresetList {
-    return decodeJson<ConfigPresetList>(payload);
-}
-
-export function parseConfigAck(payload: Uint8Array): ConfigAck {
-    return decodeJson<ConfigAck>(payload);
-}
-
-// ── Outgoing command payloads ────────────────────────────────────────────────
-// These encode the UTF-8 byte payloads that ArcConfigHandler expects.
-
+const dec = new TextDecoder();
 const enc = new TextEncoder();
 
-/** SetConfigKey payload: "{path}\0{jsonValue}" */
+function decodeJson<T>(payload: Uint8Array): T {
+    return JSON.parse(dec.decode(payload)) as T;
+}
+
+export const parseConfigSnapshot = (p: Uint8Array) => decodeJson<ConfigSnapshot>(p);
+export const parseConfigKeyChanged = (p: Uint8Array) => decodeJson<ConfigKeyChanged>(p);
+export const parseConfigPresetList = (p: Uint8Array) => decodeJson<ConfigPresetList>(p);
+export const parseConfigAck = (p: Uint8Array) => decodeJson<ConfigAck>(p);
+
+// ── Outgoing command payloads ─────────────────────────────────────────────────
+//
+// SetConfigKey wire format:
+//   [2 bytes: uint16 LE path length][path UTF-8 bytes][value JSON UTF-8 bytes]
+//
+// Using a length-prefix instead of a null separator avoids the FlatBuffers
+// null-termination issue where \0 in the byte array truncates string reads.
+
 export function encodeSetConfigKey(path: string, value: unknown): Uint8Array {
-    return enc.encode(`${path}\0${JSON.stringify(value)}`);
+    const pathBytes = enc.encode(path);
+    const valueBytes = enc.encode(JSON.stringify(value));
+    const out = new Uint8Array(2 + pathBytes.length + valueBytes.length);
+    // uint16 LE path length
+    out[0] = pathBytes.length & 0xff;
+    out[1] = (pathBytes.length >> 8) & 0xff;
+    out.set(pathBytes, 2);
+    out.set(valueBytes, 2 + pathBytes.length);
+    return out;
 }
 
-/** LoadPreset payload: filename string */
-export function encodeLoadPreset(filename: string): Uint8Array {
-    return enc.encode(filename);
-}
-
-/** SavePreset payload: filename string */
-export function encodeSavePreset(filename: string): Uint8Array {
-    return enc.encode(filename);
-}
+export const encodePresetName = (filename: string): Uint8Array => enc.encode(filename);

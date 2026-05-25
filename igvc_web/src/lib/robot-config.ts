@@ -1,17 +1,11 @@
 // lib/robot-config.ts
-// Drop-in config slice for useRobotStore.
-// Import and spread into the store definition, then wire onMessage to call handleConfigMessage.
-
 import {
     ConfigAck,
-    ConfigSnapshot,
     parseConfigAck,
     parseConfigKeyChanged,
     parseConfigPresetList,
     parseConfigSnapshot,
 } from "./arc/config";
-
-// ── State shape ──────────────────────────────────────────────────────────────
 
 export type ConfigState = {
     configKeys: Record<string, unknown>;
@@ -29,12 +23,10 @@ export const configInitialState: ConfigState = {
     lastConfigAck: null,
 };
 
-// ── Message handler (call from onMessage in robot.ts) ───────────────────────
-
 export function handleConfigMessage(
     identifier: string,
     payload: Uint8Array,
-    set: (state: Partial<ConfigState>) => void
+    set: (state: any) => void
 ) {
     switch (identifier) {
         case "config_snapshot": {
@@ -49,7 +41,7 @@ export function handleConfigMessage(
         }
         case "config_key_changed": {
             const change = parseConfigKeyChanged(payload);
-            set((prev: any) => ({
+            set((prev: ConfigState) => ({
                 configKeys: { ...prev.configKeys, [change.path]: change.value },
             }));
             break;
@@ -62,9 +54,8 @@ export function handleConfigMessage(
         case "config_ack": {
             const ack = parseConfigAck(payload);
             set({ lastConfigAck: ack });
-            // If the ack carries a new preset name it means load/save succeeded
             if (ack.success && ack.message) {
-                set((prev: any) => ({ currentPreset: ack.message ?? prev.currentPreset }));
+                set((prev: ConfigState) => ({ currentPreset: ack.message ?? prev.currentPreset }));
             }
             break;
         }

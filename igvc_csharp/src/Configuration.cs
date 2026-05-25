@@ -138,7 +138,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(179, 200, 170)
+            ColorUtils.Color.FromHsv(179, 200, 190)
         );
 
         [Config("vision.yellow_threshold")]
@@ -168,8 +168,8 @@ public static class Configuration
         public static Point2f[] leftSourcePoints =
         [
             new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
-            new(640 - 60, 100), // same here
-            new(640 - 60, 480),
+            new(640 - 90, 100), // same here
+            new(640 - 90, 480),
             new(0, 480),
         ];
 

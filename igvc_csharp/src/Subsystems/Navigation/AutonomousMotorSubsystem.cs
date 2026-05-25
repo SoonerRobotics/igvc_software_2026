@@ -31,7 +31,7 @@ public class MotorSubsystem(
     private const float RadiusMax = 4.0f;
 
     // Velocity limits
-    private const double ForwardSpeed = 1.5;
+    private const double ForwardSpeed = 0.5;
     private const double AngularAggression = 1.8;
     private const double MaxAngularSpeed = 0.8;
 

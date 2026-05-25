@@ -33,7 +33,18 @@ export default function Home() {
             <div className="flex flex-row items-center max-w-full">
                 <Camera id="left" />
                 <Camera id="right" />
+                {/* <Camera id="debug_feelers" /> */}
+            </div>
+
+            <div className="flex flex-row items-center max-w-full">
                 <Camera id="combined_filtered" />
+                <Camera id="combined_inflated" />
+                {/* <Camera id="debug_feelers" /> */}
+            </div>
+
+            <div className="flex flex-row items-center max-w-full">
+                <Camera id="nav_astar_debug" />
+                <Camera id="nav_path_overlay" />
                 {/* <Camera id="debug_feelers" /> */}
             </div>
 

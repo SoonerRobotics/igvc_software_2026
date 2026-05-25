@@ -13,7 +13,7 @@ namespace igvc_csharp.Subsystems.Vision.Filters;
 /// For a 0.6 m wide robot at ~80 px/m on the ground plane that's roughly 49 px wide.
 /// Start conservative (e.g. 31×31) and tune with live camera output.
 /// </summary>
-public class InflationFilter(int kernelWidth = 31, int kernelHeight = 31) : IFilter
+public class InflationFilter(int kernelWidth = 61, int kernelHeight = 61) : IFilter
 {
     // Ellipse matches robot footprint shape better than a rectangle —
     // corners of a rect over-inflate diagonal approach angles.

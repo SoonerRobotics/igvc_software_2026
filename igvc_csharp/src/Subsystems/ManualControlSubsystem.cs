@@ -38,7 +38,7 @@ public class ManualControlSubsystem(
             {
                 if (BaseRobot.Instance?.State.Mode != RobotModeEnum.Autonomous)
                 {
-                    canbus?.MotorControl.SetVelocities(0, 0, 0); //TODO move this somewhere else?
+                    // canbus?.MotorControl.SetVelocities(0, 0, 0); //TODO move this somewhere else?
                 }
                 continue;
             }

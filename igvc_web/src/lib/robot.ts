@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { MessageWrapper } from "./arc/wrapper";
 import { MessageAccumulator } from "./arc/accumulator";
 import { MessageType } from "./arc/type";
 import { ArcData } from "./messages/messages/arc";
@@ -7,13 +6,10 @@ import { ByteBuffer } from "flatbuffers";
 import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged } from "./arc/data";
 import { VectornavReport } from "./messages/messages/vectornav-report";
 import { ConfigState, configInitialState, handleConfigMessage } from "./robot-config";
-import {
-    encodeSetConfigKey,
-    encodeLoadPreset,
-    encodeSavePreset,
-} from "./arc/config";
+import { encodeSetConfigKey, encodePresetName } from "./arc/config";
 import { ArcCommandId } from "./messages/messages/arc/arc-command-id";
 import { buildCommandReq } from "./arc/command";
+import { MessageWrapper } from "./arc/wrapper";
 
 type RobotState = ConfigState & {
     connected: boolean;
@@ -57,9 +53,10 @@ function savePath(path: string) {
     localStorage.setItem("robotPath", path);
 }
 
-function sendRaw(wrapper: MessageWrapper) {
-    if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(wrapper.data.slice(0, wrapper.length));
+function sendRaw(frame: Uint8Array) {
+    if (ws?.readyState === WebSocket.OPEN)
+    {
+        ws.send(frame.slice().buffer);
     }
 }
 
@@ -69,7 +66,6 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
         const identifier = data.dataIdentifier()!;
         const payload = data.dataPayloadArray()!;
 
-        // Config identifiers
         if (identifier.startsWith("config_")) {
             handleConfigMessage(identifier, payload, set);
             return;
@@ -108,23 +104,23 @@ export const useRobotStore = create<RobotState>((set, get) => ({
     path: getSavedPath(),
     voltage: 0,
     current: 0,
+    logs: [],
     ...configInitialState,
 
-    setPath: (path: string) => set({ path }),
+    setPath: (path) => set({ path }),
 
     // ── Config actions ────────────────────────────────────────────────────
-    setConfigKey: (path, value) => {
-        sendRaw(buildCommandReq(ArcCommandId.SetConfigKey, encodeSetConfigKey(path, value)));
-    },
-    loadPreset: (filename) => {
-        sendRaw(buildCommandReq(ArcCommandId.LoadPreset, encodeLoadPreset(filename)));
-    },
-    savePreset: (filename) => {
-        sendRaw(buildCommandReq(ArcCommandId.SavePreset, encodeSavePreset(filename)));
-    },
-    requestSnapshot: () => {
-        sendRaw(buildCommandReq(ArcCommandId.GetConfigSnapshot, new Uint8Array(0)));
-    },
+    setConfigKey: (path, value) =>
+        sendRaw(buildCommandReq(ArcCommandId.SetConfigKey, encodeSetConfigKey(path, value))),
+
+    loadPreset: (filename) =>
+        sendRaw(buildCommandReq(ArcCommandId.LoadPreset, encodePresetName(filename))),
+
+    savePreset: (filename) =>
+        sendRaw(buildCommandReq(ArcCommandId.SavePreset, encodePresetName(filename))),
+
+    requestSnapshot: () =>
+        sendRaw(buildCommandReq(ArcCommandId.GetConfigSnapshot)),
 
     // ── Connection ────────────────────────────────────────────────────────
     connect: () => {
@@ -192,7 +188,4 @@ export const useRobotStore = create<RobotState>((set, get) => ({
         accumulator?.reset();
         set({ connected: false, configLoaded: false });
     },
-
-    // Data
-    logs: [],
 }));

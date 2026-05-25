@@ -4,8 +4,8 @@
 
 import * as flatbuffers from 'flatbuffers';
 
-import { ArcCommandId } from '../../messages/arc/arc-command-id.js';
-import { ArcCommandPurpose } from '../../messages/arc/arc-command-purpose.js';
+import { ArcCommandId } from '../../messages/arc/arc-command-id';
+import { ArcCommandPurpose } from '../../messages/arc/arc-command-purpose';
 
 
 export class ArcCommand {

@@ -1,44 +1,32 @@
 // lib/arc/command.ts
-// Builds a CommandReq MessageWrapper to send to the robot.
-//
-// Wire format (little-endian, matches C# ArcCommand FlatBuffer + MessageWriter):
-//   The payload written into the ArcCommand FlatBuffer table:
-//     commandId : uint16  (ArcCommandId)
-//     payload   : [ubyte] (arbitrary bytes, command-specific)
-//
-// We build the FlatBuffer manually here to avoid needing a generated
-// ArcCommand builder — the table is simple enough to inline.
-// If you have a generated ArcCommand builder, swap this body out for it.
-
-import { Builder, ByteBuffer } from "flatbuffers";
+import { Builder } from "flatbuffers";
+import { ArcCommand } from "../messages/messages/arc/arc-command";
 import { MessageType } from "./type";
-import { MessageWrapper } from "./wrapper";
+import { MessageWriter } from "./writer";
+import { ArcCommandPurpose } from "../messages/messages/arc/arc-command-purpose";
 import { ArcCommandId } from "../messages/messages/arc/arc-command-id";
 
+let _sequenceNumber = 0;
+
 /**
- * Builds a binary MessageWrapper of type CommandReq containing an ArcCommand
- * FlatBuffer with the given commandId and payload bytes.
+ * Builds a fully-framed byte array ready to pass directly to ws.send().
+ * Frame: [IGVC magic][type][length][flags][FlatBuffer payload][CRC32]
  */
 export function buildCommandReq(
     commandId: ArcCommandId,
-    payload: Uint8Array = new Uint8Array(0)
-): MessageWrapper {
-    const builder = new Builder(64 + payload.byteLength);
-
-    // Create the payload vector
-    const payloadOffset = builder.createByteVector(payload);
-
-    // ArcCommand table layout (must match your .fbs schema field order):
-    //   field 0: command_id : uint16
-    //   field 1: payload    : [ubyte]
-    //
-    // FlatBuffers tables are built in reverse field order.
-    builder.startObject(2);
-    builder.addFieldInt16(0, commandId, ArcCommandId.UnknownCommand);
-    builder.addFieldOffset(1, payloadOffset, 0);
-    const root = builder.endObject();
+    data: Uint8Array = new Uint8Array(0)
+): Uint8Array {
+    const builder = new Builder(128 + data.byteLength);
+    const dataVector = ArcCommand.createDataVector(builder, data);
+    const root = ArcCommand.createArcCommand(
+        builder,
+        BigInt(Date.now() * 1000),  // timestamp in microseconds
+        ++_sequenceNumber,
+        ArcCommandPurpose.Request,
+        commandId,
+        dataVector
+    );
     builder.finish(root);
 
-    const bytes = builder.asUint8Array();
-    return MessageWrapper.from(MessageType.CommandReq, bytes);
+    return MessageWriter.write(MessageType.CommandReq, builder.asUint8Array(), "little", true);
 }
