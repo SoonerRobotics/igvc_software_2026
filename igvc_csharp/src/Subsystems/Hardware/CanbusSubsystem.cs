@@ -21,10 +21,10 @@ public class CanbusSubsystem(
     // Configuration
 
     [Config("hardware.can.interface")]
-    public const string CanbusInterface = "igvc-can0";
+    public static string CanbusInterface = "igvc-can0";
 
     [Config("hardware.can.timeout")]
-    public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
+    public static TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
 
     // Variables
     private CanNetworkInterface? _canNetwork;

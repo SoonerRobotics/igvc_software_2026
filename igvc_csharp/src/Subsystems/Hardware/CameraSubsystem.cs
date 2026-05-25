@@ -13,16 +13,16 @@ namespace igvc_csharp.Subsystems.Hardware;
 public class CameraSubsystem : SubsystemBase
 {
     [Config("subsystem.camera.left_shm")]
-    public static readonly string LeftShmName = "/camera_left";
+    public static string LeftShmName = "/camera_left";
 
     [Config("subsystem.camera.right_shm")]
-    public static readonly string RightShmName = "/camera_right";
+    public static string RightShmName = "/camera_right";
 
     [Config("subsystem.camera.reconnect_delay_ms")]
-    public static readonly int ReconnectDelayMs = 2000;
+    public static int ReconnectDelayMs = 2000;
 
     [Config("subsystem.camera.staleness_threshold_ms")]
-    public static readonly int StalenessThresholdMs = 5000;
+    public static int StalenessThresholdMs = 5000;
 
     private CameraWorker? mLeftWorker;
     private CameraWorker? mRightWorker;

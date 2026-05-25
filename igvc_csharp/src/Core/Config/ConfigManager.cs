@@ -38,7 +38,7 @@ public static class ConfigManager
 
     public static bool Set(string path, object value)
     {
-        if (_bindings.TryGetValue(path, out var binding))
+        if (!_bindings.TryGetValue(path, out var binding))
         {
             return false;
         }
