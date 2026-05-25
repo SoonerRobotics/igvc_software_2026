@@ -18,7 +18,7 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         // Data
         public const ushort Gps = 0x1100;
         public const ushort Ypr = 0x1101;
-        
+
         // Current Sensor
         public const ushort CurrentSense = 0x1200;
         public const ushort VoltageSense = 0x1201;
@@ -26,7 +26,9 @@ public class ChronosSubsystem : AbstractChronosSubsystem
 
     public static class CameraId
     {
-        public const int Front = 0x0001;
+        public const int Left = 0x0001;
+        public const int Right = 0x0002;
+        public const int Zed2i = 0x0003;
     }
 
     // Overrides
@@ -38,7 +40,9 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         WriteEntry(EntryTypeId.SessionStart, ms.ToArray());
 
         // Open Cameras
-        // OpenCamera(CameraId.Front, 1280, 720, 20);
+        OpenCamera(CameraId.Left, 640, 480, 12);
+        OpenCamera(CameraId.Right, 640, 480, 12);
+        OpenCamera(CameraId.Zed2i, 1280, 720, 20);
     }
 
     // Helpers
@@ -74,7 +78,7 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         writer.Write(ypr.Roll);
         WriteEntry(EntryId.Ypr, ms.ToArray());
     }
-    
+
     public void WriteCurrentSense(double current)
     {
         using var ms = new MemoryStream(sizeof(double));
@@ -82,7 +86,7 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         writer.Write(current);
         WriteEntry(EntryId.CurrentSense, ms.ToArray());
     }
-    
+
     public void WriteVoltageSense(double voltage)
     {
         using var ms = new MemoryStream(sizeof(double));

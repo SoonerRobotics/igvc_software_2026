@@ -11,8 +11,8 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-[Subsystem("YoloTestSubsystem", Disabled = false)]
-public class YoloTestSubsystem(
+[Subsystem("YoloSubsystem", Disabled = false)]
+public class YoloSubsystem(
     ZedSubsystem zed
 ) : SubsystemBase
 {
@@ -51,7 +51,7 @@ public class YoloTestSubsystem(
 
     private Task OnZedFrameReceived(ZedFrame frame, CancellationToken token)
     {
-        var depthMat = CvUtils.AsDepthMat(frame); // CV_32FC1, meters
+        var depthMat = CvUtils.AsDepthMat(frame);
         lock (_depthLock)
         {
             _latestDepthMat?.Dispose();
@@ -72,21 +72,20 @@ public class YoloTestSubsystem(
             var matJpeg = CvUtils.FromMat(brightened);
             var detections = _detector!.Detect(matJpeg);
 
-            // Scale from YOLO output space → ZED frame space (1280×720)
+            // Scale spcae
             float scaleX = (float)ZedFrameSharedMemoryReader.FrameWidth / brightened.Width;
             float scaleY = (float)ZedFrameSharedMemoryReader.FrameHeight / brightened.Height;
 
-            // Query depth for each detection concurrently — semaphore inside
-            // RequestDepthAsync serializes them, but we don't need to do so ourselves
+            // Ask for the depth at each detection
             var depthTasks = detections.Select(det =>
             {
                 int cx = (int)((det.Bounding.X + det.Bounding.Width / 2f) * scaleX);
                 int cy = (int)((det.Bounding.Y + det.Bounding.Height / 2f) * scaleY);
                 return zed.RequestDepthAsync(cx, cy, timeoutMs: 200);
             }).ToList();
-
             var depthResults = await Task.WhenAll(depthTasks);
 
+            // Combine detections with depth results
             var withDepth = detections.Select((det, i) =>
             {
                 var response = depthResults[i];
@@ -95,6 +94,22 @@ public class YoloTestSubsystem(
                     : float.NaN;
                 return new DetectionWithDepth(det, distance);
             }).ToList();
+
+            // Publish events for each detection
+            var events = withDepth.Select((d, i) => new YoloDetectionEvent(
+                d.Detection.Label,
+                d.Detection.Confidence,
+                
+                // get x,y,z from the depth result, or -1 if it was null
+                // for zed: x = right, y = up, z = backwards (towards camera)
+                depthResults[i]?.X ?? -1,
+                depthResults[i]?.Y ?? -1,
+                depthResults[i]?.Z ?? -1
+            )).ToList();
+            foreach (var evt in events)
+            {
+                EventBus.Instance.Publish(evt);
+            }
 
             var annotated = OpenCvDetectionRenderer.RenderDetections(matJpeg, withDepth);
             var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo", annotated);

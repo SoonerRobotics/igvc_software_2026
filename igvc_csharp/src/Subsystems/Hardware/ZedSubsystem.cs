@@ -4,63 +4,40 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using static igvc_csharp.Subsystems.ChronosSubsystem;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-/// <summary>
-/// Manages the igvc_zed child process and exposes:
-///   • A continuously-updated <see cref="LatestFrame"/> (OpenCvSharp Mat, BGRA 1280×720)
-///   • An async <see cref="RequestDepthAsync"/> for on-demand pixel-space 3-D queries
-/// </summary>
 [Subsystem("ZedSubsystem", Disabled = false)]
-public class ZedSubsystem() : SubsystemBase
+public class ZedSubsystem(
+    ChronosSubsystem? chronos
+) : SubsystemBase
 {
-    // ── Background tasks & lifecycle ─────────────────────────────────────────
     private Task? _frameTask;
     private CancellationTokenSource? _cts;
     private ProcessManager? _zedProcessManager;
 
-    // ── Properties (visible in telemetry / dashboard) ────────────────────────
     private readonly SubsystemProperty<uint> _pLastSequence = new("frame_sequence", 0);
     private readonly SubsystemProperty<double> _pFps = new("fps", 0.0);
     private readonly SubsystemProperty<string> _pSerialNumber = new("serial_number");
 
-    // ── Frame state ───────────────────────────────────────────────────────────
-
     private readonly object _frameLock = new();
 
-    /// <summary>
-    /// The most recently decoded camera frame as a BGRA Mat.
-    /// Replaced atomically on every new frame; consumers should clone it if they
-    /// need to hold it beyond a single processing step.
-    ///
-    /// <b>Thread safety:</b> always read inside <c>lock(_frameLock)</c>, or call
-    /// <see cref="CloneLatestFrame"/> which does so for you.
-    /// </summary>
     public Mat? LatestFrame { get; private set; }
-
-    /// <summary>Returns a thread-safe clone of the latest frame, or null if none yet.</summary>
     public Mat? CloneLatestFrame()
     {
         lock (_frameLock)
             return LatestFrame?.Clone();
     }
 
-    // ── Depth request state ───────────────────────────────────────────────────
-
     private ZedDepthSharedMemoryChannel? _depthChannel;
     private uint _nextRequestId = 1;
-    private readonly SemaphoreSlim _depthSem = new(1, 1); // one depth request at a time
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Init / Shutdown
-    // ─────────────────────────────────────────────────────────────────────────
+    private readonly SemaphoreSlim _depthSem = new(1, 1);
 
     public override async Task Init(CancellationToken token)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
-        // Open the depth channel early; will retry inside the frame loop if not yet ready
         _depthChannel = new ZedDepthSharedMemoryChannel();
 
         _frameTask = Task.Run(() => FrameLoop(_cts.Token), _cts.Token);
@@ -100,10 +77,6 @@ public class ZedSubsystem() : SubsystemBase
 
         _depthChannel?.Dispose();
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Process log → subsystem state mapping
-    // ─────────────────────────────────────────────────────────────────────────
 
     private void OnLogReceived(object? sender, SpdLogStructure log)
     {
@@ -145,17 +118,12 @@ public class ZedSubsystem() : SubsystemBase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Frame loop
-    // ─────────────────────────────────────────────────────────────────────────
-
     private async Task FrameLoop(CancellationToken token)
     {
         using var shm = new ZedFrameSharedMemoryReader();
 
         while (!token.IsCancellationRequested)
         {
-            // ── Wait for the SHM region to appear (C++ process may not be up yet) ──
             shm.Close();
             while (!token.IsCancellationRequested && !shm.IsOpen)
             {
@@ -165,7 +133,6 @@ public class ZedSubsystem() : SubsystemBase
 
             if (!shm.IsOpen) break;
 
-            // Also attempt depth channel if not yet open
             if (!(_depthChannel?.IsOpen ?? false))
                 _depthChannel?.TryOpen();
 
@@ -173,10 +140,8 @@ public class ZedSubsystem() : SubsystemBase
             var lastNewFrameAt = DateTime.UtcNow;
             const int stalenessThresholdMs = 5000;
 
-            // For FPS computation
             var fpsWindow = new Queue<DateTime>();
             const int fpsSampleCount = 30;
-
             try
             {
                 while (!token.IsCancellationRequested)
@@ -199,7 +164,6 @@ public class ZedSubsystem() : SubsystemBase
                     lastSeq = header.SequenceNum;
                     lastNewFrameAt = DateTime.UtcNow;
 
-                    // ── Decode BGRA bytes → OpenCvSharp Mat ──────────────────
                     var mat = DecodeBgraFrame(pixels, ZedFrameSharedMemoryReader.FrameWidth,
                                                       ZedFrameSharedMemoryReader.FrameHeight);
 
@@ -211,10 +175,13 @@ public class ZedSubsystem() : SubsystemBase
                     }
                     old?.Dispose();
 
-                    // Publish Frame
+                    // TODO: Handle frame
                     BroadcastFrame();
+                    chronos?.WriteVideoFrame(
+                        CameraId.Zed2i,
+                        mat
+                    );
 
-                    // ── Update properties ────────────────────────────────────
                     _pLastSequence.Set(header.SequenceNum);
 
                     fpsWindow.Enqueue(DateTime.UtcNow);
@@ -263,18 +230,6 @@ public class ZedSubsystem() : SubsystemBase
         EventBus.Instance.Publish(msg);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Public API
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Requests the 3-D world coordinates for the given pixel.
-    /// Returns null if the depth channel is not ready, the pixel is out of range,
-    /// or the query times out.
-    /// </summary>
-    /// <param name="pixelX">Column (0–1279)</param>
-    /// <param name="pixelY">Row (0–719)</param>
-    /// <param name="timeoutMs">Max time to wait for the C++ process to respond</param>
     public async Task<ZedDepthResponse?> RequestDepthAsync(int pixelX, int pixelY, int timeoutMs = 500)
     {
         if (_depthChannel is null || !_depthChannel.IsOpen)
@@ -290,12 +245,10 @@ public class ZedSubsystem() : SubsystemBase
             return null;
         }
 
-        // Only one depth request in-flight at a time (the channel is single-slot)
         await _depthSem.WaitAsync().ConfigureAwait(false);
         try
         {
             var id = _nextRequestId++;
-            // Run on a thread-pool thread so we don't block the async context during the poll loop
             return await Task.Run(() => _depthChannel.RequestDepth(id, pixelX, pixelY, timeoutMs))
                              .ConfigureAwait(false);
         }
@@ -305,18 +258,8 @@ public class ZedSubsystem() : SubsystemBase
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Wraps raw BGRA bytes in an OpenCvSharp Mat without copying.
-    /// The Mat owns a fresh GC-pinned backing array, so it is safe to dispose
-    /// independently of the shared-memory buffer.
-    /// </summary>
     private static Mat DecodeBgraFrame(byte[] bgraPixels, int width, int height)
     {
-        // MatType.CV_8UC4 = BGRA, which is exactly what the ZED SDK gives us
         var mat = new Mat(height, width, MatType.CV_8UC4);
         unsafe
         {

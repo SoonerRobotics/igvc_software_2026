@@ -329,14 +329,15 @@ int main()
 
     uint32_t seqNum = 0;
 
-    constexpr auto framePeriod = std::chrono::milliseconds(100);
+    constexpr auto frameRate = 15;
+    constexpr auto framePeriod = std::chrono::milliseconds(1000 / frameRate);
     while (g_running)
     {
         sl::Camera zed;
 
         sl::InitParameters initParams;
         initParams.camera_resolution = sl::RESOLUTION::HD720; // 1280×720
-        initParams.camera_fps = 15;                           // SDK minimum; we throttle to 10 in the loop
+        initParams.camera_fps = frameRate;
         initParams.depth_mode = sl::DEPTH_MODE::PERFORMANCE;
         initParams.coordinate_units = sl::UNIT::METER;
         initParams.coordinate_system = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP;

@@ -6,11 +6,14 @@ using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using static igvc_csharp.Subsystems.ChronosSubsystem;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
 [Subsystem("CameraSubsystem", Disabled = Configuration.UseSimulation)]
-public class CameraSubsystem : SubsystemBase
+public class CameraSubsystem(
+    ChronosSubsystem? chronos
+) : SubsystemBase
 {
     [Config("subsystem.camera.left_shm")]
     public static string LeftShmName = "/camera_left";
@@ -32,17 +35,17 @@ public class CameraSubsystem : SubsystemBase
     {
         SetOperatingState(SubsystemState.Starting);
 
-        mLeftWorker  = new CameraWorker("left",  LeftShmName,  LeftShmName  + "_sem", Logger);
-        mRightWorker = new CameraWorker("right", RightShmName, RightShmName + "_sem", Logger);
+        mLeftWorker = new CameraWorker("left", LeftShmName, LeftShmName + "_sem", Logger, chronos);
+        mRightWorker = new CameraWorker("right", RightShmName, RightShmName + "_sem", Logger, chronos);
 
-        _ = Task.Factory.StartNew(() => mLeftWorker.RunAsync(token),  token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        _ = Task.Factory.StartNew(() => mLeftWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         _ = Task.Factory.StartNew(() => mRightWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         var processConfig = new ProcessManagerConfig
         {
-            AutoRestart             = true,
-            RestartDelayMs          = 3000,
-            CrashThresholdMs        = 3000,
+            AutoRestart = true,
+            RestartDelayMs = 3000,
+            CrashThresholdMs = 3000,
             GracefulShutdownTimeoutMs = 3000
         };
 
@@ -85,11 +88,11 @@ public class CameraSubsystem : SubsystemBase
 
     // ── CameraWorker ──────────────────────────────────────────────────────────
 
-    public class CameraWorker(string name, string shmName, string semName, ILogger logger)
+    public class CameraWorker(string name, string shmName, string semName, ILogger logger, ChronosSubsystem? chronos = null)
     {
-        private readonly Lock   mFrameLock = new();
-        private Mat?            mLastFrame;
-        private volatile bool   mIsStopped;
+        private readonly Lock mFrameLock = new();
+        private Mat? mLastFrame;
+        private volatile bool mIsStopped;
 
         public Mat? LatestFrame
         {
@@ -138,9 +141,8 @@ public class CameraSubsystem : SubsystemBase
 
             logger.LogInformation("Camera {} shared memory opened", name);
 
-            uint lastSeq        = 0;
-            var  lastNewFrameAt = DateTime.UtcNow;
-
+            uint lastSeq = 0;
+            var lastNewFrameAt = DateTime.UtcNow;
             while (!token.IsCancellationRequested && !mIsStopped)
             {
                 var result = shm.TryRead(lastSeq, timeoutMs: 150);
@@ -158,7 +160,7 @@ public class CameraSubsystem : SubsystemBase
                 }
 
                 var (header, pixels) = result.Value;
-                lastSeq        = header.SequenceNum;
+                lastSeq = header.SequenceNum;
                 lastNewFrameAt = DateTime.UtcNow;
 
                 var mat = DecodeBgrFrame(pixels, CameraFrameSharedMemoryReader.FrameWidth,
@@ -166,12 +168,17 @@ public class CameraSubsystem : SubsystemBase
                 Mat? old;
                 lock (mFrameLock)
                 {
-                    old        = mLastFrame;
+                    old = mLastFrame;
                     mLastFrame = mat;
                 }
                 old?.Dispose();
 
+                // Handle the new frame
                 BroadcastFrame();
+                chronos?.WriteVideoFrame(
+                    name == "left" ? CameraId.Left : CameraId.Right,
+                    mat
+                );
 
                 await Task.Delay(5, token).ConfigureAwait(false);
             }

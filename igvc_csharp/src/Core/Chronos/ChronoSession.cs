@@ -40,11 +40,12 @@ internal sealed class ChronosSession : IAsyncDisposable
     internal ChronosSession(string outputDirectory, ushort sessionType, CancellationToken ct)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        OutputDirectory = outputDirectory;
-        Directory.CreateDirectory(outputDirectory);
 
+        // Each session gets its own folder
         RunId = $"run_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{sessionType}";
-        string logPath = Path.Combine(outputDirectory, $"{RunId}.rlog");
+        OutputDirectory = Path.Combine(outputDirectory, RunId);
+        Directory.CreateDirectory(OutputDirectory);
+        string logPath = Path.Combine(OutputDirectory, "session.rlog");
 
         _logStream = new FileStream(
             logPath,
@@ -73,7 +74,7 @@ internal sealed class ChronosSession : IAsyncDisposable
             if (_videoWriters.ContainsKey(cameraId))
                 throw new InvalidOperationException($"Camera {cameraId} is already open.");
 
-            string videoPath = Path.Combine(OutputDirectory, $"{RunId}_camera{cameraId}.avi");
+            string videoPath = Path.Combine(OutputDirectory, $"camera{cameraId}.avi");
             var writer = new VideoWriter(
                 videoPath,
                 VideoWriter.FourCC('X', 'V', 'I', 'D'),
