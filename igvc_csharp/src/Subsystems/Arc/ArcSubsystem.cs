@@ -37,6 +37,8 @@ public class ArcSubsystem : SubsystemBase
             FullMode = BoundedChannelFullMode.DropOldest
         });
 
+    // Keyed by (commandId, parameterType) so handlers that accept ArcCommandContext
+    // and handlers that accept ArcCommand (or nothing) are stored separately.
     private readonly Dictionary<ArcCommandId, List<MethodInfo>> _commandMethods = new();
     private Task? _outgoingSendTask;
 
@@ -97,7 +99,7 @@ public class ArcSubsystem : SubsystemBase
         {
             await foreach (var wrapper in _outgoingData.Reader.ReadAllAsync(token))
             {
-                using (wrapper) // disposes pooled wrapper when done
+                using (wrapper)
                 {
                     if (wrapper.Type == MessageType.ImageFrame)
                     {
@@ -123,8 +125,6 @@ public class ArcSubsystem : SubsystemBase
 
     private Task OnMessageEvent(MessageWrapperEvent e, CancellationToken token)
     {
-        // If the wrapper is pooled we need an owned copy for the channel,
-        // since the original may be disposed before ArcSendLoop reads it
         var wrapper = e.Wrapper;
         MessageWrapper queued;
         if (wrapper.Data != null)
@@ -147,7 +147,6 @@ public class ArcSubsystem : SubsystemBase
     /// </summary>
     public async Task BroadcastAsync(MessageWrapper wrapper, CancellationToken token)
     {
-        // ImageFrame skips CRC — bulk data, TCP/WS is reliable
         var includeCrc = wrapper.Type != MessageType.ImageFrame;
         var (buffer, length) = MessageWriter.WritePooled(
             wrapper.Type,
@@ -191,18 +190,11 @@ public class ArcSubsystem : SubsystemBase
         catch
         {
             _clients.TryRemove(guid, out _);
-            try
-            {
-                socket.Dispose();
-            }
-            catch
-            {
-                /* ignore */
-            }
+            try { socket.Dispose(); } catch { /* ignore */ }
         }
     }
 
-    // Keep old signature for any external callers
+    /// <summary>Keep old byte[] signature for any external callers.</summary>
     public Task SendToClient(Guid guid, byte[] message, CancellationToken token = default)
     {
         return !_clients.TryGetValue(guid, out var socket)
@@ -211,8 +203,8 @@ public class ArcSubsystem : SubsystemBase
     }
 
     /// <summary>
-    /// Encodes a <see cref="MessageWrapper"/> and sends it to a single connected client.
-    /// Uses a pooled buffer just like <see cref="BroadcastAsync"/>.
+    /// Encodes a MessageWrapper and sends it to a single connected client.
+    /// Uses a pooled buffer identical to BroadcastAsync.
     /// </summary>
     public async Task SendToClientWrapper(Guid guid, MessageWrapper wrapper,
         CancellationToken token = default)
@@ -254,14 +246,7 @@ public class ArcSubsystem : SubsystemBase
             }
             finally
             {
-                try
-                {
-                    listener?.Stop();
-                }
-                catch
-                {
-                    /* ignore */
-                }
+                try { listener?.Stop(); } catch { /* ignore */ }
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(500), token);
@@ -281,10 +266,7 @@ public class ArcSubsystem : SubsystemBase
             {
                 await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Server Shutdown", CancellationToken.None);
             }
-            catch
-            {
-                /* ignore */
-            }
+            catch { /* ignore */ }
 
             socket.Dispose();
         }
@@ -293,15 +275,7 @@ public class ArcSubsystem : SubsystemBase
 
         if (_host != null)
         {
-            try
-            {
-                await _host.StopAsync(TimeSpan.FromSeconds(5));
-            }
-            catch
-            {
-                /* ignore */
-            }
-
+            try { await _host.StopAsync(TimeSpan.FromSeconds(5)); } catch { /* ignore */ }
             _host.Dispose();
             _host = null;
         }
@@ -319,7 +293,7 @@ public class ArcSubsystem : SubsystemBase
         await Init(LifetimeToken);
     }
 
-    // WebSocket receive
+    // ── WebSocket receive ────────────────────────────────────────────────────
 
     private async Task HandleHttpRequest(HttpContext ctx, CancellationToken token)
     {
@@ -354,7 +328,6 @@ public class ArcSubsystem : SubsystemBase
             Endianness,
             wrapper =>
             {
-                // Fire-and-forget command handling; dispose wrapper when done
                 _ = ProcessMessage(clientId, wrapper, token)
                     .ContinueWith(_ => wrapper.Dispose(), TaskContinuationOptions.ExecuteSynchronously);
             },
@@ -385,14 +358,7 @@ public class ArcSubsystem : SubsystemBase
             ArrayPool<byte>.Shared.Return(readBuffer);
             accumulator.Dispose();
             _clients.TryRemove(clientId, out _);
-            try
-            {
-                socket.Dispose();
-            }
-            catch
-            {
-                /* ignore */
-            }
+            try { socket.Dispose(); } catch { /* ignore */ }
 
             Logger.LogInformation("ARC client disconnected {ClientId}", clientId);
         }
@@ -408,6 +374,10 @@ public class ArcSubsystem : SubsystemBase
     private Task HandleCommandRequest(Guid guid, ArcCommand commandRaw, CancellationToken token)
     {
         var command = commandRaw.CommandId;
+        var context = new ArcCommandContext { ClientId = guid, Command = commandRaw };
+
+        Logger.LogDebug("HandleCommandRequest: command={Command}, registered={Count}",
+            command, _commandMethods.Count);
 
         if (_commandMethods.TryGetValue(command, out var methods))
         {
@@ -416,21 +386,48 @@ public class ArcSubsystem : SubsystemBase
                 var clazz = method.DeclaringType;
                 if (clazz == null) continue;
 
-                var instance = BaseRobot.Instance?.GetSubsystem(clazz);
-                var parameters = method.GetParameters();
-                switch (parameters.Length)
+                // Static handlers (recommended) need no instance.
+                // Instance handlers resolve via GetSubsystem — null means the subsystem
+                // isn't registered and the invoke will throw TargetException.
+                var instance = method.IsStatic ? null : BaseRobot.Instance?.GetSubsystem(clazz);
+                if (!method.IsStatic && instance == null)
                 {
-                    case 0: method.Invoke(instance, null); break;
-                    case 1: method.Invoke(instance, [commandRaw]); break;
-                    default:
-                        Logger.LogWarning("Method {Method} has invalid parameter count for ArcCommand", method.Name);
-                        break;
+                    Logger.LogWarning(
+                        "HandleCommandRequest: no subsystem instance found for {Type} " +
+                        "(method={Method}). Make handlers static to avoid this.",
+                        clazz.Name, method.Name);
+                    continue;
+                }
+
+                var parameters = method.GetParameters();
+                try
+                {
+                    switch (parameters.Length)
+                    {
+                        case 0:
+                            method.Invoke(instance, null);
+                            break;
+                        case 1 when parameters[0].ParameterType == typeof(ArcCommandContext):
+                            method.Invoke(instance, [context]);
+                            break;
+                        case 1 when parameters[0].ParameterType == typeof(ArcCommand):
+                            method.Invoke(instance, [commandRaw]);
+                            break;
+                        default:
+                            Logger.LogWarning("Method {Method} has invalid parameter signature for ArcCommand", method.Name);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Exception invoking ArcCommand handler {Method}", method.Name);
                 }
             }
         }
         else
         {
-            Logger.LogWarning("No handlers found for command {Command}", command);
+            Logger.LogWarning("No handlers found for command {Command} (registered: {Keys})",
+                command, string.Join(", ", _commandMethods.Keys));
         }
 
         return Task.CompletedTask;

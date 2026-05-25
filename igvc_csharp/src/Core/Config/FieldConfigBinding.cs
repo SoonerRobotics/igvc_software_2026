@@ -8,6 +8,7 @@ internal sealed class FieldConfigBinding : IConfigBinding
 
     public string Path { get; }
     public Type ValueType => _field.FieldType;
+    public bool IsReadOnly => _field.IsLiteral || _field.IsInitOnly;
 
     public FieldConfigBinding(FieldInfo field, ConfigAttribute attr)
     {
@@ -19,23 +20,11 @@ internal sealed class FieldConfigBinding : IConfigBinding
 
     public bool TrySet(object value)
     {
-        if (!ValueType.IsInstanceOfType(value))
-        {
-            return false;
-        }
-
+        if (IsReadOnly) return false;
+        if (!ValueType.IsInstanceOfType(value)) return false;
         _field.SetValue(null, value);
         return true;
     }
 
-    public object Serialize()
-    {
-        var val = Get();
-        if (val is IConfigSerializable serializable)
-        {
-            return serializable.Serialize();
-        }
-
-        return val;
-    }
+    public object Serialize() => ConfigSerializer.Serialize(Get());
 }

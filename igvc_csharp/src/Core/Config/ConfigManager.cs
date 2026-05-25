@@ -12,7 +12,7 @@ public static class ConfigManager
     {
         DiscoverConstants();
     }
-    
+
     private static void DiscoverConstants()
     {
         var types = AppDomain.CurrentDomain
@@ -25,28 +25,28 @@ public static class ConfigManager
             {
                 var attr = field.GetCustomAttribute<ConfigAttribute>();
                 if (attr == null)
-                {
                     continue;
-                }
+
+                // const fields (IsLiteral) and readonly fields (IsInitOnly) cannot be
+                // written via reflection at runtime — skip them entirely so they don't
+                // appear as editable keys in Arc or cause FieldAccessException on load.
+                if (field.IsLiteral || field.IsInitOnly)
+                    continue;
 
                 _bindings[attr.Path] = new FieldConfigBinding(field, attr);
             }
         }
     }
-    
+
     public static T Get<T>(string path) => (T)_bindings[path].Get();
 
     public static bool Set(string path, object value)
     {
         if (!_bindings.TryGetValue(path, out var binding))
-        {
             return false;
-        }
 
         if (!binding.TrySet(value))
-        {
             return false;
-        }
 
         EventBus.Instance.Publish(new ConfigChangedEvent(path, value));
         return true;

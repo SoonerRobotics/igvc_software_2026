@@ -2,7 +2,7 @@ using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("SelfdriveSubsystem")]
+[Subsystem("SelfdriveSubsystem", Disabled = true)]
 public class SelfdriveSubsystem(
     CanbusSubsystem? canbus
 ) : SubsystemBase

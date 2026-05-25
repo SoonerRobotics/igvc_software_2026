@@ -1,5 +1,6 @@
 ﻿using System.Threading.Channels;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Subsystems.Vision.Filters;
@@ -19,7 +20,17 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     private readonly List<IFilter> _leftFilters = [];
     private readonly List<IFilter> _rightFilters = [];
 
-    // private readonly OpenCvImageWindow _window = new("Vision Output");
+    // Guards against concurrent filter rebuilds (config change vs state change)
+    private readonly Lock _filterLock = new();
+
+    // Config paths that require a filter rebuild when changed
+    private static readonly HashSet<string> _visionConfigPaths =
+    [
+        "vision.ground_threshold",
+        "vision.yellow_threshold",
+        "vision.blur_radius",
+        "vision.blur_strength",
+    ];
 
     private readonly Channel<ImageFrame> _leftChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
@@ -37,10 +48,12 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     public override Task Init(CancellationToken token)
     {
-        AddFilters(BaseRobot.Instance.State);
+        RebuildFilters(BaseRobot.Instance.State);
 
         SubscribeImage("left", OnLeftImageReceived, token);
         SubscribeImage("right", OnRightImageReceived, token);
+
+        Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
 
         _ = Task.Factory.StartNew(
             () => ImageProcessingTask(token),
@@ -56,24 +69,29 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         SetOperatingState(SubsystemState.Starting);
-
-        _leftFilters.Clear();
-        _rightFilters.Clear();
-
-        AddFilters(updated);
-
-        if (updated.Mission == MissionEnum.Autonav)
-        {
-            //TODO
-        }
-        else if (updated.Mission == MissionEnum.Selfdrive)
-        {
-            //TODO
-        }
-
+        RebuildFilters(updated);
         SetOperatingState(SubsystemState.Ready);
-
         return Task.CompletedTask;
+    }
+
+    private Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
+    {
+        if (!_visionConfigPaths.Contains(e.Path))
+            return Task.CompletedTask;
+
+        Logger.LogInformation("Vision config changed ({Path}), rebuilding filters", e.Path);
+        RebuildFilters(BaseRobot.Instance.State);
+        return Task.CompletedTask;
+    }
+
+    private void RebuildFilters(RobotState state)
+    {
+        lock (_filterLock)
+        {
+            _leftFilters.Clear();
+            _rightFilters.Clear();
+            AddFilters(state);
+        }
     }
 
     private void AddFilters(RobotState newState)
@@ -84,43 +102,21 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         if (newState.Mission == MissionEnum.Autonav)
         {
-            // insert as the first filter (don't want to blur if we're doing SelfDrive)
             _leftFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
             _rightFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
-
-            //TODO: make region of disinterest configurable, although I don't think we'll actually need it...
-            // _leftFilters.Add(new RegionFilter([
-            //     new Point(0, 0), new Point(100, 100), new Point(50, 50)]
-            // ));
-
-            // _rightFilters.Add(new RegionFilter([
-            //     new Point(0, 0), new Point(100, 100), new Point(50, 50)]
-            // ));
 
             _leftFilters.Add(new TopDownFilter(
                 VisionConfig.leftSourcePoints,
                 VisionConfig.leftDestPoints,
                 new Size(640, 480)
-            // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
 
             _rightFilters.Add(new TopDownFilter(
                 VisionConfig.rightSourcePoints,
                 VisionConfig.rightDestPoints,
                 new Size(640, 480)
-            // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
-
-            //     _leftFilters.Add(new InflationFilter());
-            //     _rightFilters.Add(new InflationFilter());
         }
-
-        // if (Configuration.AStarConfig.UseAStar)
-        // {
-        //     // don't need this for anything but A* (e.g. not for feelers)
-        //     _leftFilters.Add(new InflationFilter());
-        //     _rightFilters.Add(new InflationFilter());
-        // }
 
         if (newState.Mission == MissionEnum.Selfdrive)
         {
@@ -135,91 +131,109 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         {
             while (!token.IsCancellationRequested)
             {
-                var leftFrame = await _leftChannel.Reader.ReadAsync(token);
-                var rightFrame = await _rightChannel.Reader.ReadAsync(token);
+                var leftTask = _leftChannel.Reader.ReadAsync(token).AsTask();
+                var rightTask = _rightChannel.Reader.ReadAsync(token).AsTask();
+                await Task.WhenAll(leftTask, rightTask);
+
+                var leftFrame = leftTask.Result;
+                var rightFrame = rightTask.Result;
 
                 var leftMat = CvUtils.AsMat(leftFrame);
                 var rightMat = CvUtils.AsMat(rightFrame);
 
-                //TODO: parallelize these? I know we run super fast anyways but still I don't like it...
-                leftMat = _leftFilters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
-                rightMat = _rightFilters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
+                // Snapshot the filter lists under lock so a concurrent rebuild
+                // doesn't modify them mid-pipeline.
+                IFilter[] leftFilters;
+                IFilter[] rightFilters;
+                lock (_filterLock)
+                {
+                    leftFilters = [.. _leftFilters];
+                    rightFilters = [.. _rightFilters];
+                }
+
+                leftMat = leftFilters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
+                rightMat = rightFilters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
+
+                // Ensure both mats are BGR before combining
+                static Mat EnsureBgr(Mat m)
+                {
+                    if (m.Channels() == 1)
+                    {
+                        var bgr = new Mat();
+                        Cv2.CvtColor(m, bgr, ColorConversionCodes.GRAY2BGR);
+                        m.Dispose();
+                        return bgr;
+                    }
+                    return m;
+                }
+
+                leftMat = EnsureBgr(leftMat);
+                rightMat = EnsureBgr(rightMat);
 
                 var combinedFiltered = new Mat();
 
                 if (BaseRobot.Instance.State.Mission == MissionEnum.Selfdrive)
                 {
                     combinedFiltered = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
-
-                    // _window.EnqueueJpeg(CvUtils.FromMat(combinedFiltered));
                 }
                 else if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
                 {
                     Cv2.HConcat([leftMat, rightMat], combinedFiltered);
                 }
 
-                // only publish the combined view of the filters, not left and right seperately
-                var combinedFilteredBytes = CvUtils.FromMat(combinedFiltered);
-                var newFrame = MessageConstructor.CreateImageFrame(
-                    (uint)combinedFiltered.Width,
-                    (uint)combinedFiltered.Height,
-                    "combined_filtered",
-                    combinedFilteredBytes
-                );
+                if (!combinedFiltered.Empty())
+                {
+                    var combinedFilteredBytes = CvUtils.FromMat(combinedFiltered);
+                    var newFrame = MessageConstructor.CreateImageFrame(
+                        (uint)combinedFiltered.Width,
+                        (uint)combinedFiltered.Height,
+                        "combined_filtered",
+                        combinedFilteredBytes
+                    );
 
-                var wrappedFrame = MessageWrapper.From(
-                    MessageType.ImageFrame,
-                    newFrame.ByteBuffer.ToFullArray()
-                );
+                    EventBus.Instance.Publish(new MessageWrapperEvent(
+                        MessageWrapper.From(MessageType.ImageFrame, newFrame.ByteBuffer.ToFullArray())));
 
-                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
+                    var thresholdFilter = new ThresholdFilter();
+                    var combinedThresholded = thresholdFilter.Apply(combinedFiltered);
 
-                // also publish the raw combined view for debug purposes
+                    var inflationFilter = new InflationFilter(kernelWidth: 31, kernelHeight: 31);
+                    combinedThresholded = inflationFilter.Apply(combinedThresholded);
+
+                    var combinedInflatedBytes = CvUtils.FromMat(combinedThresholded);
+                    var inflatedFrame = MessageConstructor.CreateImageFrame(
+                        (uint)combinedThresholded.Width,
+                        (uint)combinedThresholded.Height,
+                        "combined_inflated",
+                        combinedInflatedBytes
+                    );
+
+                    EventBus.Instance.Publish(new MessageWrapperEvent(
+                        MessageWrapper.From(MessageType.ImageFrame, inflatedFrame.ByteBuffer.ToFullArray())));
+
+                    combinedThresholded.Dispose();
+                }
+                else
+                {
+                    Logger.LogWarning("No mission matched, skipping combined publish");
+                }
+
+                // Raw combined view for debug
                 var leftRaw = CvUtils.AsMat(leftFrame);
                 var rightRaw = CvUtils.AsMat(rightFrame);
 
-                //FIXME this is temporary
-                if (true)
-                {
-                    var leftFilter = new TopDownFilter(
-                        VisionConfig.leftSourcePoints,
-                        VisionConfig.leftDestPoints,
-                        new Size(640, 480)
-                    // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
-                    );
-
-                    var rightFilter = new TopDownFilter(
-                        VisionConfig.rightSourcePoints,
-                        VisionConfig.rightDestPoints,
-                        new Size(640, 480)
-                    // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
-                    );
-
-                    leftRaw = leftFilter.Apply(leftRaw);
-                    rightRaw = rightFilter.Apply(rightRaw);
-                }
-
-                // draw flattening points
-                // var flattenPolyColor = new Scalar(0, 100, 0);
-                // List<List<Point>> leftDebugPts = [new(), new()];
-                // for (int i = 0; i < 4; i++)
-                // {
-                //     leftDebugPts[0].Add((Point)VisionConfig.leftSourcePoints[i]);
-                //     leftDebugPts[1].Add((Point)VisionConfig.leftDestPoints[i]);
-                // }
-                // leftRaw.Polylines(leftDebugPts, true, flattenPolyColor, 3);
-
-                // List<List<Point>> rightDebugPts = [new(), new()];
-                // for (int i = 0; i < 4; i++)
-                // {
-                //     rightDebugPts[0].Add((Point)VisionConfig.rightSourcePoints[i]);
-                //     rightDebugPts[1].Add((Point)VisionConfig.rightDestPoints[i]);
-                // }
-                // rightRaw.Polylines(rightDebugPts, true, flattenPolyColor, 3);
-
-
-                // draw region of disinterest
-                //TODO
+                var leftFilter = new TopDownFilter(
+                    VisionConfig.leftSourcePoints,
+                    VisionConfig.leftDestPoints,
+                    new Size(640, 480)
+                );
+                var rightFilter = new TopDownFilter(
+                    VisionConfig.rightSourcePoints,
+                    VisionConfig.rightDestPoints,
+                    new Size(640, 480)
+                );
+                leftRaw = leftFilter.Apply(leftRaw);
+                rightRaw = rightFilter.Apply(rightRaw);
 
                 var combinedRaw = new Mat();
                 Cv2.HConcat([leftRaw, rightRaw], combinedRaw);
@@ -232,12 +246,8 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     combinedBytes
                 );
 
-                var wrappedRawFrame = MessageWrapper.From(
-                    MessageType.ImageFrame,
-                    rawFrame.ByteBuffer.ToFullArray()
-                );
-
-                EventBus.Instance.Publish(new MessageWrapperEvent(wrappedRawFrame));
+                EventBus.Instance.Publish(new MessageWrapperEvent(
+                    MessageWrapper.From(MessageType.ImageFrame, rawFrame.ByteBuffer.ToFullArray())));
 
                 leftMat.Dispose();
                 rightMat.Dispose();
@@ -256,7 +266,6 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     private static Mat CombineAndAnnotate(Mat left, Mat right, double scale = 0.5)
     {
-        // Scale down before processing
         var scaledLeft = new Mat();
         var scaledRight = new Mat();
         Cv2.Resize(left, scaledLeft, new Size(0, 0), scale, scale, InterpolationFlags.Area);
@@ -282,7 +291,6 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         else
             laneLabel = "Lane: CENTER";
 
-        // Stack views with divider
         var divider = new Mat(left.Height, 4, MatType.CV_8UC3, new Scalar(80, 80, 80));
         var leftLabeled = left.Clone();
         var rightLabeled = right.Clone();
@@ -297,27 +305,20 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         scaledLeft.Dispose();
         scaledRight.Dispose();
 
-        // Color-coded banner per lane state
         var bannerH = 50;
         var (bannerColor, textColor) = laneLabel switch
         {
-            "Lane: LEFT" => (new Scalar(255, 100, 0), new Scalar(255, 255, 255)),  // orange
-            "Lane: RIGHT" => (new Scalar(0, 100, 255), new Scalar(255, 255, 255)),  // blue
-            "Lane: CENTER" => (new Scalar(0, 200, 80), new Scalar(0, 0, 0)),        // green
-            _ => (new Scalar(40, 40, 40), new Scalar(160, 160, 160))   // dark grey
+            "Lane: LEFT" => (new Scalar(255, 100, 0), new Scalar(255, 255, 255)),
+            "Lane: RIGHT" => (new Scalar(0, 100, 255), new Scalar(255, 255, 255)),
+            "Lane: CENTER" => (new Scalar(0, 200, 80), new Scalar(0, 0, 0)),
+            _ => (new Scalar(40, 40, 40), new Scalar(160, 160, 160)),
         };
 
         Cv2.Rectangle(combined, new Rect(0, 0, combined.Width, bannerH), bannerColor, thickness: -1);
 
-        // Pill background behind text
         var textSize = Cv2.GetTextSize(laneLabel, HersheyFonts.HersheySimplex, 1.0, 2, out _);
         var textX = combined.Width / 2 - textSize.Width / 2;
-        Cv2.Rectangle(
-            combined,
-            new Rect(textX - 10, 8, textSize.Width + 20, bannerH - 16),
-            new Scalar(0, 0, 0),
-            thickness: -1
-        );
+        Cv2.Rectangle(combined, new Rect(textX - 10, 8, textSize.Width + 20, bannerH - 16), new Scalar(0, 0, 0), thickness: -1);
         Cv2.PutText(combined, laneLabel, new Point(textX, 35), HersheyFonts.HersheySimplex, 1.0, textColor, thickness: 2);
 
         return combined;

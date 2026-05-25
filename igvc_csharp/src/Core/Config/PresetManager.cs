@@ -11,7 +11,7 @@ public class PresetManager
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
         WriteIndented = true,
-        IndentSize = 4
+        IndentSize = 4,
     };
 
     public static void Initialize()
@@ -45,7 +45,7 @@ public class PresetManager
             object? value;
             try
             {
-                value = JsonSerializer.Deserialize(prop.Value.GetRawText(), binding.ValueType);
+                value = ConfigSerializer.DeserializeElement(prop.Value, binding.ValueType);
             }
             catch (Exception ex)
             {
@@ -55,8 +55,6 @@ public class PresetManager
 
             if (value == null) continue;
 
-            // ConfigManager.Set publishes ConfigChangedEvent, which ArcConfigHandler
-            // listens to and broadcasts a config_key_changed message to all Arc clients.
             ConfigManager.Set(prop.Name, value);
         }
 
@@ -67,9 +65,7 @@ public class PresetManager
     {
         var dict = new Dictionary<string, object>();
         foreach (var (key, binding) in ConfigManager.Bindings)
-        {
             dict[key] = binding.Serialize();
-        }
 
         var json = JsonSerializer.Serialize(dict, JsonSerializerOptions);
         File.WriteAllText(path, json);
