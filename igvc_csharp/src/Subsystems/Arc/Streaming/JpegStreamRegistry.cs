@@ -8,15 +8,14 @@ public static class JpegStreamRegistry
 {
     private static readonly ConcurrentDictionary<string, Channel<byte[]>> Streams = new();
 
-    public static Channel<byte[]> GetOrCreate(string streamId)
-    {
-        return Streams.GetOrAdd(streamId, _ =>
-            Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions
+    public static Channel<byte[]> GetOrCreate(string streamId) =>
+        Streams.GetOrAdd(streamId, _ => Channel.CreateBounded<byte[]>(
+            new BoundedChannelOptions(1)          // only 1 frame buffered
             {
+                FullMode = BoundedChannelFullMode.DropOldest,
                 SingleWriter = false,
                 SingleReader = false
             }));
-    }
 
     public static void Publish(string streamId, byte[] jpegBytes)
     {

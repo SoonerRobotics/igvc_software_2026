@@ -71,28 +71,31 @@ public class CvUtils
         int cx = bounding.X + bounding.Width / 2;
         int cy = bounding.Y + bounding.Height / 2;
 
-        const int sampleRadius = 5;
+        // Clamp center to mat bounds first
+        cx = Math.Clamp(cx, 0, depthMat.Width - 1);
+        cy = Math.Clamp(cy, 0, depthMat.Height - 1);
+
+        const int sampleRadius = 8; // slightly larger window for better coverage
         int x0 = Math.Max(0, cx - sampleRadius);
         int y0 = Math.Max(0, cy - sampleRadius);
         int x1 = Math.Min(depthMat.Width - 1, cx + sampleRadius);
         int y1 = Math.Min(depthMat.Height - 1, cy + sampleRadius);
 
-        float sum = 0f;
-        int count = 0;
+        var samples = new List<float>(capacity: (x1 - x0 + 1) * (y1 - y0 + 1));
 
         for (int y = y0; y <= y1; y++)
-        {
             for (int x = x0; x <= x1; x++)
             {
                 float d = depthMat.At<float>(y, x);
                 if (d >= 0.2f && d <= 20f)
-                {
-                    sum += d; count++;
-                }
+                    samples.Add(d);
             }
-        }
 
-        return count > 0 ? sum / count : float.NaN;
+        if (samples.Count == 0) return float.NaN;
+
+        // Median is much more robust than mean for sparse/noisy depth data
+        samples.Sort();
+        return samples[samples.Count / 2];
     }
 
     public static Mat AsColorizedMat(ZedFrame frame, float minMeters = 0.2f, float maxMeters = 20f)

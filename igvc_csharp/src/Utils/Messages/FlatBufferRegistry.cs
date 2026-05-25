@@ -9,12 +9,24 @@ namespace igvc_csharp.Utils.Messages;
 public class FlatBufferRegistry
 {
     private static readonly ILogger Logger = Logging.From<FlatBufferRegistry>();
-    private static readonly Dictionary<Type, Func<ByteBuffer, object>> Factories = new ();
+    private static readonly Dictionary<Type, Func<ByteBuffer, object>> Factories = new();
 
     public static void Scan()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        foreach (var type in assembly.GetTypes())
+        Type[] types;
+        try
+        {
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            foreach (var loaderEx in ex.LoaderExceptions.Where(e => e != null))
+                Logger.LogWarning("Assembly load warning during FlatBuffer scan: {Message}", loaderEx!.Message);
+            types = ex.Types.Where(t => t != null).ToArray()!;
+        }
+        
+        foreach (var type in types)
         {
             if (!type.IsValueType || !type.IsPublic)
             {
@@ -53,7 +65,7 @@ public class FlatBufferRegistry
         var bbParam = Expression.Parameter(typeof(ByteBuffer), "_bb");
         var call = Expression.Call(method, bbParam);
         var cast = Expression.Convert(call, typeof(object));
-        
+
         return Expression
             .Lambda<Func<ByteBuffer, object>>(cast, bbParam)
             .Compile();

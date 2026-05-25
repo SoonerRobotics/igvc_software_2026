@@ -1,5 +1,6 @@
 using igvc_csharp.Core;
 using igvc_csharp.Core.Config;
+using igvc_csharp.Core.Hardware;
 using igvc_csharp.Events;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
@@ -11,92 +12,88 @@ namespace igvc_csharp.Subsystems.Hardware;
 [Subsystem("CameraSubsystem", Disabled = Configuration.UseSimulation)]
 public class CameraSubsystem : SubsystemBase
 {
-    // Configuration
+    [Config("subsystem.camera.left_shm")]
+    public static readonly string LeftShmName = "/camera_left";
 
-    [Config("subsystem.camera.left_path")]
-    public static readonly string LeftCameraPath = "/dev/video0";
-
-    [Config("subsystem.camera.right_path")]
-    public static readonly string RightCameraPath = "/dev/video2"; // the global shutter cameras are weird and have 2 /video devices per camera
-
-    [Config("subsystem.camera.fps")]
-    public static readonly int CameraFps = 12; //TODO is there a reason this is here instead of in Configuration.cs?
+    [Config("subsystem.camera.right_shm")]
+    public static readonly string RightShmName = "/camera_right";
 
     [Config("subsystem.camera.reconnect_delay_ms")]
     public static readonly int ReconnectDelayMs = 2000;
 
-    // Implementation
+    [Config("subsystem.camera.staleness_threshold_ms")]
+    public static readonly int StalenessThresholdMs = 5000;
 
     private CameraWorker? mLeftWorker;
     private CameraWorker? mRightWorker;
+    private ProcessManager? mCameraProcess;
 
-    public override Task Init(CancellationToken token)
+    public override async Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
 
-        mLeftWorker = new CameraWorker("left", LeftCameraPath, Logger);
-        mRightWorker = new CameraWorker("right", RightCameraPath, Logger);
+        mLeftWorker  = new CameraWorker("left",  LeftShmName,  LeftShmName  + "_sem", Logger);
+        mRightWorker = new CameraWorker("right", RightShmName, RightShmName + "_sem", Logger);
 
-        Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
+        _ = Task.Factory.StartNew(() => mLeftWorker.RunAsync(token),  token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        _ = Task.Factory.StartNew(() => mRightWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
-        _ = Task.Factory.StartNew(
-           () => mLeftWorker.RunAsync(token),
-           token,
-           TaskCreationOptions.LongRunning,
-           TaskScheduler.Default
-       );
+        var processConfig = new ProcessManagerConfig
+        {
+            AutoRestart             = true,
+            RestartDelayMs          = 3000,
+            CrashThresholdMs        = 3000,
+            GracefulShutdownTimeoutMs = 3000
+        };
 
-        _ = Task.Factory.StartNew(
-            () => mRightWorker.RunAsync(token),
-            token,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default
+        mCameraProcess = new ProcessManager(
+            Path.Combine(FileUtils.GetRepositoryRootDirectory(), "igvc_cameras", "build", "igvc_camera"),
+            processConfig
         );
+        mCameraProcess.LogReceived += OnProcessLog;
+        await mCameraProcess.StartAsync(token);
 
         SetOperatingState(SubsystemState.Ready);
-
-        return Task.CompletedTask;
     }
 
-    private Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
+    public override async Task Shutdown()
     {
-        if (!e.Path.StartsWith("subsystem.camera"))
-        {
-            return Task.CompletedTask;
-        }
-
         mLeftWorker?.Stop();
-        mLeftWorker = new CameraWorker("left", (string)e.Value, Logger);
-
         mRightWorker?.Stop();
-        mRightWorker = new CameraWorker("right", (string)e.Value, Logger);
 
-        return Task.CompletedTask;
+        if (mCameraProcess?.Status == ProcessStatus.Running)
+            await mCameraProcess.StopAsync();
     }
 
-    // CameraWorker
-
-    public class CameraWorker(string name, string path, ILogger logger)
+    private void OnProcessLog(object? sender, SpdLogStructure log)
     {
-        private readonly Lock mFrameLock = new();
+        if (log.Message.StartsWith("CAMERA_LEFT_CONNECTED"))
+            Logger.LogInformation("Left camera connected");
+        else if (log.Message.StartsWith("CAMERA_RIGHT_CONNECTED"))
+            Logger.LogInformation("Right camera connected");
+        else if (log.Message.StartsWith("CAMERA_LEFT_DISCONNECTED"))
+            Logger.LogWarning("Left camera disconnected");
+        else if (log.Message.StartsWith("CAMERA_RIGHT_DISCONNECTED"))
+            Logger.LogWarning("Right camera disconnected");
+        else if (log.Message.StartsWith("SHM_INIT_FAILED"))
+        {
+            SetOperatingState(SubsystemState.Errored);
+            SetError("SHM_INIT_FAILED");
+            Logger.LogError("Camera shared memory init failed");
+        }
+    }
 
-        private Mat? mLastFrame;
-        private volatile bool mIsConnected;
-        private volatile bool mIsStopped = false;
+    // ── CameraWorker ──────────────────────────────────────────────────────────
 
-        public bool IsConnected => mIsConnected;
-
-        private readonly ILogger mLogger = logger;
+    public class CameraWorker(string name, string shmName, string semName, ILogger logger)
+    {
+        private readonly Lock   mFrameLock = new();
+        private Mat?            mLastFrame;
+        private volatile bool   mIsStopped;
 
         public Mat? LatestFrame
         {
-            get
-            {
-                lock (mFrameLock)
-                {
-                    return mLastFrame?.Clone();
-                }
-            }
+            get { lock (mFrameLock) { return mLastFrame?.Clone(); } }
         }
 
         public async Task RunAsync(CancellationToken token)
@@ -105,7 +102,7 @@ public class CameraSubsystem : SubsystemBase
             {
                 try
                 {
-                    await ConnectAndCaptureAsync(token);
+                    await ReadLoopAsync(token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -113,15 +110,12 @@ public class CameraSubsystem : SubsystemBase
                 }
                 catch (Exception ex)
                 {
-                    mLogger.LogError("Camera {} encountered an error!\n {}", name, ex);
+                    logger.LogError("Camera {} error: {}", name, ex);
                 }
 
-                if (!token.IsCancellationRequested)
+                if (!token.IsCancellationRequested && !mIsStopped)
                 {
-                    mIsConnected = false;
-
-                    mLogger.LogWarning("Camera {} reconnecting...", name);
-
+                    logger.LogWarning("Camera {} reconnecting...", name);
                     await Task.Delay(ReconnectDelayMs, token).ConfigureAwait(false);
                 }
             }
@@ -129,108 +123,97 @@ public class CameraSubsystem : SubsystemBase
             Cleanup();
         }
 
-        private async Task ConnectAndCaptureAsync(CancellationToken token)
+        private async Task ReadLoopAsync(CancellationToken token)
         {
-            var interval = TimeSpan.FromSeconds(1.0 / CameraFps);
-            using var capture = OpenCapture();
-            if (capture is null)
+            using var shm = new CameraFrameSharedMemoryReader(shmName, semName);
+
+            // Wait for the C++ process to create the SHM region
+            while (!token.IsCancellationRequested && !mIsStopped && !shm.IsOpen)
             {
-                logger.LogError("Failed to open camera: {}", name);
-                return;
+                if (shm.TryOpen()) break;
+                await Task.Delay(1000, token).ConfigureAwait(false);
             }
 
-            capture.Set(VideoCaptureProperties.Fps, CameraFps);
-            capture.Set(VideoCaptureProperties.AutoExposure, 0);
-            capture.Set(VideoCaptureProperties.AutoFocus, 0);
-            capture.Set(VideoCaptureProperties.AutoWB, 1);
-            capture.Set(VideoCaptureProperties.Brightness, 1.5);
-            capture.Set(VideoCaptureProperties.FrameHeight, 480);
-            capture.Set(VideoCaptureProperties.FrameWidth, 640);
+            if (!shm.IsOpen) return;
 
-            mIsConnected = true;
-            logger.LogInformation("Camera {} connected!", name);
+            logger.LogInformation("Camera {} shared memory opened", name);
 
-            using var frame = new Mat();
+            uint lastSeq        = 0;
+            var  lastNewFrameAt = DateTime.UtcNow;
+
             while (!token.IsCancellationRequested && !mIsStopped)
             {
-                var start = DateTime.UtcNow;
-                if (!capture.Read(frame) || frame.Empty())
-                {
-                    logger.LogError("Camera {} disconnected!", name);
-                    mIsConnected = false;
+                var result = shm.TryRead(lastSeq, timeoutMs: 150);
 
-                    return;
+                if (result is null)
+                {
+                    if ((DateTime.UtcNow - lastNewFrameAt).TotalMilliseconds > StalenessThresholdMs)
+                    {
+                        logger.LogWarning("Camera {} stale — no frames for {}ms", name, StalenessThresholdMs);
+                        return; // triggers reconnect loop
+                    }
+
+                    await Task.Delay(10, token).ConfigureAwait(false);
+                    continue;
                 }
 
+                var (header, pixels) = result.Value;
+                lastSeq        = header.SequenceNum;
+                lastNewFrameAt = DateTime.UtcNow;
+
+                var mat = DecodeBgrFrame(pixels, CameraFrameSharedMemoryReader.FrameWidth,
+                                                  CameraFrameSharedMemoryReader.FrameHeight);
+                Mat? old;
                 lock (mFrameLock)
                 {
-                    mLastFrame?.Dispose();
-                    mLastFrame = frame.Clone();
+                    old        = mLastFrame;
+                    mLastFrame = mat;
                 }
+                old?.Dispose();
+
                 BroadcastFrame();
 
-                var elapsed = DateTime.UtcNow - start;
-                var remaining = interval - elapsed;
-                if (remaining > TimeSpan.Zero)
-                {
-                    await Task.Delay(remaining, token).ConfigureAwait(false);
-                }
-                else
-                {
-                    // we are taking too long to capture frames, low fps
-                    // logger.LogDebug("Camera {} has low FPS", name);
-                }
+                await Task.Delay(5, token).ConfigureAwait(false);
             }
         }
 
         private void BroadcastFrame()
         {
-            if (mLastFrame == null)
-            {
-                return;
-            }
-
             byte[] frameBytes;
             lock (mFrameLock)
             {
+                if (mLastFrame == null) return;
                 frameBytes = CvUtils.FromMat(mLastFrame);
             }
 
-            var frame = MessageConstructor.CreateImageFrame(640, 480, name, frameBytes);
+            var frame = MessageConstructor.CreateImageFrame(
+                CameraFrameSharedMemoryReader.FrameWidth,
+                CameraFrameSharedMemoryReader.FrameHeight,
+                name, frameBytes);
             var msg = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer);
             EventBus.Instance.Publish(msg);
         }
 
-        private VideoCapture? OpenCapture()
+        private static Mat DecodeBgrFrame(byte[] bgrPixels, int width, int height)
         {
-            try
+            var mat = new Mat(height, width, MatType.CV_8UC3);
+            unsafe
             {
-                // try int if available, else use as path
-                var capture = int.TryParse(path, out var idx)
-                    ? new VideoCapture(idx)
-                    : new VideoCapture(path);
-                return capture.IsOpened() ? capture : null;
+                fixed (byte* src = bgrPixels)
+                    Buffer.MemoryCopy(src, mat.DataPointer, bgrPixels.Length, bgrPixels.Length);
             }
-            catch
-            {
-                return null;
-            }
+            return mat;
         }
 
-        public void Cleanup()
-        {
-            mIsConnected = false;
+        public void Stop() => mIsStopped = true;
 
+        private void Cleanup()
+        {
             lock (mFrameLock)
             {
                 mLastFrame?.Dispose();
                 mLastFrame = null;
             }
-        }
-
-        public void Stop()
-        {
-            mIsStopped = true;
         }
     }
 }

@@ -21,7 +21,7 @@ public class CanbusSubsystem(
     // Configuration
 
     [Config("hardware.can.interface")]
-    public const string CanbusInterface = "can0";
+    public const string CanbusInterface = "igvc-can0";
 
     [Config("hardware.can.timeout")]
     public static readonly TimeSpan CanbusTimeout = TimeSpan.FromMilliseconds(500);
@@ -32,18 +32,18 @@ public class CanbusSubsystem(
     private BlockingCollection<CanFrame> _frameQueue = new(128);
     private volatile bool _connected;
     private readonly Lock _socketLock = new();
-    
+
     // Layers
     public SafetyLightsLayer SafetyLights = null!;
     public MotorControlLayer MotorControl = null!;
     public CurrentSensorLayer CurrentSensor = null!;
-    
+
     public override Task Init(CancellationToken token)
     {
         SafetyLights = new SafetyLightsLayer(this);
         MotorControl = new MotorControlLayer(this);
         CurrentSensor = new CurrentSensorLayer(this);
-        
+
         // We always want this node to be up, but if we are simulating
         // then it should just not write to the socket and instead
         // write to the simulator
@@ -51,7 +51,7 @@ public class CanbusSubsystem(
         {
             return Task.CompletedTask;
         }
-        
+
         _ = Task.Factory.StartNew(
             () => WriteTask(token),
             token,
@@ -64,30 +64,29 @@ public class CanbusSubsystem(
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default
         );
-        
-        // List all interfaces
-        var interfaces = CanNetworkInterface.GetAllInterfaces(true);
-        foreach (var inf in interfaces)
-        {
-            Logger.LogDebug("Found CAN Interface at {Path}", inf.Name);
-        }
 
         return Task.CompletedTask;
     }
 
-    private static CanNetworkInterface? FindNetwork()
+    private CanNetworkInterface? FindNetwork()
     {
-        const string inter = CanbusInterface;
-        return CanNetworkInterface
-            .GetAllInterfaces(true)
-            .First(ifc => ifc.Name.Equals(inter));
+        try
+        {
+            using var tempSocket = new RawCanSocket();
+            return CanNetworkInterface.GetInterfaceByName(tempSocket.SafeHandle, CanbusInterface);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not find CAN interface {Interface}", CanbusInterface);
+            return null;
+        }
     }
-    
+
     private void ConnectSocket()
     {
         lock (_socketLock)
         {
-            _canNetwork ??= FindNetwork();
+            _canNetwork = FindNetwork();
             if (_canNetwork == null)
             {
                 SetOperatingState(SubsystemState.Idle);
@@ -113,7 +112,7 @@ public class CanbusSubsystem(
             _canSocket?.Dispose();
             _canSocket = null;
             _canNetwork = null;
-            
+
             // Empty the queue
             _frameQueue.CompleteAdding();
             _frameQueue.Dispose();
@@ -122,12 +121,12 @@ public class CanbusSubsystem(
             {
                 return;
             }
-            
+
             if (State != SubsystemState.ShuttingDown)
             {
                 SetOperatingState(SubsystemState.Idle);
             }
-                
+
             Logger.LogInformation("Disconnected from canbus at {socket}", oldName ?? "Unknown");
         }
     }
@@ -136,25 +135,25 @@ public class CanbusSubsystem(
     {
         while (!token.IsCancellationRequested)
         {
-            if (!_connected ||  _canSocket == null)
+            if (!_connected || _canSocket == null)
             {
                 continue;
             }
-            
+
             if (!_frameQueue.TryTake(out var frame))
             {
                 continue;
             }
 
             try
-            { 
+            {
                 var bytesWritten = _canSocket.Write(frame);
                 if (bytesWritten == 0)
                 {
                     // Idk if this is an issue tbh
                     continue;
                 }
-                
+
                 // Logger.LogDebug("Writing can with frame id: {FrameId}", frame.CanId);
             }
             catch (ObjectDisposedException ex)
@@ -189,7 +188,7 @@ public class CanbusSubsystem(
                     // Idk if this is an issue tbh
                     continue;
                 }
-                
+
                 chronos?.WriteCan(frame);
                 EventBus.Instance.Publish(new CanFrameEvent(frame));
             }
@@ -214,7 +213,7 @@ public class CanbusSubsystem(
             // simulatorSubsystem?.SendCanFrame(frame);
             return;
         }
-        
+
         // We don't want to flood the canbus when we connect
         if (!_connected || _canSocket == null)
         {
@@ -225,7 +224,7 @@ public class CanbusSubsystem(
         {
             return;
         }
-        
+
         try
         {
             _frameQueue.TryAdd(frame);
@@ -243,15 +242,15 @@ public class CanbusSubsystem(
         {
             return Task.CompletedTask;
         }
-        
+
         SetOperatingState(SubsystemState.ShuttingDown);
         CloseSocket();
         SetOperatingState(SubsystemState.Shutdown);
         return Task.CompletedTask;
     }
-    
+
     // Utils
-    
+
     public static byte[] PacketToBytes<T>(T packet) where T : struct
     {
         var bytes = new byte[Marshal.SizeOf<T>()];

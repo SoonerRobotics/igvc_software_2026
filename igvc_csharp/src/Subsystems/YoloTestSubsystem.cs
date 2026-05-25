@@ -1,7 +1,9 @@
 ﻿using System.Threading.Channels;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Hardware;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using igvc_csharp.Yolo;
@@ -9,8 +11,10 @@ using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
-[Subsystem("YoloTestSubsystem", Disabled = true)]
-public class YoloTestSubsystem : SubsystemBase
+[Subsystem("YoloTestSubsystem", Disabled = false)]
+public class YoloTestSubsystem(
+    ZedSubsystem zed
+) : SubsystemBase
 {
     private YoloDetector? _detector;
     private readonly Channel<byte[]> _frameChannel = Channel.CreateBounded<byte[]>(1);
@@ -25,7 +29,7 @@ public class YoloTestSubsystem : SubsystemBase
             YoloExecutionProvider.Cuda
         );
 
-        SubscribeImage("zed2i", OnImageReceived, token);
+        SubscribeImage("zed", OnImageReceived, token);
         SubscribeMessage<ZedFrame>(MessageType.ZedFrame, OnZedFrameReceived, token);
 
         _ = Task.Run(() => InferenceLoop(token), token);
@@ -62,31 +66,38 @@ public class YoloTestSubsystem : SubsystemBase
         await foreach (var jpeg in _frameChannel.Reader.ReadAllAsync(token))
         {
             using var src = CvUtils.AsMat(jpeg);
-
             using var brightened = new Mat();
             src.ConvertTo(brightened, MatType.CV_8UC3, alpha: 1.5, beta: 0);
 
-            // Flip vertically
-            using var flipped = new Mat();
-            Cv2.Flip(brightened, flipped, FlipMode.X);
-
-            var matJpeg = CvUtils.FromMat(flipped);
+            var matJpeg = CvUtils.FromMat(brightened);
             var detections = _detector!.Detect(matJpeg);
 
-            // Sample depth at each detection center
-            List<DetectionWithDepth> withDepth;
-            lock (_depthLock)
+            // Scale from YOLO output space → ZED frame space (1280×720)
+            float scaleX = (float)ZedFrameSharedMemoryReader.FrameWidth / brightened.Width;
+            float scaleY = (float)ZedFrameSharedMemoryReader.FrameHeight / brightened.Height;
+
+            // Query depth for each detection concurrently — semaphore inside
+            // RequestDepthAsync serializes them, but we don't need to do so ourselves
+            var depthTasks = detections.Select(det =>
             {
-                withDepth = detections.Select(det => new DetectionWithDepth(
-                    det,
-                    _latestDepthMat != null
-                        ? CvUtils.SampleDepth(_latestDepthMat, det.Bounding)
-                        : float.NaN
-                )).ToList();
-            }
+                int cx = (int)((det.Bounding.X + det.Bounding.Width / 2f) * scaleX);
+                int cy = (int)((det.Bounding.Y + det.Bounding.Height / 2f) * scaleY);
+                return zed.RequestDepthAsync(cx, cy, timeoutMs: 200);
+            }).ToList();
+
+            var depthResults = await Task.WhenAll(depthTasks);
+
+            var withDepth = detections.Select((det, i) =>
+            {
+                var response = depthResults[i];
+                float distance = response is not null
+                    ? MathF.Sqrt(response.Value.X * response.Value.X + response.Value.Y * response.Value.Y + response.Value.Z * response.Value.Z)
+                    : float.NaN;
+                return new DetectionWithDepth(det, distance);
+            }).ToList();
 
             var annotated = OpenCvDetectionRenderer.RenderDetections(matJpeg, withDepth);
-            var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo_view", annotated);
+            var imageFrame = MessageConstructor.CreateImageFrame(640, 480, "yolo", annotated);
             var wrappedFrame = MessageWrapper.From(MessageType.ImageFrame, imageFrame.ByteBuffer.ToFullArray());
             EventBus.Instance.Publish(new MessageWrapperEvent(wrappedFrame));
         }

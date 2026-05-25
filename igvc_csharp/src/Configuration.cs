@@ -216,14 +216,14 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_forward")]
-        public static readonly LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+        public static readonly LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(2.24);
 
         /// <summary>
         /// The max sideways speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_sideways")]
-        public static readonly LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MilesPerHour.Of(5);
+        public static readonly LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MilesPerHour.Of(2.24);
 
         /// <summary>
         /// The max angular speed of the robot<br/>

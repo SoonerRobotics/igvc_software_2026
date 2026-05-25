@@ -13,3 +13,7 @@ KERNEL=="ttyACM*", ATTRS{idVendor}=="ad50", ATTRS{idProduct}=="60c4", \
 # IMU/GPS
 KERNEL=="ttyUSB*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="AU057VHW", MODE:="0666", GROUP:="dialout", SYMLINK+="igvc-vn"
 KERNEL=="ttyUSB*", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", ATTRS{serial}=="AU05RFV7", MODE:="0666", GROUP:="dialout", SYMLINK+="igvc-vn"
+
+# Cameras
+KERNEL=="video*", ATTRS{idVendor}=="32e4", ATTRS{idProduct}=="0234", ENV{ID_PATH}=="platform-3610000.usb-usb-0:2.1.2:1.0", ENV{ID_V4L_CAPABILITIES}==":capture:", SYMLINK+="igvc-cam-left", MODE:="0666", GROUP:="video"
+KERNEL=="video*", ATTRS{idVendor}=="32e4", ATTRS{idProduct}=="0234", ENV{ID_PATH}=="platform-3610000.usb-usb-0:2.1.4:1.0", ENV{ID_V4L_CAPABILITIES}==":capture:", SYMLINK+="igvc-cam-right", MODE:="0666", GROUP:="video"

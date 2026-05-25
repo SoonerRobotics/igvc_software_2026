@@ -6,8 +6,8 @@ After=dev-%i.device
 
 [Service]
 Type=forking
-ExecStart=/usr/bin/slcand -o -s4 -S 3000000 /dev/%i can0
-ExecStartPost=/usr/sbin/ip link set can0 up
-ExecStop=/usr/sbin/ip link set can0 down
+ExecStart=/usr/bin/slcand -o -s4 -S 3000000 /dev/%i igvc-can0
+ExecStartPost=/usr/sbin/ip link set igvc-can0 up
+ExecStop=/usr/sbin/ip link set igvc-can0 down
 ExecStop=/bin/kill $MAINPID
 Restart=no

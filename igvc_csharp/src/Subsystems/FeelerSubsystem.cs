@@ -196,7 +196,10 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         _maskFrameChannel.Writer.TryWrite(frame);
 
-        SetOperatingState(SubsystemState.Ready);
+        if (State != SubsystemState.Operating && State != SubsystemState.Ready)
+        {        
+            SetOperatingState(SubsystemState.Ready);
+        }
 
         return Task.CompletedTask;
     }
@@ -234,7 +237,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
                 if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous)
                 {
-                    if (State == SubsystemState.Ready)
+                    if (State == SubsystemState.Ready || State == SubsystemState.Operating)
                     {
                         await BuildFeelers(); //FIXME
 
@@ -358,6 +361,8 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                         debugImg.Dispose();
                         mask.Dispose();
+
+                        SetOperatingState(SubsystemState.Operating);
                     }
                     else
                     {

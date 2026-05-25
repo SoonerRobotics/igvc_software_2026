@@ -4,6 +4,9 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import CoreLayout from '@/components/core-layout';
 
+export const dynamic = 'force-dynamic';
+export const ssr = false;
+
 const inter = Roboto({
     subsets: ["latin"],
     weight: ["400", "500", "700"],

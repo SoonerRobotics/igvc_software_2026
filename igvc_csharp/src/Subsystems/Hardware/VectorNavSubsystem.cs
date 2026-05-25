@@ -11,7 +11,7 @@ using VectornavReport = Messages.VectornavReport;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("VectorNavSubsystem", Disabled = Configuration.UseSimulation)]
+[Subsystem("VectorNavSubsystem", Disabled = true)]
 public class VectorNavSubsystem() : SubsystemBase
 {
     private Task? _readTask;

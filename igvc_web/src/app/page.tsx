@@ -7,6 +7,8 @@ import { useState } from "react";
 
 export default function Home() {
     const vn = useRobotStore((s) => s.vectornav);
+    const voltage = useRobotStore((s) => s.voltage);
+    const current = useRobotStore((s) => s.current);
 
     return (
         <div className="flex flex-col">
@@ -31,14 +33,18 @@ export default function Home() {
             <div className="flex flex-row items-center max-w-full">
                 <Camera id="left" />
                 <Camera id="right" />
-                <Camera id="combined_filtered" />
+                {/* <Camera id="combined_filtered" /> */}
+                <Camera id="zed" />
+                <Camera id="yolo" />
                 {/* <Camera id="debug_feelers" /> */}
             </div>
 
-            <div className="flex flex-row items-center max-w-full">
-                <Camera id="left_debug" />
-                <Camera id="right_debug" />
-                {/* <Camera id="debug_feelers" /> */}
+            <div>
+                <span className="text-sm text-white">Voltage</span>
+                <span className="text-lg text-white/80">{voltage ? `${voltage.toFixed(2)} V` : "N/A"}</span>
+
+                <span className="text-sm text-white ml-4">Current</span>
+                <span className="text-lg text-white/80">{current ? `${current.toFixed(2)} A` : "N/A"}</span>
             </div>
         </div>
     );

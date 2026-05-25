@@ -17,6 +17,8 @@ type RobotState = {
     // Data
     logs: ArcLog[];
     vectornav?: VectornavReport;
+    current: number;
+    voltage: number;
 };
 
 let ws: WebSocket | null = null;
@@ -32,12 +34,13 @@ function clearConnectTimeout() {
 
 function getSavedPath() {
     // ensure client
-    if (typeof window === "undefined") {
-        return "ws://localhost:8080";
-    }
-
+    if (typeof window === "undefined") return "ws://localhost:8080";
+    
     const saved = localStorage.getItem("robotPath");
-    return saved ?? "ws://localhost:8080";
+    if (saved) return saved;
+
+    // Default to same host as the web server, not localhost
+    return `ws://${window.location.hostname}:8080`;
 }
 
 function savePath(path: string) {
@@ -64,6 +67,20 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
         {
             const d = buildArcData_PropertyChanged(data.dataPayloadArray()!);
             console.log("[robot] Property Changed", d);
+
+            if (d.subsystem == "CurrentSensorSubsystem")
+            {
+                if (d.property == "current")
+                {
+                    set({ current: parseFloat(d.value) });
+                }
+
+                if (d.property == "voltage")
+                {
+                    // parse and invert
+                    set({ voltage: parseFloat(d.value) * -1 });
+                }
+            }
         }
         return;
     }
@@ -86,6 +103,8 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
 export const useRobotStore = create<RobotState>((set, get) => ({
     connected: false,
     path: getSavedPath(),
+    voltage: 0,
+    current: 0,
     setPath: (path: string) => set({ path }),
 
     connect: () => {
@@ -101,6 +120,7 @@ export const useRobotStore = create<RobotState>((set, get) => ({
 
         accumulator = new MessageAccumulator("little", (msg) => onMessage(msg, set));
 
+        console.log("[robot] Connecting to", get().path);
         ws = new WebSocket(get().path);
         ws.binaryType = "arraybuffer";
 
