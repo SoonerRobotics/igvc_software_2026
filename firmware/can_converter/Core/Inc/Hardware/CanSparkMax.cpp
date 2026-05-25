@@ -128,7 +128,7 @@ float CanSparkMax::getAngle()
 	float piDouble = (float)M_PI;
 	float reading = getAbsolutePosition();
 	float angleRadians = reading * 2 * piDouble;
-	angleRadians = std::fmod((angleRadians + piDouble), (2.0f * piDouble) - piDouble);
+	angleRadians = std::fmod(angleRadians + M_PI, 2.0f * M_PI) - M_PI;
 	return angleRadians;
 }
 
