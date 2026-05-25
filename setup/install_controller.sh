@@ -8,7 +8,7 @@ USER_TO_ADD=${logname}
 git clone https://github.com/atar-axis/xpadneo.git
 
 # install dependencies
-sudo apt-get install -y dkms linux-headers-$(uname -r)
+sudo apt-get install -y dkms linux-headers-$(uname -r) joystick
 
 # run install script
 sudo ./install.sh
@@ -31,3 +31,5 @@ echo if you don\'t see the MOK import screen, then run the following command
 echo "# sudo mokutil --import /var/lib/shim-signed/mok/MOK.der"
 
 echo then reboot
+
+echo also maybe you need to set this environment variable idk "SDL_JOYSTICK_HIDAPI=0"

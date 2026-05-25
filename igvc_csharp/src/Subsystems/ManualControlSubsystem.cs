@@ -36,6 +36,10 @@ public class ManualControlSubsystem(
             // Only send in manual mode
             if (BaseRobot.Instance?.State.Mode != RobotModeEnum.Manual)
             {
+                if (BaseRobot.Instance?.State.Mode != RobotModeEnum.Autonomous)
+                {
+                    canbus?.MotorControl.SetVelocities(0, 0, 0); //TODO move this somewhere else?
+                }
                 continue;
             }
             
