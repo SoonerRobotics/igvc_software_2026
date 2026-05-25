@@ -1,11 +1,10 @@
-../Core/Src/main.cpp:22:14:SwerveDrive* InitSwerveDrive()	11
-../Core/Src/main.cpp:88:6:void encode_motor_odom_le(const MotorOdometryMsg*, uint8_t*)	1
-../Core/Src/main.cpp:100:5:int main()	6
-../Core/Src/main.cpp:141:13:void SendOdometry(const SwerveDriveState&)	2
-../Core/Src/main.cpp:164:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	8
-../Core/Src/main.cpp:204:13:void MX_CAN1_Init()	2
-../Core/Src/main.cpp:245:13:void MX_CAN2_Init()	2
-../Core/Src/main.cpp:269:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	1
-../Core/Src/main.cpp:288:13:void MX_GPIO_Init()	1
-../Core/Src/main.cpp:307:6:void SystemClock_Config()	4
-../Core/Src/main.cpp:362:6:void Error_Handler()	1
+../Core/Src/main.cpp:21:13:bool WaitForTxMailbox(CAN_HandleTypeDef*, uint32_t)	3
+../Core/Src/main.cpp:32:14:SwerveDrive* InitSwerveDrive()	11
+../Core/Src/main.cpp:98:5:int main()	8
+../Core/Src/main.cpp:153:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	8
+../Core/Src/main.cpp:193:13:void MX_CAN1_Init()	2
+../Core/Src/main.cpp:234:13:void MX_CAN2_Init()	2
+../Core/Src/main.cpp:258:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	1
+../Core/Src/main.cpp:277:13:void MX_GPIO_Init()	1
+../Core/Src/main.cpp:296:6:void SystemClock_Config()	4
+../Core/Src/main.cpp:351:6:void Error_Handler()	1

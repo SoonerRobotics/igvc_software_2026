@@ -32,6 +32,7 @@ public class SafetyLightsLayer(CanbusSubsystem canbus)
         public byte G = color.G;
         public byte B = color.B;
         public ushort Speed = speed;
+        public ushort Unused = 0;
     }
 
     private void SetRaw(SafetyLightsPacket packet)

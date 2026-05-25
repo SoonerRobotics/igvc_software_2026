@@ -84,8 +84,8 @@ all: main-build
 main-build: SafetyLights.elf secondary-outputs
 
 # Tool invocations
-SafetyLights.elf SafetyLights.map: $(OBJS) $(USER_OBJS) C:\Users\Dylan\Desktop\Projects\firmware\STM32C092KBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "SafetyLights.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Users\Dylan\Desktop\Projects\firmware\STM32C092KBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SafetyLights.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+SafetyLights.elf SafetyLights.map: $(OBJS) $(USER_OBJS) /home/dylan/Projects/igvc_software_2026/firmware/safety_lights/STM32C092KBTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-g++ -o "SafetyLights.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"/home/dylan/Projects/igvc_software_2026/firmware/safety_lights/STM32C092KBTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="SafetyLights.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

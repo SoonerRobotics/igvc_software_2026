@@ -263,4 +263,15 @@ public class CanbusSubsystem(
     {
         return MemoryMarshal.Read<T>(bytes.AsSpan());
     }
+
+    // Generi CAN
+
+    public void SendMobility(bool enabled)
+    {
+        var frame = new CanFrame(
+            enabled ? (uint)CanId.MobilityStart : (uint)CanId.MobilityStop,
+            []
+        );
+        SendCanFrame(frame);
+    }
 }

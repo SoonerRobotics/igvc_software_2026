@@ -152,5 +152,16 @@ public class ManualControlSubsystem(
             // Invert if needed
             _angularVelocity *= Configuration.DriveSubsystem.InvertAngularVelocity ? -1 : 1;
         };
+
+        // Mobility Testing
+        controller.Buttons.LeftBumper.OnReleased += () =>
+        {
+            canbus?.SendMobility(true);
+        };
+        
+        controller.Buttons.RightBumper.OnReleased += () =>
+        {
+            canbus?.SendMobility(false);
+        };
     }
 }
