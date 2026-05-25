@@ -156,18 +156,15 @@ void mode_chasing(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
 	HAL_Delay(speed / NUM_LEDS);
 }
 
-void mode_solid(uint8_t r, uint8_t g, uint8_t b) {
-	static uint8_t last_r = 0xFF, last_g = 0xFF, last_b = 0xFF;
+void mode_solid(uint8_t r, uint8_t g, uint8_t b, uint8_t force) {
+    static uint8_t last_r = 0xFF, last_g = 0xFF, last_b = 0xFF;
 
-	// Only re-push if color changed — avoids hammering DMA every loop iteration
-	if (r == last_r && g == last_g && b == last_b)
-		return;
+    if (!force && r == last_r && g == last_g && b == last_b)
+        return;
 
-	last_r = r;
-	last_g = g;
-	last_b = b;
-	set_all(r, g, b);
-	update_both_strips();
+    last_r = r; last_g = g; last_b = b;
+    set_all(r, g, b);
+    update_both_strips();
 }
 
 void mode_blinking(uint8_t r, uint8_t g, uint8_t b, uint16_t speed) {
@@ -335,7 +332,9 @@ z		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
 			continue;
 		}
 
-		SafetyLightsMode mode = g_lights.mode;
+		static SafetyLightsMode last_mode = MODE_DEFAULT;
+		uint8_t mode_changed = (mode != last_mode);
+		last_mode = mode;
 		uint8_t r = g_lights.r;
 		uint8_t g = g_lights.g;
 		uint8_t b = g_lights.b;
@@ -346,7 +345,7 @@ z		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
 			mode_chasing(r, g, b, speed);
 			break;
 		case MODE_SOLID:
-			mode_solid(r, g, b);
+			mode_solid(r, g, b, mode_changed);
 			break;
 		case MODE_BLINKING:
 			mode_blinking(r, g, b, speed);
@@ -426,7 +425,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 	g_lights.g = RxData[2];
 	g_lights.b = RxData[3];
 	g_lights.speed = (uint16_t) (RxData[4] | ((uint16_t) RxData[5] << 8));
-	g_lights.speed = (uint16_t) (RxData[6] | ((uint16_t) RxData[7] << 8));
+	g_lights.unused = (uint16_t) (RxData[6] | ((uint16_t) RxData[7] << 8));
 }
 /* USER CODE END 4 */
 
