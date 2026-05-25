@@ -2,46 +2,24 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Navigation;
 
-/// <summary>
-/// Grid dimensions and FOV config that drive coordinate conversions.
-/// Adjust these to match your camera/map setup.
-/// </summary>
 public record AStarConfig
 {
-    /// <summary>Grid width and height in cells.</summary>
     public int GridWidth { get; init; } = 80;
     public int GridHeight { get; init; } = 80;
 
-    /// <summary>
-    /// Camera field of view used when converting grid cells to robot-local
-    /// metric coordinates for the path follower.
-    /// </summary>
     public float HorizontalFov { get; init; } = 3.4f;
     public float VerticalFov { get; init; } = 2.75f;
 
-    /// <summary>
-    /// Weights for the frontier scoring heuristic.
-    /// depthWeight:    reward for exploring further from the robot
-    /// forwardWeight:  reward for cells closer to the top of the map (forward)
-    /// </summary>
     public float DepthWeight { get; init; } = 2.2f;
     public float ForwardWeight { get; init; } = 1.3f;
 
-    /// <summary>Maximum BFS depth when searching for the best goal cell.</summary>
     public int MaxFrontierDepth { get; init; } = 50;
 
-    /// <summary>Obstacle threshold: cells with cost >= this are impassable.</summary>
     public byte ObstacleThreshold { get; init; } = 50;
 }
 
-/// <summary>
-/// Stateless A* planner operating on a flat occupancy grid.
-/// The grid is row-major: index = x + width * y.
-/// Origin (robot position) is fixed at (gridWidth/2, gridHeight-2).
-/// </summary>
 public static class AStarPlanner
 {
-    // All 8 neighbors with their Euclidean movement cost
     private static readonly (int dx, int dy, float cost)[] SearchDirs =
         Enumerable.Range(-1, 3)
             .SelectMany(dx => Enumerable.Range(-1, 3)
@@ -49,15 +27,6 @@ public static class AStarPlanner
                 .Select(dy => (dx, dy, MathF.Sqrt(dx * dx + dy * dy))))
             .ToArray();
 
-    /// <param name="costMap">
-    ///   Flat occupancy grid, row-major, values 0-255.
-    ///   Values >= config.ObstacleThreshold are treated as obstacles.
-    /// </param>
-    /// <param name="config">Planner configuration.</param>
-    /// <returns>
-    ///   An ordered list of (x,y) grid cells from robot position to goal,
-    ///   or null if no path exists.
-    /// </returns>
     public static List<(int x, int y)>? FindPath(byte[] costMap, AStarConfig config)
     {
         int W = config.GridWidth;
@@ -68,8 +37,6 @@ public static class AStarPlanner
 
         return AStar(robotPos, goalPos, costMap, config);
     }
-
-    // ── Frontier BFS to find the best reachable goal cell ──────────────────
 
     private static (int x, int y) FindBestGoal(
         byte[] costMap,
@@ -103,11 +70,9 @@ public static class AStarPlanner
 
                 explored.Add(x + W * y);
 
-                // 4-connected expansion (matches Python original)
                 TryAdd(x, y - 1, costMap, W, H, explored, frontier, config);
                 TryAdd(x + 1, y, costMap, W, H, explored, frontier, config);
                 TryAdd(x - 1, y, costMap, W, H, explored, frontier, config);
-                // Python omits downward expansion; preserved intentionally
             }
 
             depth++;
@@ -131,8 +96,6 @@ public static class AStarPlanner
         frontier.Add((x, y));
     }
 
-    // ── A* ──────────────────────────────────────────────────────────────────
-
     private static List<(int x, int y)>? AStar(
         (int x, int y) start,
         (int x, int y) goal,
@@ -142,7 +105,6 @@ public static class AStarPlanner
         int W = config.GridWidth;
         int H = config.GridHeight;
 
-        // closed set replaces the O(n) open_set.remove() in the Python version
         var closed = new HashSet<(int, int)>();
         var cameFrom = new Dictionary<(int, int), (int, int)>();
 
@@ -155,14 +117,12 @@ public static class AStarPlanner
             })
         );
 
-        // Heuristic: Euclidean distance to goal
         float Heuristic((int x, int y) p) =>
             MathF.Sqrt((goal.x - p.x) * (goal.x - p.x) +
                        (goal.y - p.y) * (goal.y - p.y));
 
         int seq = 0;
         open.Add((Heuristic(start), seq++, start));
-
         while (open.Count > 0)
         {
             var (_, _, current) = open.Min;
@@ -213,13 +173,6 @@ public static class AStarPlanner
         return path;
     }
 
-    // ── Coordinate conversion ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Converts a grid cell to robot-local metric coordinates (x = forward, y = left).
-    /// Mirrors path_to_global() in the Python node, with the identity rotation kept
-    /// but made explicit (robot heading = 0 in local frame by definition).
-    /// </summary>
     public static (float x, float y) GridToLocal((int gx, int gy) cell, AStarConfig config)
     {
         float x = (config.GridHeight - cell.gy) * config.VerticalFov / config.GridHeight;
@@ -228,12 +181,6 @@ public static class AStarPlanner
         return (x, y);
     }
 
-    // ── Debug image ──────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Renders the occupancy grid with the planned path overlaid.
-    /// Returns a BGR Mat scaled up for visibility.
-    /// </summary>
     public static Mat BuildDebugImage(
         byte[] costMap,
         List<(int x, int y)>? path,
@@ -244,7 +191,6 @@ public static class AStarPlanner
         int W = config.GridWidth;
         int H = config.GridHeight;
 
-        // Cost map → grayscale → BGR
         using var gray = new Mat(H, W, MatType.CV_8UC1);
         for (int y = 0; y < H; y++)
             for (int x = 0; x < W; x++)
@@ -253,7 +199,6 @@ public static class AStarPlanner
         var img = new Mat();
         Cv2.CvtColor(gray, img, ColorConversionCodes.GRAY2BGR);
 
-        // Draw path in green
         if (path is not null)
         {
             foreach (var (px, py) in path)
