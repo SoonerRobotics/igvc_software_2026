@@ -13,5 +13,10 @@ export enum ArcCommandId {
   ToolsSaveHsvCalibration = 7,
   CurrentSensorInitialize = 256,
   CurrentSensorSetBaudrate = 257,
-  CurrentSensorSaveEeprom = 258
+  CurrentSensorSaveEeprom = 258,
+  GetConfigSnapshot = 512,
+  SetConfigKey = 513,
+  GetPresetList = 514,
+  LoadPreset = 515,
+  SavePreset = 516
 }
