@@ -194,9 +194,9 @@ int main()
 
     // IF FPS IS CHANGED, CHANGE IN CHRONOS TOO
     std::thread leftThread([&]()
-                           { runCamera("/dev/video2", leftShm, "left", 12, g_running); });
+                           { runCamera("/dev/video0", leftShm, "left", 12, g_running); });
     std::thread rightThread([&]()
-                            { runCamera("/dev/video0", rightShm, "right", 12, g_running); });
+                            { runCamera("/dev/video2", rightShm, "right", 12, g_running); });
 
     leftThread.join();
     rightThread.join();

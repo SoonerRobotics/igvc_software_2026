@@ -6,13 +6,27 @@ import { ArcData } from "./messages/messages/arc";
 import { ByteBuffer } from "flatbuffers";
 import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged } from "./arc/data";
 import { VectornavReport } from "./messages/messages/vectornav-report";
+import { ConfigState, configInitialState, handleConfigMessage } from "./robot-config";
+import {
+    encodeSetConfigKey,
+    encodeLoadPreset,
+    encodeSavePreset,
+} from "./arc/config";
+import { ArcCommandId } from "./messages/messages/arc/arc-command-id";
+import { buildCommandReq } from "./arc/command";
 
-type RobotState = {
+type RobotState = ConfigState & {
     connected: boolean;
     path: string;
     connect: () => void;
     disconnect: () => void;
     setPath: (path: string) => void;
+
+    // Config actions
+    setConfigKey: (path: string, value: unknown) => void;
+    loadPreset: (filename: string) => void;
+    savePreset: (filename: string) => void;
+    requestSnapshot: () => void;
 
     // Data
     logs: ArcLog[];
@@ -33,13 +47,9 @@ function clearConnectTimeout() {
 }
 
 function getSavedPath() {
-    // ensure client
     if (typeof window === "undefined") return "ws://localhost:8080";
-    
     const saved = localStorage.getItem("robotPath");
     if (saved) return saved;
-
-    // Default to same host as the web server, not localhost
     return `ws://${window.location.hostname}:8080`;
 }
 
@@ -47,52 +57,45 @@ function savePath(path: string) {
     localStorage.setItem("robotPath", path);
 }
 
+function sendRaw(wrapper: MessageWrapper) {
+    if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(wrapper.data.slice(0, wrapper.length));
+    }
+}
+
 function onMessage(msg: MessageWrapper, set: (state: any) => void) {
-    if (msg.type === MessageType.ArcData)
-    {
+    if (msg.type === MessageType.ArcData) {
         const data = ArcData.getRootAsArcData(new ByteBuffer(msg.toBytes()));
-        // console.log("[robot] ArcData", {
-        //     identifier: data.dataIdentifier(),
-        //     dataLength: data.dataPayloadLength(),
-        //     timestamp: data.timestamp(),
-        //     sequenceNumber: data.sequenceNumber()
-        // });
-        if (data.dataIdentifier() === "log")
-        {
-            const log = buildArcData_Log(data.dataPayloadArray()!);
+        const identifier = data.dataIdentifier()!;
+        const payload = data.dataPayloadArray()!;
+
+        // Config identifiers
+        if (identifier.startsWith("config_")) {
+            handleConfigMessage(identifier, payload, set);
+            return;
+        }
+
+        if (identifier === "log") {
+            const log = buildArcData_Log(payload);
             set((state: any) => ({ logs: [...state.logs, log] }));
+            return;
         }
 
-        if (data.dataIdentifier() == "property_changed")
-        {
-            const d = buildArcData_PropertyChanged(data.dataPayloadArray()!);
+        if (identifier === "property_changed") {
+            const d = buildArcData_PropertyChanged(payload);
             console.log("[robot] Property Changed", d);
-
-            if (d.subsystem == "CurrentSensorSubsystem")
-            {
-                if (d.property == "current")
-                {
-                    set({ current: parseFloat(d.value) });
-                }
-
-                if (d.property == "voltage")
-                {
-                    // parse and invert
-                    set({ voltage: parseFloat(d.value) * -1 });
-                }
+            if (d.subsystem === "CurrentSensorSubsystem") {
+                if (d.property === "current") set({ current: parseFloat(d.value) });
+                if (d.property === "voltage") set({ voltage: parseFloat(d.value) * -1 });
             }
+            return;
         }
+
         return;
     }
 
-    if (msg.type == MessageType.VectorNav)
-    {
+    if (msg.type === MessageType.VectorNav) {
         const data = VectornavReport.getRootAsVectornavReport(new ByteBuffer(msg.toBytes()));
-        console.log("[robot] VectorNav", {
-            latitude: data.latitude(),
-            longitude: data.longitude(),
-            yaw: data.yaw()
-        });
         set({ vectornav: data });
         return;
     }
@@ -105,8 +108,25 @@ export const useRobotStore = create<RobotState>((set, get) => ({
     path: getSavedPath(),
     voltage: 0,
     current: 0,
+    ...configInitialState,
+
     setPath: (path: string) => set({ path }),
 
+    // ── Config actions ────────────────────────────────────────────────────
+    setConfigKey: (path, value) => {
+        sendRaw(buildCommandReq(ArcCommandId.SetConfigKey, encodeSetConfigKey(path, value)));
+    },
+    loadPreset: (filename) => {
+        sendRaw(buildCommandReq(ArcCommandId.LoadPreset, encodeLoadPreset(filename)));
+    },
+    savePreset: (filename) => {
+        sendRaw(buildCommandReq(ArcCommandId.SavePreset, encodeSavePreset(filename)));
+    },
+    requestSnapshot: () => {
+        sendRaw(buildCommandReq(ArcCommandId.GetConfigSnapshot, new Uint8Array(0)));
+    },
+
+    // ── Connection ────────────────────────────────────────────────────────
     connect: () => {
         if (ws) {
             ws.onopen = null;
@@ -145,7 +165,7 @@ export const useRobotStore = create<RobotState>((set, get) => ({
 
         ws.onclose = () => {
             clearConnectTimeout();
-            set({ connected: false });
+            set({ connected: false, configLoaded: false });
             ws = null;
             accumulator?.reset();
             setTimeout(() => get().connect(), 1000);
@@ -170,7 +190,7 @@ export const useRobotStore = create<RobotState>((set, get) => ({
             ws = null;
         }
         accumulator?.reset();
-        set({ connected: false });
+        set({ connected: false, configLoaded: false });
     },
 
     // Data

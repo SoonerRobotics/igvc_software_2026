@@ -63,28 +63,28 @@ public class ManualControlSubsystem(
         // System Mode
         controller.Buttons.Menu.OnReleased += async () =>
         {
-            SetRobotMode(RobotModeEnum.Manual);
-            canbus?.SafetyLights.SetManual();
-
             // Chronos
             if (chronos.IsRunning)
             {
                 await chronos.StopRunAsync();
             }
             chronos.StartRun(SessionType.Manual);
+
+            SetRobotMode(RobotModeEnum.Manual);
+            canbus?.SafetyLights.SetManual();
         };
 
         controller.Buttons.Xbox.OnReleased += async () =>
         {
-            SetRobotMode(RobotModeEnum.Autonomous);
-            canbus?.SafetyLights.SetAutonomous();
-
             // Chronos
             if (chronos.IsRunning)
             {
                 await chronos.StopRunAsync();
             }
             chronos.StartRun(SessionType.Autonomous);
+
+            SetRobotMode(RobotModeEnum.Autonomous);
+            canbus?.SafetyLights.SetAutonomous();
         };
 
         controller.Buttons.View.OnReleased += async () =>

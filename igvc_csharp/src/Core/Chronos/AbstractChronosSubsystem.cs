@@ -81,8 +81,8 @@ public abstract class AbstractChronosSubsystem : SubsystemBase
         OnRunStopped(session.RunId);
     }
 
-    public void OpenCamera(int cameraId, int width, int height, double nominalFps = 30.0)
-        => GetActiveSession()?.OpenCamera(cameraId, width, height, nominalFps);
+    public void OpenCamera(int cameraId, int width, int height, double nominalFps = 30.0, string pixelFormat = "bgr24")
+        => GetActiveSession()?.OpenCamera(cameraId, width, height, nominalFps, pixelFormat);
 
     public void WriteVideoFrame(int cameraId, Mat frame)
         => GetActiveSession()?.WriteVideoFrame(cameraId, frame);

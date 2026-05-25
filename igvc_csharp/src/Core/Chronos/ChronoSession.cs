@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Channels;
@@ -27,8 +28,8 @@ internal sealed class ChronosSession : IAsyncDisposable
     private readonly System.Diagnostics.Stopwatch _stopwatch = System.Diagnostics.Stopwatch.StartNew();
     private readonly long _swOriginTicks;
 
-    // Video
-    private readonly Dictionary<int, VideoWriter> _videoWriters = new();
+    // Video — ffmpeg pipe backend (replaces OpenCvSharp VideoWriter)
+    private readonly Dictionary<int, Process> _ffmpegProcesses = new();
     private readonly Dictionary<int, long> _videoFrameCounters = new();
     private readonly object _videoLock = new();
 
@@ -66,50 +67,98 @@ internal sealed class ChronosSession : IAsyncDisposable
         EnqueueEntry(EntryTypeId.SessionStart, Array.Empty<byte>());
     }
 
-    // Video
-    internal void OpenCamera(int cameraId, int width, int height, double nominalFps)
+    // ------------------------------------------------------------------
+    // Video — ffmpeg pipe backend
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Opens an ffmpeg process for the given camera and pipes raw BGR24 frames to it.
+    /// Tries the Jetson HW encoder (h264_nvmec) first; fall back to nvv4l2h264enc or
+    /// libx264 if that encoder is unavailable on your build.
+    /// </summary>
+    internal void OpenCamera(int cameraId, int width, int height, double nominalFps, string pixFmt = "bgr24")
     {
         lock (_videoLock)
         {
-            if (_videoWriters.ContainsKey(cameraId))
+            if (_ffmpegProcesses.ContainsKey(cameraId))
                 throw new InvalidOperationException($"Camera {cameraId} is already open.");
 
-            string videoPath = Path.Combine(OutputDirectory, $"camera{cameraId}.avi");
-            var writer = new VideoWriter(
-                videoPath,
-                VideoWriter.FourCC('X', 'V', 'I', 'D'),
-                nominalFps,
-                new Size(width, height)
-            );
+            string videoPath = Path.Combine(OutputDirectory, $"camera{cameraId}.mp4");
 
-            if (!writer.IsOpened())
-                throw new IOException($"Failed to open VideoWriter for camera {cameraId}.");
+            var psi = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = string.Join(" ",
+                    "-y",
+                    "-f rawvideo",
+                    $"-pix_fmt {pixFmt}",   // <-- use parameter
+                    $"-video_size {width}x{height}",
+                    $"-framerate {nominalFps}",
+                    "-i pipe:0",
+                    "-c:v libx264",
+                    "-preset ultrafast",
+                    "-crf 23",
+                    "-pix_fmt yuv420p",     // <-- add this for output
+                    "-an",
+                    videoPath
+                ),
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardError = true,
+            };
 
-            _videoWriters[cameraId] = writer;
+            var process = Process.Start(psi)
+                ?? throw new IOException($"Failed to start ffmpeg for camera {cameraId}.");
+
+            // Drain stderr on a background thread so the pipe never blocks
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data != null)
+                    Console.Error.WriteLine($"[ffmpeg cam{cameraId}] {e.Data}");
+            };
+            process.BeginErrorReadLine();
+
+            _ffmpegProcesses[cameraId] = process;
             _videoFrameCounters[cameraId] = 0;
         }
     }
 
-    internal void WriteVideoFrame(int cameraId, Mat frame)
+    /// <summary>
+    /// Writes a single BGR24 Mat frame to the ffmpeg stdin pipe for the given camera.
+    /// Requires AllowUnsafeBlocks in the project file.
+    /// </summary>
+    internal unsafe void WriteVideoFrame(int cameraId, Mat frame)
     {
-        long tsNs = GetTimestampNs();
         lock (_videoLock)
         {
-            if (!_videoWriters.TryGetValue(cameraId, out var writer))
-                throw new InvalidOperationException($"Camera {cameraId} has not been opened.");
+            if (!_ffmpegProcesses.TryGetValue(cameraId, out var process) || process.HasExited)
+                return;  // silently drop frame if ffmpeg died
 
-            writer.Write(frame);
-            long frameIndex = _videoFrameCounters[cameraId]++;
+            try
+            {
+                long byteCount = frame.Total() * frame.ElemSize();
+                var span = new ReadOnlySpan<byte>((void*)frame.Data, (int)byteCount);
+                process.StandardInput.BaseStream.Write(span);
 
-            using var ms = new MemoryStream(12);
-            using var bw = new BinaryWriter(ms);
-            bw.Write(cameraId);
-            bw.Write(frameIndex);
-            EnqueueEntry(EntryTypeId.CameraFrameSync, tsNs, ms.ToArray());
+                long frameIndex = _videoFrameCounters[cameraId]++;
+                using var ms = new MemoryStream(12);
+                using var bw = new BinaryWriter(ms);
+                bw.Write(cameraId);
+                bw.Write(frameIndex);
+                EnqueueEntry(EntryTypeId.CameraFrameSync, GetTimestampNs(), ms.ToArray());
+            }
+            catch (IOException)
+            {
+                // ffmpeg died mid-session; remove it so we stop trying
+                _ffmpegProcesses.Remove(cameraId);
+            }
         }
     }
 
+    // ------------------------------------------------------------------
     // Entry writing
+    // ------------------------------------------------------------------
+
     internal void EnqueueEntry(ushort typeId, byte[] payload)
         => EnqueueEntry(typeId, GetTimestampNs(), payload);
 
@@ -119,18 +168,40 @@ internal sealed class ChronosSession : IAsyncDisposable
         _channel.Writer.TryWrite((typeId, tsNs, payload));
     }
 
+    // ------------------------------------------------------------------
     // Emergency release (crash handler) — sync, best-effort
+    // ------------------------------------------------------------------
+
     internal void ReleaseVideoWriters()
     {
         lock (_videoLock)
         {
-            foreach (var w in _videoWriters.Values)
-                w.Release();
-            _videoWriters.Clear();
+            foreach (var (id, process) in _ffmpegProcesses)
+            {
+                try
+                {
+                    // Closing stdin signals EOF; ffmpeg will finalize and mux the file
+                    process.StandardInput.BaseStream.Close();
+                    process.WaitForExit(5_000);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[ffmpeg cam{id}] shutdown error: {ex.Message}");
+                    try { process.Kill(); } catch { /* ignore */ }
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+            _ffmpegProcesses.Clear();
         }
     }
 
+    // ------------------------------------------------------------------
     // Clean shutdown
+    // ------------------------------------------------------------------
+
     public async ValueTask DisposeAsync()
     {
         if (!IsActive) return;
@@ -150,7 +221,10 @@ internal sealed class ChronosSession : IAsyncDisposable
         ReleaseVideoWriters();
     }
 
+    // ------------------------------------------------------------------
     // Private helpers
+    // ------------------------------------------------------------------
+
     private void WriteFileHeader()
     {
         _logWriter.Write(0x524C4F47u); // Magic "RLOG"

@@ -210,6 +210,34 @@ public class ArcSubsystem : SubsystemBase
             : SendToClient(guid, socket, new ArraySegment<byte>(message), token);
     }
 
+    /// <summary>
+    /// Encodes a <see cref="MessageWrapper"/> and sends it to a single connected client.
+    /// Uses a pooled buffer just like <see cref="BroadcastAsync"/>.
+    /// </summary>
+    public async Task SendToClientWrapper(Guid guid, MessageWrapper wrapper,
+        CancellationToken token = default)
+    {
+        if (!_clients.TryGetValue(guid, out var socket)) return;
+
+        var includeCrc = wrapper.Type != MessageType.ImageFrame;
+        var (buffer, length) = MessageWriter.WritePooled(
+            wrapper.Type,
+            wrapper.Data.AsSpan(0, wrapper.Length),
+            Endianness,
+            includeCrc
+        );
+
+        try
+        {
+            var segment = new ArraySegment<byte>(buffer, 0, length);
+            await SendToClient(guid, socket, segment, token);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
     private static async Task WaitForPortAsync(int port, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
@@ -314,6 +342,8 @@ public class ArcSubsystem : SubsystemBase
         _clients[clientId] = socket;
 
         Logger.LogInformation("ARC client connected {ClientId}", clientId);
+        EventBus.Instance.Publish(new ArcClientConnectedEvent(clientId));
+
         await ReceiveLoop(clientId, socket, token);
     }
 

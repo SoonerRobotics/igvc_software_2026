@@ -110,6 +110,9 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 new Size(640, 480)
             // Configuration.AStarConfig.UseAStar ? new Size(80, 80) : new Size(640, 480) //FIXME don't hard-code resolutions / image sizes
             ));
+
+            //     _leftFilters.Add(new InflationFilter());
+            //     _rightFilters.Add(new InflationFilter());
         }
 
         // if (Configuration.AStarConfig.UseAStar)

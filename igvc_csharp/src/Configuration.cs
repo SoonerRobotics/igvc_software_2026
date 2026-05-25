@@ -68,7 +68,7 @@ public static class Configuration
         /// Whether or not the Arc system should be enabled.
         /// </summary>
         [Config("arc.enabled")]
-        public static bool Enabled = true;
+        public const bool Enabled = true;
 
         /// <summary>
         /// The host that the ArcServer will bind to
@@ -95,7 +95,7 @@ public static class Configuration
         /// <summary>
         /// The Endianness of data, both inbound and outbound.
         /// </summary>
-        public static Endianness Endianness = Core.Endianness.Little;
+        public const Endianness Endianness = Endianness.Little;
     }
 
     public static class SimulatorSubsystem
@@ -127,7 +127,7 @@ public static class Configuration
         /// <summary>
         /// The Endianness of data, both inbound and outbound.
         /// </summary>
-        public static Endianness Endianness = Core.Endianness.Little;
+        public const Endianness Endianness = Endianness.Little;
     }
 
     public static class VisionSubsystem
@@ -167,7 +167,7 @@ public static class Configuration
         /// </summary>
         public static Point2f[] leftSourcePoints =
         [
-            new(180, 100), //TODO: since these are the only 2 points actually modified, do something?
+            new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
             new(640 - 60, 100), // same here
             new(640 - 60, 480),
             new(0, 480),
@@ -228,7 +228,7 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(200);
+        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(40);
 
         [Config("drive.invert_forward")]
         public static bool InvertForwardVelocity = false;

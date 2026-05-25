@@ -13,3 +13,11 @@ find_package(OpenCV REQUIRED)
 add_executable(igvc_camera main.cpp)
 target_include_directories(igvc_camera PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(igvc_camera PRIVATE ${OpenCV_LIBS} pthread spdlog::spdlog)
+
+add_executable(calibrate calibrate.cpp)
+target_include_directories(calibrate PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(calibrate PRIVATE ${OpenCV_LIBS})
+
+add_executable(stereo_calibrate stereo_calibrate.cpp)
+target_include_directories(stereo_calibrate PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(stereo_calibrate PRIVATE ${OpenCV_LIBS})

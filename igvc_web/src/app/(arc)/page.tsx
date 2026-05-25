@@ -33,7 +33,11 @@ export default function Home() {
             <div className="flex flex-row items-center max-w-full">
                 <Camera id="left" />
                 <Camera id="right" />
-                {/* <Camera id="combined_filtered" /> */}
+                <Camera id="combined_filtered" />
+                {/* <Camera id="debug_feelers" /> */}
+            </div>
+
+            <div className="flex flex-row items-center max-w-full">
                 <Camera id="zed" />
                 <Camera id="yolo" />
                 {/* <Camera id="debug_feelers" /> */}

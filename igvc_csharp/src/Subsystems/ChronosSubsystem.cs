@@ -42,7 +42,7 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         // Open Cameras
         OpenCamera(CameraId.Left, 640, 480, 12);
         OpenCamera(CameraId.Right, 640, 480, 12);
-        OpenCamera(CameraId.Zed2i, 1280, 720, 20);
+        OpenCamera(CameraId.Zed2i, 1280, 720, 20, "bgra");
     }
 
     // Helpers
