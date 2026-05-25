@@ -1,10 +1,10 @@
 ../Core/Src/main.cpp:21:13:bool WaitForTxMailbox(CAN_HandleTypeDef*, uint32_t)	3
-../Core/Src/main.cpp:32:14:SwerveDrive* InitSwerveDrive()	11
-../Core/Src/main.cpp:98:5:int main()	8
-../Core/Src/main.cpp:153:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	8
-../Core/Src/main.cpp:193:13:void MX_CAN1_Init()	2
-../Core/Src/main.cpp:234:13:void MX_CAN2_Init()	2
-../Core/Src/main.cpp:258:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	1
-../Core/Src/main.cpp:277:13:void MX_GPIO_Init()	1
-../Core/Src/main.cpp:296:6:void SystemClock_Config()	4
-../Core/Src/main.cpp:351:6:void Error_Handler()	1
+../Core/Src/main.cpp:31:14:SwerveDrive* InitSwerveDrive()	11
+../Core/Src/main.cpp:74:5:int main()	8
+../Core/Src/main.cpp:124:6:void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef*)	8
+../Core/Src/main.cpp:162:13:void MX_CAN1_Init()	2
+../Core/Src/main.cpp:200:13:void MX_CAN2_Init()	2
+../Core/Src/main.cpp:222:13:void configFilter(CAN_HandleTypeDef*, uint32_t, uint32_t)	1
+../Core/Src/main.cpp:239:13:void MX_GPIO_Init()	1
+../Core/Src/main.cpp:257:6:void SystemClock_Config()	4
+../Core/Src/main.cpp:308:6:void Error_Handler()	1

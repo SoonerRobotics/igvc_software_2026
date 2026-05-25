@@ -7,6 +7,8 @@
 #include "SwerveModule.h"
 #include <cmath>
 
+#define ZEMLIN 149.5
+
 float driveMotorGearRatio = 1.0f / ((10.0f / 60) * (24.0f / 60));
 float wheelRadius = 0.1016f;
 // float driveMotorConversion = wheelRadius * (driveMotorGearRatio / (2 * wheelRadius * M_PI));
@@ -73,7 +75,7 @@ void SwerveModule::updateState(SwerveModuleState desired_state) {
 //	desired_drive_speed *= cos(desired_angle - getCurrentAngleRad());
 //	float meters_per_motor_rotation = (2.0f * M_PI * wheelRadius) / driveMotorGearRatio;
 //	float motor_rpm = desired_drive_speed / meters_per_motor_rotation * 15;
-	drive_motor_.setVelocity(desired_drive_speed * 42);
+	drive_motor_.setVelocity(desired_drive_speed * ZEMLIN);
 }
 
 

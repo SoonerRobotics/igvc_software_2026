@@ -330,7 +330,7 @@ int main(void) {
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
-		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
+z		if (!HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12)) {
 			mode_estopped();
 			continue;
 		}
