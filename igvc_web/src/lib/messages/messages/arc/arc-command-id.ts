@@ -2,22 +2,20 @@
 // (config IDs appended manually — keep in sync with C# ArcCommandId enum)
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 export enum ArcCommandId {
-    UnknownCommand = 0,
-    ToolsStartOpenCvCalibration = 1,
-    ToolsStopOpenCvCalibration = 2,
-    ToolsSaveOpenCvCalibration = 3,
-    ToolsStartHsvCalibration = 4,
-    ToolsStopHsvCalibration = 5,
-    ToolsEditHsvCalibration = 6,
-    ToolsSaveHsvCalibration = 7,
-    CurrentSensorInitialize = 256,
-    CurrentSensorSetBaudrate = 257,
-    CurrentSensorSaveEeprom = 258,
-
-    // ── Config subsystem (0x0100 = 256, offset to 0x0200 range to avoid clash) ──
-    GetConfigSnapshot = 0x0200,
-    SetConfigKey      = 0x0201,
-    GetPresetList     = 0x0202,
-    LoadPreset        = 0x0203,
-    SavePreset        = 0x0204,
+  UnknownCommand = 0,
+  ToolsStartOpenCvCalibration = 1,
+  ToolsStopOpenCvCalibration = 2,
+  ToolsSaveOpenCvCalibration = 3,
+  ToolsStartHsvCalibration = 4,
+  ToolsStopHsvCalibration = 5,
+  ToolsEditHsvCalibration = 6,
+  ToolsSaveHsvCalibration = 7,
+  CurrentSensorInitialize = 256,
+  CurrentSensorSetBaudrate = 257,
+  CurrentSensorSaveEeprom = 258,
+  GetConfigSnapshot = 512,
+  SetConfigKey = 513,
+  GetPresetList = 514,
+  LoadPreset = 515,
+  SavePreset = 516
 }

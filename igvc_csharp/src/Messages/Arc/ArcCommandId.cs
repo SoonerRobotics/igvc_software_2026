@@ -5,30 +5,25 @@
 namespace Messages.Arc
 {
 
-  public enum ArcCommandId : uint
-  {
-    UnknownCommand = 0,
-    ToolsStartOpenCvCalibration = 1,
-    ToolsStopOpenCvCalibration = 2,
-    ToolsSaveOpenCvCalibration = 3,
-    ToolsStartHsvCalibration = 4,
-    ToolsStopHsvCalibration = 5,
-    ToolsEditHsvCalibration = 6,
-    ToolsSaveHsvCalibration = 7,
-    CurrentSensorInitialize = 256,
-    CurrentSensorSetBaudrate = 257,
-    CurrentSensorSaveEeprom = 258,
-
-    // ── Config subsystem ──────────────────────────────────────────────────
-    /// <summary>Request a full config snapshot (keys + presets).</summary>
-    GetConfigSnapshot = 0x0100,
-
-    SetConfigKey = 0x0101,
-    GetPresetList = 0x0102,
-    LoadPreset = 0x0103,
-    SavePreset = 0x0104,
-
-  };
+public enum ArcCommandId : uint
+{
+  UnknownCommand = 0,
+  ToolsStartOpenCvCalibration = 1,
+  ToolsStopOpenCvCalibration = 2,
+  ToolsSaveOpenCvCalibration = 3,
+  ToolsStartHsvCalibration = 4,
+  ToolsStopHsvCalibration = 5,
+  ToolsEditHsvCalibration = 6,
+  ToolsSaveHsvCalibration = 7,
+  CurrentSensorInitialize = 256,
+  CurrentSensorSetBaudrate = 257,
+  CurrentSensorSaveEeprom = 258,
+  GetConfigSnapshot = 512,
+  SetConfigKey = 513,
+  GetPresetList = 514,
+  LoadPreset = 515,
+  SavePreset = 516,
+};
 
 
 }

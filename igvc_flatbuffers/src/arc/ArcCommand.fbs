@@ -19,6 +19,12 @@ enum ArcCommandId : uint {
     CurrentSensorInitialize = 0x100,
     CurrentSensorSetBaudrate = 0x101,
     CurrentSensorSaveEeprom = 0x102,
+
+    GetConfigSnapshot = 0x200,
+    SetConfigKey      = 0x201,
+    GetPresetList     = 0x202,
+    LoadPreset        = 0x203,
+    SavePreset        = 0x204,
 }
 
 enum ArcCommandPurpose : uint {
