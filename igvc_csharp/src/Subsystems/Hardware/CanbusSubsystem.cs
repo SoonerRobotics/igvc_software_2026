@@ -14,7 +14,7 @@ namespace igvc_csharp.Subsystems.Hardware;
 
 [Subsystem("CanbusSubsystem")]
 public class CanbusSubsystem(
-    // SimulatorSubsystem? simulatorSubsystem,
+    SimulatorSubsystem? simulatorSubsystem,
     ChronosSubsystem? chronos
 ) : SubsystemBase
 {
@@ -210,7 +210,7 @@ public class CanbusSubsystem(
         // If we are simulator, write to it instead
         if (Configuration.UseSimulation)
         {
-            // simulatorSubsystem?.SendCanFrame(frame);
+            simulatorSubsystem?.SendCanFrame(frame);
             return;
         }
 

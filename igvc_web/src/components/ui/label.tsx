@@ -26,7 +26,7 @@ const Label = React.forwardRef<
                 "text-gray-400 dark:text-gray-600": disabled,
             },
             className,
-        )}\
+        )}
         aria-disabled={disabled}
         tremor-id="tremor-raw"
         {...props}

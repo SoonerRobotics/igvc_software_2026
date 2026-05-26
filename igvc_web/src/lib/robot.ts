@@ -3,13 +3,14 @@ import { MessageAccumulator } from "./arc/accumulator";
 import { MessageType } from "./arc/type";
 import { ArcData } from "./messages/messages/arc";
 import { ByteBuffer } from "flatbuffers";
-import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged } from "./arc/data";
+import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged, buildArcData_RobotState } from "./arc/data";
 import { VectornavReport } from "./messages/messages/vectornav-report";
 import { ConfigState, configInitialState, handleConfigMessage } from "./robot-config";
-import { encodeSetConfigKey, encodePresetName } from "./arc/config";
+import { encodeSetConfigKey, encodePresetName, encodeJson } from "./arc/encoders";
 import { ArcCommandId } from "./messages/messages/arc/arc-command-id";
 import { buildCommandReq } from "./arc/command";
 import { MessageWrapper } from "./arc/wrapper";
+import { MissionEnum, RobotModeEnum } from "./types";
 
 type RobotState = ConfigState & {
     connected: boolean;
@@ -24,11 +25,21 @@ type RobotState = ConfigState & {
     savePreset: (filename: string) => void;
     requestSnapshot: () => void;
 
+    // Robot actions
+    setMobility: (mobility: boolean) => void;
+    setMission: (mission: number) => void;
+    setMode: (mode: number) => void;
+
     // Data
     logs: ArcLog[];
     vectornav?: VectornavReport;
     current: number;
     voltage: number;
+    state: {
+        mobility: boolean;
+        mission: MissionEnum;
+        mode: RobotModeEnum;
+    }
 };
 
 let ws: WebSocket | null = null;
@@ -77,6 +88,16 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
             return;
         }
 
+        if (identifier === "robot_state") {
+            const d = buildArcData_RobotState(payload);
+            set({ state: {
+                mobility: d.MotionAllowed,
+                mission: d.Mission,
+                mode: d.Mode
+            } });
+            return;
+        }
+
         if (identifier === "property_changed") {
             const d = buildArcData_PropertyChanged(payload);
             console.log("[robot] Property Changed", d);
@@ -106,6 +127,11 @@ export const useRobotStore = create<RobotState>((set, get) => ({
     current: 0,
     logs: [],
     ...configInitialState,
+    state: {
+        mobility: false,
+        mission: MissionEnum.Autonav,
+        mode: RobotModeEnum.Disabled
+    },
 
     setPath: (path) => set({ path }),
 
@@ -121,6 +147,15 @@ export const useRobotStore = create<RobotState>((set, get) => ({
 
     requestSnapshot: () =>
         sendRaw(buildCommandReq(ArcCommandId.GetConfigSnapshot)),
+
+    setMobility: (mobility: boolean) =>
+        sendRaw(buildCommandReq(ArcCommandId.SetMobility, encodeJson({ mobility }))),
+
+    setMission: (mission: number) =>
+        sendRaw(buildCommandReq(ArcCommandId.SetMission, encodeJson({ mission }))),
+
+    setMode: (mode: number) =>
+        sendRaw(buildCommandReq(ArcCommandId.SetMode, encodeJson({ mode }))),
 
     // ── Connection ────────────────────────────────────────────────────────
     connect: () => {

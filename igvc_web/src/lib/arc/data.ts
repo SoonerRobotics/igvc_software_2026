@@ -1,4 +1,5 @@
 import { ByteBuffer } from "flatbuffers";
+import { decodeJson } from "./encoders";
 
 export interface ArcLog {
     cat: string;
@@ -33,6 +34,17 @@ export function buildArcData_Log(msg: Uint8Array): ArcLog {
     const message = readString();
 
     return { cat, level, id, name, message };
+}
+
+export function buildArcData_RobotState(msg: Uint8Array) {
+    const json = decodeJson<{
+        Estopped: boolean;
+        IsSimulation: boolean;
+        Mission: number;
+        Mode: number;
+        MotionAllowed: boolean;
+    }>(msg);
+    return json;
 }
 
 export interface PropertyChanged {

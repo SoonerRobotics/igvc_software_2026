@@ -25,6 +25,11 @@ enum ArcCommandId : uint {
     GetPresetList     = 0x202,
     LoadPreset        = 0x203,
     SavePreset        = 0x204,
+
+    // Other
+    SetMobility = 0x300,
+    SetMode = 0x301,
+    SetMission = 0x302,
 }
 
 enum ArcCommandPurpose : uint {

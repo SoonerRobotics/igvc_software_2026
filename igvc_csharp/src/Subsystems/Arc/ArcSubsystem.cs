@@ -440,21 +440,33 @@ public class ArcSubsystem : SubsystemBase
     [ArcCommand((ArcCommandId.SetMobility))]
     public void HandleSetMobility(ArcCommandContext context)
     {
-        var data = ArcUtils.ExtractArcData_Mobility(context.Command.ByteBuffer);
-        SetRobotMobility(data);
+        var data = ArcUtils.ParseArcDataJson(context.Command.GetDataArray());
+        var mobility = data.GetValue("mobility");
+        if (mobility != null)
+        {
+            SetRobotMobility(mobility.ToObject<bool>());
+        }
     }
     
     [ArcCommand((ArcCommandId.SetMode))]
     public void HandleSetMode(ArcCommandContext context)
     {
-        var data = ArcUtils.ExtractArcData_Mode(context.Command.ByteBuffer);
-        SetRobotMode(data);
+        var data = ArcUtils.ParseArcDataJson(context.Command.GetDataArray());
+        var mode = data.GetValue("mode");
+        if (mode != null)
+        {
+            SetRobotMode(mode.ToObject<RobotModeEnum>());
+        }
     }
     
     [ArcCommand((ArcCommandId.SetMission))]
     public void HandleSetMission(ArcCommandContext context)
     {
-        var data = ArcUtils.ExtractArcData_Mission(context.Command.ByteBuffer);
-        SetRobotMission(data);
+        var data = ArcUtils.ParseArcDataJson(context.Command.GetDataArray());
+        var mission = data.GetValue("mission");
+        if (mission != null)
+        {
+            SetRobotMission(mission.ToObject<MissionEnum>());
+        }
     }
 }

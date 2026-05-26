@@ -326,7 +326,7 @@ public abstract class BaseRobot : IDisposable
         if (arc == null) return;
 
         _ = arc.BroadcastAsync(
-            ArcUtils.CreateArcData_RobotState(State),
+            ArcUtils.CreateArcData_Json("robot_state", State),
             CancellationToken.None
         );
     }

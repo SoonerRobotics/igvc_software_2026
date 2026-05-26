@@ -1,9 +1,8 @@
-using System.Text.Json;
 using Google.FlatBuffers;
-using igvc_csharp.Core;
-using igvc_csharp.Core.Config;
 using igvc_csharp.Utils.Messages;
 using Messages.Arc;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace igvc_csharp.Utils;
 
@@ -55,51 +54,23 @@ public static class ArcUtils
         var data = ms.ToArray();
         return CreateArcDataWrapper("log", data);
     }
-
-    public static MessageWrapper CreateArcData_RobotState(RobotState state)
+    
+    public static MessageWrapper CreateArcData_Json(string identifier, object obj)
     {
-        // 1 bit mobility, 1 byte mode, 1 byte mission
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        bw.Write(state.MotionAllowed ? (byte)1 : (byte)0);
-        bw.Write((byte)state.Mode);
-        bw.Write((byte)state.Mission);
-        var data = ms.ToArray();
-        return CreateArcDataWrapper("robot_state", data);
+        var json = JsonConvert.SerializeObject(obj);
+        var data = System.Text.Encoding.UTF8.GetBytes(json);
+        return CreateArcDataWrapper(identifier, data);
     }
-
-    public static bool ExtractArcData_Mobility(ByteBuffer buffer)
+    
+    public static T? ParseArcDataJson<T>(byte[] data)
     {
-        var bytes = buffer.ToSizedArray(); // only the live portion
-        using var ms = new MemoryStream(bytes);
-        using var br = new BinaryReader(ms);
-        return br.ReadInt32() != 0;
+        var json = System.Text.Encoding.UTF8.GetString(data);
+        return JsonConvert.DeserializeObject<T>(json);
     }
-
-    public static RobotModeEnum ExtractArcData_Mode(ByteBuffer buffer)
+    
+    public static JObject ParseArcDataJson(byte[] data)
     {
-        var bytes = buffer.ToSizedArray();
-        using var ms = new MemoryStream(bytes);
-        using var br = new BinaryReader(ms);
-        return br.ReadInt32() switch
-        {
-            0 => RobotModeEnum.Disabled,
-            1 => RobotModeEnum.Manual,
-            2 => RobotModeEnum.Autonomous,
-            _ => RobotModeEnum.Disabled
-        };
-    }
-
-    public static MissionEnum ExtractArcData_Mission(ByteBuffer buffer)
-    {
-        var bytes = buffer.ToSizedArray();
-        using var ms = new MemoryStream(bytes);
-        using var br = new BinaryReader(ms);
-        return br.ReadInt32() switch
-        {
-            0 => MissionEnum.Autonav,
-            1 => MissionEnum.Selfdrive,
-            _ => MissionEnum.Autonav
-        };
+        var json = System.Text.Encoding.UTF8.GetString(data);
+        return JObject.Parse(json);
     }
 }

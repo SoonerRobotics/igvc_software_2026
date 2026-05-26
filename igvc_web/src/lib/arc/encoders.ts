@@ -24,7 +24,7 @@ export type ConfigAck = {
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
-function decodeJson<T>(payload: Uint8Array): T {
+export function decodeJson<T>(payload: Uint8Array): T {
     return JSON.parse(dec.decode(payload)) as T;
 }
 
@@ -32,14 +32,6 @@ export const parseConfigSnapshot = (p: Uint8Array) => decodeJson<ConfigSnapshot>
 export const parseConfigKeyChanged = (p: Uint8Array) => decodeJson<ConfigKeyChanged>(p);
 export const parseConfigPresetList = (p: Uint8Array) => decodeJson<ConfigPresetList>(p);
 export const parseConfigAck = (p: Uint8Array) => decodeJson<ConfigAck>(p);
-
-// ── Outgoing command payloads ─────────────────────────────────────────────────
-//
-// SetConfigKey wire format:
-//   [2 bytes: uint16 LE path length][path UTF-8 bytes][value JSON UTF-8 bytes]
-//
-// Using a length-prefix instead of a null separator avoids the FlatBuffers
-// null-termination issue where \0 in the byte array truncates string reads.
 
 export function encodeSetConfigKey(path: string, value: unknown): Uint8Array {
     const pathBytes = enc.encode(path);
@@ -54,3 +46,4 @@ export function encodeSetConfigKey(path: string, value: unknown): Uint8Array {
 }
 
 export const encodePresetName = (filename: string): Uint8Array => enc.encode(filename);
+export const encodeJson = (obj: any) => enc.encode(JSON.stringify(obj));
