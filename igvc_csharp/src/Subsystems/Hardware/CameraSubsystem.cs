@@ -28,9 +28,6 @@ public class CameraSubsystem(
     [Config("subsystem.camera.staleness_threshold_ms")]
     public static int StalenessThresholdMs = 5000;
 
-    [Config("subsystem.camera.fps")]
-    public static uint DefaultFps = 20;
-
     private CameraWorker? mLeftWorker;
     private CameraWorker? mRightWorker;
     private CameraCommandShmWriter? mLeftCmd;
@@ -40,8 +37,6 @@ public class CameraSubsystem(
     public override async Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
-
-        Subscribe<ConfigChangedEvent>(OnConfigurationChanged, token);
 
         mLeftWorker = new CameraWorker("left", LeftShmName, LeftShmName + "_sem", Logger, chronos);
         mRightWorker = new CameraWorker("right", RightShmName, RightShmName + "_sem", Logger, chronos);
@@ -68,17 +63,6 @@ public class CameraSubsystem(
         await mCameraProcess.StartAsync(token);
 
         SetOperatingState(SubsystemState.Ready);
-    }
-
-    private Task OnConfigurationChanged(ConfigChangedEvent e, CancellationToken token)
-    {
-        if (e.Path == "subsystem.camera.fps")
-        {
-            SetCameraProperty(CameraSide.Both, CameraProperty.Fps, DefaultFps);
-            Logger.LogInformation("Camera FPS updated to {}", DefaultFps);
-        }
-
-        return Task.CompletedTask;
     }
 
     public override async Task Shutdown()
@@ -128,33 +112,34 @@ public class CameraSubsystem(
 
     public sealed unsafe class CameraCommandShmWriter : IDisposable
     {
-        // fourcc constants
+        // Convenience fourcc constants
         public const uint FourccMjpg = 0x47504A4D;
         public const uint FourccYuy2 = 0x32595559;
         public const uint FourccH264 = 0x34363248;
+
         private const int BlockSize = 20;
 
         private static class Posix
         {
-            private const string Lib = "librt";
+            private const string Libc = "libc";
 
-            [DllImport(Lib, SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern int shm_open(string name, int oflag, uint mode);
 
-            [DllImport(Lib, SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern int shm_unlink(string name);
 
-            [DllImport("libc", SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern int ftruncate(int fd, long length);
 
-            [DllImport("libc", SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern IntPtr mmap(IntPtr addr, nuint length, int prot,
                                              int flags, int fd, long offset);
 
-            [DllImport("libc", SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern int munmap(IntPtr addr, nuint length);
 
-            [DllImport("libc", SetLastError = true)]
+            [DllImport(Libc, SetLastError = true)]
             public static extern int close(int fd);
 
             // oflag
@@ -174,6 +159,7 @@ public class CameraSubsystem(
         private readonly object _lock = new();
 
         private uint _version = 0;
+        private uint _fps = 12;
         private uint _width = 640;
         private uint _height = 480;
         private uint _fourcc = FourccMjpg;
@@ -203,7 +189,7 @@ public class CameraSubsystem(
                 Posix.close(fd);
             }
 
-            Flush();
+            Flush(); // write defaults before C++ process starts
         }
 
         public void Set(CameraProperty prop, uint value)
@@ -231,7 +217,7 @@ public class CameraSubsystem(
         {
             switch (prop)
             {
-                case CameraProperty.Fps: DefaultFps = value; break;
+                case CameraProperty.Fps: _fps = value; break;
                 case CameraProperty.Width: _width = value; break;
                 case CameraProperty.Height: _height = value; break;
                 case CameraProperty.Fourcc: _fourcc = value; break;
@@ -242,7 +228,7 @@ public class CameraSubsystem(
         {
             uint* p = (uint*)_ptr;
             p[0] = _version;
-            p[1] = DefaultFps;
+            p[1] = _fps;
             p[2] = _width;
             p[3] = _height;
             p[4] = _fourcc;
@@ -297,6 +283,7 @@ public class CameraSubsystem(
         {
             using var shm = new CameraFrameSharedMemoryReader(shmName, semName);
 
+            // Wait for the C++ process to create the SHM region
             while (!token.IsCancellationRequested && !mIsStopped && !shm.IsOpen)
             {
                 if (shm.TryOpen()) break;
