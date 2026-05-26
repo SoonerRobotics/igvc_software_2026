@@ -28,7 +28,7 @@ public record AStarConfig
     /// <summary>
     /// When true, the cost map is zeroed out and the robot steers purely by waypoint heading.
     /// </summary>
-    public bool UseOnlyWaypoints { get; init; } = true;
+    public bool UseOnlyWaypoints { get; init; } = false;
 }
 
 public static class AStarPlanner

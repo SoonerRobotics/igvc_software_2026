@@ -55,4 +55,51 @@ public static class ArcUtils
         var data = ms.ToArray();
         return CreateArcDataWrapper("log", data);
     }
+
+    public static MessageWrapper CreateArcData_RobotState(RobotState state)
+    {
+        // 1 bit mobility, 1 byte mode, 1 byte mission
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+        bw.Write(state.MotionAllowed ? (byte)1 : (byte)0);
+        bw.Write((byte)state.Mode);
+        bw.Write((byte)state.Mission);
+        var data = ms.ToArray();
+        return CreateArcDataWrapper("robot_state", data);
+    }
+
+    public static bool ExtractArcData_Mobility(ByteBuffer buffer)
+    {
+        var bytes = buffer.ToSizedArray(); // only the live portion
+        using var ms = new MemoryStream(bytes);
+        using var br = new BinaryReader(ms);
+        return br.ReadInt32() != 0;
+    }
+
+    public static RobotModeEnum ExtractArcData_Mode(ByteBuffer buffer)
+    {
+        var bytes = buffer.ToSizedArray();
+        using var ms = new MemoryStream(bytes);
+        using var br = new BinaryReader(ms);
+        return br.ReadInt32() switch
+        {
+            0 => RobotModeEnum.Disabled,
+            1 => RobotModeEnum.Manual,
+            2 => RobotModeEnum.Autonomous,
+            _ => RobotModeEnum.Disabled
+        };
+    }
+
+    public static MissionEnum ExtractArcData_Mission(ByteBuffer buffer)
+    {
+        var bytes = buffer.ToSizedArray();
+        using var ms = new MemoryStream(bytes);
+        using var br = new BinaryReader(ms);
+        return br.ReadInt32() switch
+        {
+            0 => MissionEnum.Autonav,
+            1 => MissionEnum.Selfdrive,
+            _ => MissionEnum.Autonav
+        };
+    }
 }

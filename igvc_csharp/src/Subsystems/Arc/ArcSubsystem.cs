@@ -9,6 +9,7 @@ using System.Threading.Channels;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc.Streaming;
+using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Messages.Arc;
@@ -318,6 +319,9 @@ public class ArcSubsystem : SubsystemBase
         Logger.LogInformation("ARC client connected {ClientId}", clientId);
         EventBus.Instance.Publish(new ArcClientConnectedEvent(clientId));
 
+        // send current state and information
+        BaseRobot.Instance?.SendRobotArcState();
+        
         await ReceiveLoop(clientId, socket, token);
     }
 
@@ -431,5 +435,26 @@ public class ArcSubsystem : SubsystemBase
         }
 
         return Task.CompletedTask;
+    }
+    
+    [ArcCommand((ArcCommandId.SetMobility))]
+    public void HandleSetMobility(ArcCommandContext context)
+    {
+        var data = ArcUtils.ExtractArcData_Mobility(context.Command.ByteBuffer);
+        SetRobotMobility(data);
+    }
+    
+    [ArcCommand((ArcCommandId.SetMode))]
+    public void HandleSetMode(ArcCommandContext context)
+    {
+        var data = ArcUtils.ExtractArcData_Mode(context.Command.ByteBuffer);
+        SetRobotMode(data);
+    }
+    
+    [ArcCommand((ArcCommandId.SetMission))]
+    public void HandleSetMission(ArcCommandContext context)
+    {
+        var data = ArcUtils.ExtractArcData_Mission(context.Command.ByteBuffer);
+        SetRobotMission(data);
     }
 }

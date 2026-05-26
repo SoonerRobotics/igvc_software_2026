@@ -23,6 +23,9 @@ public enum ArcCommandId : uint
   GetPresetList = 514,
   LoadPreset = 515,
   SavePreset = 516,
+  SetMobility = 768,
+  SetMode = 769,
+  SetMission = 770,
 };
 
 

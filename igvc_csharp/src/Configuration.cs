@@ -19,7 +19,7 @@ public static class Configuration
 
     /// <summary>
     /// Determines if the robot will use the simulator.
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -95,7 +95,7 @@ public static class Configuration
         /// <summary>
         /// The Endianness of data, both inbound and outbound.
         /// </summary>
-        public const Endianness Endianness = Endianness.Little;
+        public const Endianness Endianness = Core.Endianness.Little;
     }
 
     public static class SimulatorSubsystem
@@ -127,7 +127,7 @@ public static class Configuration
         /// <summary>
         /// The Endianness of data, both inbound and outbound.
         /// </summary>
-        public const Endianness Endianness = Endianness.Little;
+        public const Endianness Endianness = Core.Endianness.Little;
     }
 
     public static class VisionSubsystem

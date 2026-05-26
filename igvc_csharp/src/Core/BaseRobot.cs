@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using igvc_csharp.Subsystems.Arc;
+using igvc_csharp.Utils;
 
 namespace igvc_csharp.Core;
 
@@ -318,12 +320,24 @@ public abstract class BaseRobot : IDisposable
         _subsystems.Clear();
     }
 
+    public void SendRobotArcState()
+    {
+        var arc = GetSubsystem<ArcSubsystem>();
+        if (arc == null) return;
+
+        _ = arc.BroadcastAsync(
+            ArcUtils.CreateArcData_RobotState(State),
+            CancellationToken.None
+        );
+    }
+
     public void SetMobility(bool mobility)
     {
         var oldState = State.Clone();
         State.MotionAllowed = mobility;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Mobility Changed -> {}", mobility);
+        SendRobotArcState();
     }
 
     public void SetEstopped(bool estopped)
@@ -332,6 +346,7 @@ public abstract class BaseRobot : IDisposable
         State.Estopped = estopped;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Estopped Changed -> {}", estopped);
+            SendRobotArcState();
     }
 
     public void SetMode(RobotModeEnum mode)
@@ -340,6 +355,7 @@ public abstract class BaseRobot : IDisposable
         State.Mode = mode;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Mode Changed -> {old} to {new}", oldState.Mode.ToString(), mode.ToString());
+        SendRobotArcState();
     }
 
     public void SetMission(MissionEnum mission)
@@ -348,5 +364,6 @@ public abstract class BaseRobot : IDisposable
         State.Mission = mission;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Mission Changed -> {old} to {new}", oldState.Mission.ToString(), mission.ToString());
+        SendRobotArcState();
     }
 }

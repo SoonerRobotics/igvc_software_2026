@@ -258,7 +258,7 @@ public class SubsystemBase : ISubsystem
         BaseRobot.Instance?.SetMission(mission);
     }
 
-    protected void SetMobility(bool mobility)
+    protected void SetRobotMobility(bool mobility)
     {
         BaseRobot.Instance?.SetMobility(mobility);
     }

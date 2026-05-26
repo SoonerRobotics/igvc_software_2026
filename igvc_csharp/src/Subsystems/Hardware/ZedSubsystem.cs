@@ -8,7 +8,7 @@ using static igvc_csharp.Subsystems.ChronosSubsystem;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("ZedSubsystem", Disabled = false)]
+[Subsystem("ZedSubsystem", Disabled = Configuration.UseSimulation)]
 public class ZedSubsystem(
     ChronosSubsystem? chronos
 ) : SubsystemBase

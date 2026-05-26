@@ -20,11 +20,11 @@ public class DefaultSubsystem : SubsystemBase
         switch ((CanId)frame.CanId)
         {
             case CanId.MobilityStart:
-                SetMobility(true);
+                SetRobotMobility(true);
                 break;
             
             case CanId.MobilityStop:
-                SetMobility(false);
+                SetRobotMobility(false);
                 break;
             
             case CanId.EStop:
