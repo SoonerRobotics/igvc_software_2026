@@ -6,6 +6,9 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <sstream>
+#include <thread>
+#include <chrono>
 
 #include "spdlog/spdlog.h"
 #include <opencv2/opencv.hpp>
@@ -18,6 +21,8 @@ static const char *SHM_LEFT_NAME = "/camera_left";
 static const char *SEM_LEFT_NAME = "/camera_left_sem";
 static const char *SHM_RIGHT_NAME = "/camera_right";
 static const char *SEM_RIGHT_NAME = "/camera_right_sem";
+static const char *SHM_CMD_LEFT_NAME = "/camera_cmd_left";
+static const char *SHM_CMD_RIGHT_NAME = "/camera_cmd_right";
 
 #pragma pack(push, 1)
 struct CameraFrameHeader
@@ -27,6 +32,17 @@ struct CameraFrameHeader
     uint32_t width;
     uint32_t height;
     uint8_t valid;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct CameraCommandBlock
+{
+    uint32_t version;
+    uint32_t fps;
+    uint32_t width;
+    uint32_t height;
+    uint32_t fourcc;
 };
 #pragma pack(pop)
 
@@ -85,6 +101,62 @@ void closeShm(ShmContext &ctx)
     }
 }
 
+struct CmdContext
+{
+    CameraCommandBlock *ptr = nullptr;
+    int fd = -1;
+};
+
+CmdContext openCmdShm(const char *name)
+{
+    CmdContext ctx;
+    ctx.fd = shm_open(name, O_CREAT | O_RDWR, 0666);
+    if (ctx.fd < 0)
+        return ctx;
+
+    if (ftruncate(ctx.fd, sizeof(CameraCommandBlock)) < 0)
+    {
+        close(ctx.fd);
+        ctx.fd = -1;
+        return ctx;
+    }
+
+    void *raw = mmap(nullptr, sizeof(CameraCommandBlock),
+                     PROT_READ | PROT_WRITE, MAP_SHARED, ctx.fd, 0);
+    if (raw == MAP_FAILED)
+    {
+        close(ctx.fd);
+        ctx.fd = -1;
+        return ctx;
+    }
+
+    ctx.ptr = static_cast<CameraCommandBlock *>(raw);
+
+    if (ctx.ptr->fps == 0)
+    {
+        ctx.ptr->fps = 12;
+        ctx.ptr->width = FRAME_WIDTH;
+        ctx.ptr->height = FRAME_HEIGHT;
+        ctx.ptr->fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+    }
+
+    return ctx;
+}
+
+void closeCmdShm(CmdContext &ctx)
+{
+    if (ctx.ptr)
+    {
+        munmap(ctx.ptr, sizeof(CameraCommandBlock));
+        ctx.ptr = nullptr;
+    }
+    if (ctx.fd >= 0)
+    {
+        close(ctx.fd);
+        ctx.fd = -1;
+    }
+}
+
 bool semTimedWait(sem_t *sem, int timeoutMs = 100)
 {
     struct timespec ts{};
@@ -119,8 +191,8 @@ void writeFrame(ShmContext &ctx, const cv::Mat &frame, uint32_t seq)
     sem_post(ctx.sem);
 }
 
-void runCamera(const std::string &path, ShmContext &shm, const std::string &name,
-               int fps, std::atomic<bool> &running)
+void runCamera(const std::string &path, ShmContext &shm, CmdContext &cmd,
+               const std::string &name, std::atomic<bool> &running)
 {
     while (running)
     {
@@ -129,7 +201,8 @@ void runCamera(const std::string &path, ShmContext &shm, const std::string &name
         try
         {
             int idx;
-            if (std::istringstream(path) >> idx)
+            std::istringstream ss(path);
+            if (ss >> idx)
                 cap.open(idx, cv::CAP_V4L2);
             else
                 cap.open(path, cv::CAP_V4L2);
@@ -146,19 +219,43 @@ void runCamera(const std::string &path, ShmContext &shm, const std::string &name
             continue;
         }
 
-        cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, FRAME_WIDTH);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT);
-        cap.set(cv::CAP_PROP_FPS, fps);
+        uint32_t appliedVersion = 0;
+        auto applyCmd = [&]()
+        {
+            if (!cmd.ptr)
+                return;
+            appliedVersion = cmd.ptr->version;
+            int fps = cmd.ptr->fps > 0 ? static_cast<int>(cmd.ptr->fps) : 12;
+            int width = cmd.ptr->width > 0 ? static_cast<int>(cmd.ptr->width) : FRAME_WIDTH;
+            int height = cmd.ptr->height > 0 ? static_cast<int>(cmd.ptr->height) : FRAME_HEIGHT;
+            uint32_t cc = cmd.ptr->fourcc > 0 ? cmd.ptr->fourcc
+                                              : static_cast<uint32_t>(cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
 
+            cap.set(cv::CAP_PROP_FOURCC, cc);
+            cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+            cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+            cap.set(cv::CAP_PROP_FPS, fps);
+
+            spdlog::info("CAMERA_{}_PROPS_APPLIED fps={} {}x{} fourcc={:#010x}",
+                         name, fps, width, height, cc);
+        };
+
+        applyCmd();
         spdlog::info("CAMERA_{}_CONNECTED", name);
 
         cv::Mat frame;
         uint32_t seq = 0;
-        auto interval = std::chrono::milliseconds(1000 / fps);
 
         while (running)
         {
+            if (cmd.ptr && cmd.ptr->version != appliedVersion)
+            {
+                spdlog::info("CAMERA_{}_RESTARTING_FOR_NEW_PROPS", name);
+                break;
+            }
+
+            int fps = (cmd.ptr && cmd.ptr->fps > 0) ? static_cast<int>(cmd.ptr->fps) : 12;
+            auto interval = std::chrono::milliseconds(1000 / fps);
             auto start = std::chrono::steady_clock::now();
 
             if (!cap.read(frame) || frame.empty())
@@ -185,27 +282,34 @@ int main()
 
     ShmContext leftShm = openShm(SHM_LEFT_NAME, SEM_LEFT_NAME);
     ShmContext rightShm = openShm(SHM_RIGHT_NAME, SEM_RIGHT_NAME);
+    CmdContext leftCmd = openCmdShm(SHM_CMD_LEFT_NAME);
+    CmdContext rightCmd = openCmdShm(SHM_CMD_RIGHT_NAME);
 
-    if (!leftShm.ptr || !rightShm.ptr)
+    if (!leftShm.ptr || !rightShm.ptr || !leftCmd.ptr || !rightCmd.ptr)
     {
         spdlog::error("SHM_INIT_FAILED");
         return 1;
     }
 
-    // IF FPS IS CHANGED, CHANGE IN CHRONOS TOO
     std::thread leftThread([&]()
-                           { runCamera("/dev/video0", leftShm, "left", 12, g_running); });
+                           { runCamera("/dev/video0", leftShm, leftCmd, "LEFT", g_running); });
     std::thread rightThread([&]()
-                            { runCamera("/dev/video2", rightShm, "right", 12, g_running); });
+                            { runCamera("/dev/video2", rightShm, rightCmd, "RIGHT", g_running); });
 
     leftThread.join();
     rightThread.join();
 
     closeShm(leftShm);
     closeShm(rightShm);
+    closeCmdShm(leftCmd);
+    closeCmdShm(rightCmd);
+
     shm_unlink(SHM_LEFT_NAME);
     sem_unlink(SEM_LEFT_NAME);
     shm_unlink(SHM_RIGHT_NAME);
     sem_unlink(SEM_RIGHT_NAME);
+    shm_unlink(SHM_CMD_LEFT_NAME);
+    shm_unlink(SHM_CMD_RIGHT_NAME);
+
     return 0;
 }
