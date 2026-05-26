@@ -438,6 +438,11 @@ public static class Configuration
         /// Latitude of the northern edge of the engineering quadrangle on OU campus.
         /// </summary>
         public static double EquadLatitude = 35.211160;
+
+        /// <summary>
+        /// Whether we are trying to do qualification or not
+        /// </summary>
+        public static bool Qualificaiton = false;
     }
 
     public static class FakeCameraSubsystemConfig

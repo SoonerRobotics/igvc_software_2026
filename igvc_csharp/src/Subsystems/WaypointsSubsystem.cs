@@ -1,7 +1,6 @@
 
 using Google.FlatBuffers;
 using igvc_csharp.Core;
-using igvc_csharp.Core.Hardware;
 using igvc_csharp.Core.Units;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
@@ -31,7 +30,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         SetOperatingState(SubsystemState.Starting);
 
-        ReadWaypointsFile(token);
+        ReadWaypointsFile();
 
         SubscribeMessage<VectornavReport>(
             MessageType.VectorNav,
@@ -44,7 +43,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         return Task.CompletedTask;
     }
 
-    private Task ReadWaypointsFile(CancellationToken token)
+    private Task ReadWaypointsFile()
     {
         int numWaypoints = 0;
         // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
@@ -124,6 +123,9 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 SetOperatingState(SubsystemState.Ready);
             }
 
+            _waypointsDict.Clear();
+            ReadWaypointsFile();
+
             _runStartTime = 0;
             _startGpsPos = null;
             _waypointSet = "";
@@ -140,7 +142,11 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
         {
             // pick the set of waypoints based on robot state and GPS position information
-            if (BaseRobot.Instance.State.Mission == MissionEnum.Selfdrive)
+            if (WaypointConfig.Qualificaiton)
+            {
+                _waypointSet = "qualification";
+            }
+            else if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
             {
                 _waypointSet = "selfdrive";
             }
@@ -159,7 +165,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
 
             // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos, new LatLng(msg.Latitude, msg.Longitude)).Value.To(AngleUnit.Degrees);
+            double heading_degrees = LatLng.TravelHeading(_startGpsPos ?? new(0, 0), new LatLng(msg.Latitude, msg.Longitude))?.To(AngleUnit.Degrees) ?? 0;
             if (120 < heading_degrees && heading_degrees < 240)
             {
                 _waypointDirection = -1; // south
