@@ -142,27 +142,27 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
         {
             // pick the set of waypoints based on robot state and GPS position information
-            if (WaypointConfig.Qualificaiton)
-            {
-                _waypointSet = "qualification";
-            }
-            else if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
-            {
-                _waypointSet = "selfdrive";
-            }
-            else if (msg.Latitude < WaypointConfig.EquadLatitude)
-            {
-                _waypointSet = "equad";
-            }
-            else if (msg.Longitude > WaypointConfig.PracticeLongitude)
-            {
-                _waypointSet = "practice";
-            }
-            else
-            {
-                _waypointSet = "autonav";
-            }
-
+            // if (WaypointConfig.Qualificaiton)
+            // {
+            //     _waypointSet = "qualification";
+            // }
+            // else if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
+            // {
+            //     _waypointSet = "selfdrive";
+            // }
+            // else if (msg.Latitude < WaypointConfig.EquadLatitude)
+            // {
+            //     _waypointSet = "equad";
+            // }
+            // else if (msg.Longitude > WaypointConfig.PracticeLongitude)
+            // {
+            //     _waypointSet = "practice";
+            // }
+            // else
+            // {
+            //     _waypointSet = "autonav";
+            // }
+            _waypointSet = "equad";
 
             // then pick a set of waypoints based on which direction we are heading
             double heading_degrees = LatLng.TravelHeading(_startGpsPos ?? new(0, 0), new LatLng(msg.Latitude, msg.Longitude))?.To(AngleUnit.Degrees) ?? 0;

@@ -7,13 +7,14 @@ import LoadingOverlay from "./loading";
 
 const NAV_LINKS = [
     { label: "Dashboard", path: "/", icon: <LayoutDashboard size={14} /> },
-    { label: "Configuration", path: "/configuration", icon: <SettingsIcon size={14} /> },
-    { label: "Vision", path: "/vision", icon: <Camera size={14} /> },
-    { label: "Performance", path: "/performance", icon: <Clock size={14} /> },
+    { label: "Configuration", path: "/config", icon: <SettingsIcon size={14} /> },
+    { label: "Map", path: "/map", icon: <SettingsIcon size={14} /> },
+    // { label: "Vision", path: "/vision", icon: <Camera size={14} /> },
+    // { label: "Performance", path: "/performance", icon: <Clock size={14} /> },
     { label: "Subsystems", path: "/subsystems", icon: <LineStyle size={14} /> },
     { label: "Logs", path: "/logs", icon: <MessageSquare size={14} /> },
-    { label: "Power", path: "/electrical", icon: <BatteryFull size={14} /> },
-    { label: "Canbus", path: "/canbus", icon: <BatteryFull size={14} /> },
+    // { label: "Power", path: "/electrical", icon: <BatteryFull size={14} /> },
+    // { label: "Canbus", path: "/canbus", icon: <BatteryFull size={14} /> },
 ];
 
 export default function CoreLayout(props: { children?: React.ReactNode }) {
