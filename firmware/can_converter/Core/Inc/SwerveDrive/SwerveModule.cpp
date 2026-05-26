@@ -8,7 +8,7 @@
 #include <cmath>
 
 // #define ZEMLIN 149.5
-#define ZEMLIN 205.8
+#define ZEMLIN 151.1
 
 // float driveMotorGearRatio = 1.0f / ((10.0f / 60.0f) * (15.0f / 36.0f));
 float driveMotorGearRatio = (60.0f / 10.0f) * (36.0f / 15.0f);
