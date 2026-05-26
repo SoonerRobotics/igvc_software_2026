@@ -5,7 +5,7 @@ import {
     parseConfigKeyChanged,
     parseConfigPresetList,
     parseConfigSnapshot,
-} from "./arc/config";
+} from "./arc/encoders";
 
 export type ConfigState = {
     configKeys: Record<string, unknown>;
