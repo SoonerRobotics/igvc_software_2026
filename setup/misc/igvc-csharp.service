@@ -1,0 +1,15 @@
+[Unit]
+Description=IGVC CSharp Software 2026
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/scr/igvc_software_2026/igvc_csharp
+ExecStartPre=/bin/sleep 10
+ExecStart=/usr/bin/dotnet run
+Restart=always
+RestartSec=10
+User=scr
+
+[Install]
+WantedBy=multi-user.target
