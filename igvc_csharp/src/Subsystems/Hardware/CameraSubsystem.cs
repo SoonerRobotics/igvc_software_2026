@@ -28,6 +28,9 @@ public class CameraSubsystem(
     [Config("subsystem.camera.staleness_threshold_ms")]
     public static int StalenessThresholdMs = 5000;
 
+    [Config("subsystem.camera.fps")]
+    public static uint DefaultFps = 20;
+
     private CameraWorker? mLeftWorker;
     private CameraWorker? mRightWorker;
     private CameraCommandShmWriter? mLeftCmd;
@@ -159,7 +162,6 @@ public class CameraSubsystem(
         private readonly object _lock = new();
 
         private uint _version = 0;
-        private uint _fps = 12;
         private uint _width = 640;
         private uint _height = 480;
         private uint _fourcc = FourccMjpg;
@@ -217,7 +219,7 @@ public class CameraSubsystem(
         {
             switch (prop)
             {
-                case CameraProperty.Fps: _fps = value; break;
+                case CameraProperty.Fps: DefaultFps = value; break;
                 case CameraProperty.Width: _width = value; break;
                 case CameraProperty.Height: _height = value; break;
                 case CameraProperty.Fourcc: _fourcc = value; break;
@@ -228,7 +230,7 @@ public class CameraSubsystem(
         {
             uint* p = (uint*)_ptr;
             p[0] = _version;
-            p[1] = _fps;
+            p[1] = DefaultFps;
             p[2] = _width;
             p[3] = _height;
             p[4] = _fourcc;
