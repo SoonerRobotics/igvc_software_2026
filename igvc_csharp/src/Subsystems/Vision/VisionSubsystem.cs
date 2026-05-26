@@ -242,7 +242,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 var rawFrame = MessageConstructor.CreateImageFrame(
                     (uint)combinedRaw.Width,
                     (uint)combinedRaw.Height,
-                    "combined_view",
+                    "combined_debug",
                     combinedBytes
                 );
 
