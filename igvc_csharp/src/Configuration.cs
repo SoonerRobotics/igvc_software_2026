@@ -214,21 +214,21 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_forward")]
-        public static LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(2.24);
+        public static LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MetersPerSecond.Of(1f);
 
         /// <summary>
         /// The max sideways speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_sideways")]
-        public static LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MilesPerHour.Of(2.24);
+        public static LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MetersPerSecond.Of(1f);
 
         /// <summary>
         /// The max angular speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
         /// </summary>
         [Config("drive.max_angular")]
-        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(40);
+        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(120);
 
         [Config("drive.invert_forward")]
         public static bool InvertForwardVelocity = false;
@@ -240,7 +240,7 @@ public static class Configuration
         public static bool InvertAngularVelocity = true;
 
         [Config("drive.update_frequency")]
-        public static TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(100);
+        public static TimeSpan UpdateFrequency = TimeSpan.FromMilliseconds(1000 / 50);
     }
 
     public static class CalibrationSubsystem

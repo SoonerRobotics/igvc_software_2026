@@ -38,16 +38,21 @@ public class ManualControlSubsystem(
             {
                 if (BaseRobot.Instance?.State.Mode != RobotModeEnum.Autonomous)
                 {
-                    // canbus?.MotorControl.SetVelocities(0, 0, 0); //TODO move this somewhere else?
+                    canbus?.MotorControl.SetVelocities(0, 0, 0); //TODO move this somewhere else?
+                } else
+                {
+                    canbus?.MotorControl.SetVelocities(1f, 0, 0); //TODO move this somewhere else?
                 }
                 continue;
             }
             
             canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
+            // Logger.LogDebug("FW: {ForwardVelocity}, SD: {SidewaysVelocity}, AN: {AngularVelocity}",
+            //     _forwardVelocity, _sidewaysVelocity, _angularVelocity);
         }
     }
 
-    private static double ApplyDeadband(double value, double deadband = 0.05)
+    private static double ApplyDeadband(double value, double deadband = 0.1)
     {
         if (Math.Abs(value) < deadband)
         {

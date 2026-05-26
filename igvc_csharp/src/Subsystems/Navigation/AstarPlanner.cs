@@ -16,6 +16,19 @@ public record AStarConfig
     public int MaxFrontierDepth { get; init; } = 50;
 
     public byte ObstacleThreshold { get; init; } = 50;
+
+    public float WaypointWeight { get; init; } = 1.0f;
+    public float WaypointMaxWeight { get; init; } = 10.0f;
+
+    /// <summary>
+    /// Milliseconds to wait after entering autonomous before waypoints influence path planning.
+    /// </summary>
+    public ulong WaypointDelayMs { get; init; } = 3000;
+
+    /// <summary>
+    /// When true, the cost map is zeroed out and the robot steers purely by waypoint heading.
+    /// </summary>
+    public bool UseOnlyWaypoints { get; init; } = false;
 }
 
 public static class AStarPlanner
@@ -27,21 +40,35 @@ public static class AStarPlanner
                 .Select(dy => (dx, dy, MathF.Sqrt(dx * dx + dy * dy))))
             .ToArray();
 
-    public static List<(int x, int y)>? FindPath(byte[] costMap, AStarConfig config)
+    public static List<(int x, int y)>? FindPath(
+        byte[] costMap,
+        AStarConfig config,
+        float? waypointHeadingRad = null,
+        float? robotThetaRad = null)
     {
         int W = config.GridWidth;
         int H = config.GridHeight;
 
         var robotPos = (x: W / 2, y: H - 2);
-        var goalPos = FindBestGoal(costMap, robotPos, config);
+        var goalPos = FindBestGoal(costMap, robotPos, config, waypointHeadingRad, robotThetaRad);
 
         return AStar(robotPos, goalPos, costMap, config);
+    }
+
+    private static float AngleDifference(float to, float from)
+    {
+        float delta = to - from;
+        delta = (delta + MathF.PI) % (2 * MathF.PI) - MathF.PI;
+        if (delta < -MathF.PI) delta += 2 * MathF.PI;
+        return delta;
     }
 
     private static (int x, int y) FindBestGoal(
         byte[] costMap,
         (int x, int y) robotPos,
-        AStarConfig config)
+        AStarConfig config,
+        float? waypointHeadingRad,
+        float? robotThetaRad)
     {
         int W = config.GridWidth;
         int H = config.GridHeight;
@@ -61,6 +88,14 @@ public static class AStarPlanner
             foreach (var (x, y) in current)
             {
                 float score = (H - y) * config.ForwardWeight + depth * config.DepthWeight;
+
+                if (waypointHeadingRad.HasValue && robotThetaRad.HasValue)
+                {
+                    float angleToCell = MathF.Atan2(W / 2f - x, H - 2f - y);
+                    float headingToCell = robotThetaRad.Value + angleToCell;
+                    float headingErr = MathF.Abs(AngleDifference(headingToCell, waypointHeadingRad.Value)) * (180f / MathF.PI);
+                    score -= MathF.Max(headingErr, config.WaypointMaxWeight) * config.WaypointWeight;
+                }
 
                 if (score > bestCost)
                 {
@@ -123,6 +158,7 @@ public static class AStarPlanner
 
         int seq = 0;
         open.Add((Heuristic(start), seq++, start));
+
         while (open.Count > 0)
         {
             var (_, _, current) = open.Min;
@@ -156,7 +192,7 @@ public static class AStarPlanner
             }
         }
 
-        return null; // no path found
+        return null;
     }
 
     private static List<(int x, int y)> ReconstructPath(
@@ -177,7 +213,6 @@ public static class AStarPlanner
     {
         float x = (config.GridHeight - cell.gy) * config.VerticalFov / config.GridHeight;
         float y = (config.GridWidth / 2f - cell.gx) * config.HorizontalFov / config.GridWidth;
-        // rotation by 0 is identity — preserved for future heading correction
         return (x, y);
     }
 
@@ -205,20 +240,14 @@ public static class AStarPlanner
                 Cv2.Circle(img, new Point(px, py), 1, new Scalar(0, 255, 0), 1);
         }
 
-        // Draw goal in blue
         Cv2.Circle(img, new Point(goal.x, goal.y), 2, new Scalar(255, 0, 0), -1);
+        Cv2.Circle(img, new Point(W / 2, H - 2), 2, new Scalar(0, 0, 255), -1);
 
-        // Draw robot origin in red
-        var robot = new Point(W / 2, H - 2);
-        Cv2.Circle(img, robot, 2, new Scalar(0, 0, 255), -1);
-
-        // Scale up for readability
         var scaled = new Mat();
         Cv2.Resize(img, scaled, new Size(W * displayScale, H * displayScale),
                    interpolation: InterpolationFlags.Nearest);
         img.Dispose();
 
-        // Grid lines at original cell boundaries
         for (int i = 0; i < H; i++)
             Cv2.Line(scaled, new Point(0, i * displayScale),
                              new Point(W * displayScale, i * displayScale),

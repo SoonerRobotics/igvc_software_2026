@@ -14,7 +14,7 @@ using VisionConfig = igvc_csharp.Configuration.VisionSubsystem;
 
 namespace igvc_csharp.Subsystems.Vision;
 
-[Subsystem("VisionSubsystem", Disabled = false)]
+[Subsystem("VisionSubsystem", Disabled = true)]
 public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     private readonly List<IFilter> _leftFilters = [];

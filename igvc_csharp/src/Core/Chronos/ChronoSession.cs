@@ -78,49 +78,49 @@ internal sealed class ChronosSession : IAsyncDisposable
     /// </summary>
     internal void OpenCamera(int cameraId, int width, int height, double nominalFps, string pixFmt = "bgr24")
     {
-        lock (_videoLock)
-        {
-            if (_ffmpegProcesses.ContainsKey(cameraId))
-                throw new InvalidOperationException($"Camera {cameraId} is already open.");
+        // lock (_videoLock)
+        // {
+        //     if (_ffmpegProcesses.ContainsKey(cameraId))
+        //         throw new InvalidOperationException($"Camera {cameraId} is already open.");
 
-            string videoPath = Path.Combine(OutputDirectory, $"camera{cameraId}.mp4");
+        //     string videoPath = Path.Combine(OutputDirectory, $"camera{cameraId}.mp4");
 
-            var psi = new ProcessStartInfo
-            {
-                FileName = "ffmpeg",
-                Arguments = string.Join(" ",
-                    "-y",
-                    "-f rawvideo",
-                    $"-pix_fmt {pixFmt}",   // <-- use parameter
-                    $"-video_size {width}x{height}",
-                    $"-framerate {nominalFps}",
-                    "-i pipe:0",
-                    "-c:v libx264",
-                    "-preset ultrafast",
-                    "-crf 23",
-                    "-pix_fmt yuv420p",     // <-- add this for output
-                    "-an",
-                    videoPath
-                ),
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardError = true,
-            };
+        //     var psi = new ProcessStartInfo
+        //     {
+        //         FileName = "ffmpeg",
+        //         Arguments = string.Join(" ",
+        //             "-y",
+        //             "-f rawvideo",
+        //             $"-pix_fmt {pixFmt}",   // <-- use parameter
+        //             $"-video_size {width}x{height}",
+        //             $"-framerate {nominalFps}",
+        //             "-i pipe:0",
+        //             "-c:v libx264",
+        //             "-preset ultrafast",
+        //             "-crf 23",
+        //             "-pix_fmt yuv420p",     // <-- add this for output
+        //             "-an",
+        //             videoPath
+        //         ),
+        //         UseShellExecute = false,
+        //         RedirectStandardInput = true,
+        //         RedirectStandardError = true,
+        //     };
 
-            var process = Process.Start(psi)
-                ?? throw new IOException($"Failed to start ffmpeg for camera {cameraId}.");
+        //     var process = Process.Start(psi)
+        //         ?? throw new IOException($"Failed to start ffmpeg for camera {cameraId}.");
 
-            // Drain stderr on a background thread so the pipe never blocks
-            process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.Error.WriteLine($"[ffmpeg cam{cameraId}] {e.Data}");
-            };
-            process.BeginErrorReadLine();
+        //     // Drain stderr on a background thread so the pipe never blocks
+        //     process.ErrorDataReceived += (_, e) =>
+        //     {
+        //         if (e.Data != null)
+        //             Console.Error.WriteLine($"[ffmpeg cam{cameraId}] {e.Data}");
+        //     };
+        //     process.BeginErrorReadLine();
 
-            _ffmpegProcesses[cameraId] = process;
-            _videoFrameCounters[cameraId] = 0;
-        }
+        //     _ffmpegProcesses[cameraId] = process;
+        //     _videoFrameCounters[cameraId] = 0;
+        // }
     }
 
     /// <summary>
@@ -129,30 +129,30 @@ internal sealed class ChronosSession : IAsyncDisposable
     /// </summary>
     internal unsafe void WriteVideoFrame(int cameraId, Mat frame)
     {
-        lock (_videoLock)
-        {
-            if (!_ffmpegProcesses.TryGetValue(cameraId, out var process) || process.HasExited)
-                return;  // silently drop frame if ffmpeg died
+        // lock (_videoLock)
+        // {
+        //     if (!_ffmpegProcesses.TryGetValue(cameraId, out var process) || process.HasExited)
+        //         return;  // silently drop frame if ffmpeg died
 
-            try
-            {
-                long byteCount = frame.Total() * frame.ElemSize();
-                var span = new ReadOnlySpan<byte>((void*)frame.Data, (int)byteCount);
-                process.StandardInput.BaseStream.Write(span);
+        //     try
+        //     {
+        //         long byteCount = frame.Total() * frame.ElemSize();
+        //         var span = new ReadOnlySpan<byte>((void*)frame.Data, (int)byteCount);
+        //         process.StandardInput.BaseStream.Write(span);
 
-                long frameIndex = _videoFrameCounters[cameraId]++;
-                using var ms = new MemoryStream(12);
-                using var bw = new BinaryWriter(ms);
-                bw.Write(cameraId);
-                bw.Write(frameIndex);
-                EnqueueEntry(EntryTypeId.CameraFrameSync, GetTimestampNs(), ms.ToArray());
-            }
-            catch (IOException)
-            {
-                // ffmpeg died mid-session; remove it so we stop trying
-                _ffmpegProcesses.Remove(cameraId);
-            }
-        }
+        //         long frameIndex = _videoFrameCounters[cameraId]++;
+        //         using var ms = new MemoryStream(12);
+        //         using var bw = new BinaryWriter(ms);
+        //         bw.Write(cameraId);
+        //         bw.Write(frameIndex);
+        //         EnqueueEntry(EntryTypeId.CameraFrameSync, GetTimestampNs(), ms.ToArray());
+        //     }
+        //     catch (IOException)
+        //     {
+        //         // ffmpeg died mid-session; remove it so we stop trying
+        //         _ffmpegProcesses.Remove(cameraId);
+        //     }
+        // }
     }
 
     // ------------------------------------------------------------------
