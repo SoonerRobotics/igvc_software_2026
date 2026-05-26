@@ -90,7 +90,7 @@ int main(void) {
 
 	SwerveDrive *swerveDrive = InitSwerveDrive();
 	uint32_t last = HAL_GetTick();
-	const uint32_t period_ms = 50;
+	const uint32_t period_ms = 20;
 	while (1) {
 		uint32_t now = HAL_GetTick();
 		if ((now - last) >= period_ms) {

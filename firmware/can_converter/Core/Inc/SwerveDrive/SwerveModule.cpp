@@ -8,7 +8,7 @@
 #include <cmath>
 
 // #define ZEMLIN 149.5
-#define ZEMLIN 42.0f
+#define ZEMLIN 205.8
 
 // float driveMotorGearRatio = 1.0f / ((10.0f / 60.0f) * (15.0f / 36.0f));
 float driveMotorGearRatio = (60.0f / 10.0f) * (36.0f / 15.0f);
@@ -68,7 +68,7 @@ void SwerveModule::updateState(SwerveModuleState desired_state) {
 		desired_angle = desired_angle + (2 * M_PI);
 	}
 
-	if (std::fabs(desired_drive_speed) > 0.3) {
+	if (std::fabs(desired_drive_speed) > 0.05) {
 		last_set_angle_ = desired_angle;
 		angle_motor_.setPosition((desired_angle)/(2*M_PI));
 	}
