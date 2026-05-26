@@ -92,6 +92,7 @@ public class ManualControlSubsystem(
         controller.Buttons.View.OnReleased += async () =>
         {
             SetRobotMode(RobotModeEnum.Disabled);
+            SetRobotMobility(false); //TODO: move this to BaseRobot? to automatically kill mobility when disabled?
             canbus?.SafetyLights.SetDisabled();
 
             // Chronos
