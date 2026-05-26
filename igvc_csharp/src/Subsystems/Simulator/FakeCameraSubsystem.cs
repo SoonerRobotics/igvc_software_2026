@@ -90,7 +90,7 @@ public class FakeCameraSubsystem : SubsystemBase
                 var fullFrame = MessageConstructor.CreateImageFrame(
                     (uint)combined.Width,
                     (uint)combined.Height,
-                    "combined_view",
+                    "combined_debug",
                     CvUtils.FromMat(combined)
                 );
 

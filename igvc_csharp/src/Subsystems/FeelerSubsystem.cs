@@ -17,7 +17,7 @@ using igvc_csharp.src.Utils;
 
 namespace igvc_csharp.src.Subsystems;
 
-[Subsystem("FeelerSubsystem", Disabled = true)]
+[Subsystem("FeelerSubsystem", Disabled = false)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // actual feeler stuff
@@ -68,7 +68,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
 
         SubscribeImage(
-            "combined_view",
+            "combined_debug",
             OnDebugImageReceived,
             token
         );
@@ -185,7 +185,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
         return Task.CompletedTask;
     }
-    
+
     private Task OnDebugImageReceived(ImageFrame frame, CancellationToken token)
     {
         _debugFrameChannel.Writer.TryWrite(frame);
@@ -197,7 +197,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
         _maskFrameChannel.Writer.TryWrite(frame);
 
         if (State != SubsystemState.Operating && State != SubsystemState.Ready)
-        {        
+        {
             SetOperatingState(SubsystemState.Ready);
         }
 
@@ -235,7 +235,7 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                 }
 
                 // check if we're in autonomous to avoid conflicting with manual control if it's running
-                if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous)
+                if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous || true)
                 {
                     if (State == SubsystemState.Ready || State == SubsystemState.Operating)
                     {
@@ -263,16 +263,19 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                         // bias all Feelers forwards
                         var forwardFeeler = new Feeler(new SCR_Point(0, FeelerConfig.ForwardBiasWeight));
-                        foreach (var feeler in _feelers)
+                        lock (_feelers)
                         {
-                            // Logger.LogInformation("forwardFeeler * {} = {}", feeler, forwardFeeler * feeler);
-                            // var tempMax = feeler.Max;
-                            feeler.Bias(forwardFeeler * feeler);
-                            // Logger.LogInformation("max {} bias by {} = {}", tempMax, forwardFeeler * feeler, feeler.Max);
+                            foreach (var feeler in _feelers)
+                            {
+                                // Logger.LogInformation("forwardFeeler * {} = {}", feeler, forwardFeeler * feeler);
+                                // var tempMax = feeler.Max;
+                                feeler.Bias(forwardFeeler * feeler);
+                                // Logger.LogInformation("max {} bias by {} = {}", tempMax, forwardFeeler * feeler, feeler.Max);
+                            }
                         }
 
                         // bias towards GPS
-                        if (_goalPoint != null)
+                        if (_goalPoint != null && false)
                         {
                             var current_gps = new LatLng(_position.Latitude, _position.Longitude);
 
@@ -282,9 +285,12 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                             _gpsFeeler = new Feeler(new SCR_Point(dist, headingError), new Scalar(250, 50, 50));
 
                             // calculate gps bias for every feeler
-                            foreach (var feeler in _feelers)
+                            lock (_feelers)
                             {
-                                feeler.Bias(_gpsFeeler * feeler);
+                                foreach (var feeler in _feelers)
+                                {
+                                    feeler.Bias(_gpsFeeler * feeler);
+                                }
                             }
                         }
 
@@ -296,37 +302,58 @@ public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
                             continue;
                         }
 
-                        foreach (var feeler in _feelers)
+                        lock (_feelers)
                         {
-                            //TODO this could be multithreaded or something (if it's that big of a performance hit, that is)
-                            feeler.Update(raw_pixels, mask.Channels(), mask.Cols, mask.Rows);
-                            controlFeeler += feeler;
+                            foreach (var feeler in _feelers)
+                            {
+                                //TODO this could be multithreaded or something (if it's that big of a performance hit, that is)
+                                feeler.Update(raw_pixels, mask.Channels(), mask.Cols, mask.Rows);
+                                controlFeeler += feeler;
+                            }
                         }
 
                         // if we are allowed to move (earlier check means we are already in auto and operating, so don't have to recheck those)
-                        if (BaseRobot.Instance.State.MotionAllowed)
+                        if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous)
                         {
-                            // convert headingArrow to motor output
-                            canbus.MotorControl.SetVelocities(
-                                (float)Math.Clamp(_drivingPID.Calculate(controlFeeler.Current.Y), -FeelerConfig.MaxDriveSpeed, FeelerConfig.MaxDriveSpeed),
-                                (float)0.0, //FIXME we need to figure out strafing
-                                (float)Math.Clamp(_headingPID.Calculate(controlFeeler.Current.X), -FeelerConfig.MaxTurnSpeed, FeelerConfig.MaxTurnSpeed)
-                            );
-                        }
-                        else
-                        {
-                            // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
-                            canbus.MotorControl.SetVelocities(
-                                0f,
-                                0f,
-                                0f
-                            );
+                            if (BaseRobot.Instance.State.MotionAllowed)
+                            {
+                                // convert headingArrow to motor output
+                                canbus.MotorControl.SetVelocities(
+                                    (float)Math.Clamp(_drivingPID.Calculate(-controlFeeler.Current.Y), -FeelerConfig.MaxDriveSpeed, FeelerConfig.MaxDriveSpeed),
+                                    (float)0.0, //FIXME we need to figure out strafing
+                                    (float)Math.Clamp(_headingPID.Calculate(controlFeeler.Current.X), -FeelerConfig.MaxTurnSpeed, FeelerConfig.MaxTurnSpeed)
+                                );
+
+                                // Logger.LogInformation(
+                                //     "Feelers outputing: {}  |  0  |  {}",
+                                //     Math.Clamp(_drivingPID.Calculate(-controlFeeler.Current.Y), -FeelerConfig.MaxDriveSpeed, FeelerConfig.MaxDriveSpeed),
+                                //     Math.Clamp(_headingPID.Calculate(controlFeeler.Current.X), -FeelerConfig.MaxTurnSpeed, FeelerConfig.MaxTurnSpeed)
+                                // );
+
+                                // canbus.MotorControl.SetVelocities(
+                                //     0f,
+                                //     0f,
+                                //     0f
+                                // );
+                            }
+                            else
+                            {
+                                // we are not mobility enabled and thus not allowed to move, so publish velocities of 0 for everything
+                                canbus.MotorControl.SetVelocities(
+                                    0f,
+                                    0f,
+                                    0f
+                                );
+                            }
                         }
 
                         // draw debug image
-                        foreach (var feeler in _feelers)
+                        lock (_feelers)
                         {
-                            feeler.Draw(debugImg);
+                            foreach (var feeler in _feelers)
+                            {
+                                feeler.Draw(debugImg);
+                            }
                         }
                         _gpsFeeler.Draw(debugImg);
                         controlFeeler.Draw(debugImg);

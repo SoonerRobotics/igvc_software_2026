@@ -19,7 +19,7 @@ public static class Configuration
 
     /// <summary>
     /// Determines if the robot will use the simulator.
-    public const bool UseSimulation = true;
+    public const bool UseSimulation = false;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -168,8 +168,8 @@ public static class Configuration
         public static Point2f[] leftSourcePoints =
         [
             new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
-            new(640 - 90, 100), // same here
-            new(640 - 90, 480),
+            new(640 - 125, 100), // same here
+            new(640 - 125, 480),
             new(0, 480),
         ];
 
@@ -189,10 +189,10 @@ public static class Configuration
         /// </summary>
         public static Point2f[] rightSourcePoints =
         [
-            new(0 + 60, 100),     // same here
-            new(470, 100),   // same here
+            new(0 + 125, 100),    // same here
+            new(470, 100),        // same here
             new(640, 480),
-            new(0 + 60, 480),
+            new(0 + 125, 480),
         ];
 
         /// <summary>
@@ -279,13 +279,13 @@ public static class Configuration
         /// Default (unbiased) max length of the vision feelers, in pixels
         /// </summary>
         [Config("feelers.max_length")]
-        public static int MaxLength = 250;
+        public static int MaxLength = 480;
 
         /// <summary>
         /// The starting angle of the 1st feeler, in degrees. 0 degrees is the positive x-axis
         /// </summary>
         [Config("feelers.angle_offset")]
-        public static double AngleOffset = 11;
+        public static double AngleOffset = 2;
 
         /// <summary>
         /// How large the arc of feelers is, in degrees (determines where the last feeler is placed)
@@ -302,7 +302,7 @@ public static class Configuration
         /// <summary>
         /// TODO
         /// </summary>
-        [Config("feelers.balace_feelers")]
+        [Config("feelers.balance_feelers")]
         public static bool BalanceFeelers = false;
 
         /// <summary>
@@ -321,13 +321,13 @@ public static class Configuration
         /// The maximum amount each feeler should be biased by the GPS feeler, in pixels
         /// </summary>
         [Config("feelers.gps_bias_weight")]
-        public static int GpsBias = 75;
+        public static int GpsBias = 0;
 
         /// <summary>
         /// The maximum amount each feeler should be biased by the forward feeler, in pixels
         /// </summary>
         [Config("feelers.forward_bias_weight")]
-        public static int ForwardBiasWeight = 5;
+        public static int ForwardBiasWeight = 0;
 
         /// <summary>
         /// How far up the image to center the feelers from, as a percentage.
@@ -342,25 +342,25 @@ public static class Configuration
         /// The maximum forward velocity that feelers is allowed to command, in meters per second
         /// </summary>
         [Config("feelers.max_drive_speed")]
-        public static double MaxDriveSpeed = 1;
+        public static double MaxDriveSpeed = 0.25;
 
         /// <summary>
         /// The maximum sideways velocity that feelers is allowed to command, in meters per second
         /// </summary>
         [Config("feelers.max_strafe_speed")]
-        public static double MaxStrafeSpeed = 1;
+        public static double MaxStrafeSpeed = 0.01;
 
         /// <summary>
         /// The maximum rotational velocity that feelers is allowed to command, in radians per second
         /// </summary>
         [Config("feelers.max_turn_speed")]
-        public static double MaxTurnSpeed = 1;
+        public static double MaxTurnSpeed = 0.2;
 
         /// <summary>
         /// The proportional staticant for the drive PID
         /// </summary>
         [Config("feelers.drive_kp")]
-        public static double DriveKp = 0.0005;
+        public static double DriveKp = 0.0001;
 
         /// <summary>
         /// The integral staticant for the drive PID
@@ -378,7 +378,7 @@ public static class Configuration
         /// The proportional staticant for the heading PID
         /// </summary>
         [Config("feelers.heading_kp")]
-        public static double HeadingKp = 0.003;
+        public static double HeadingKp = 0.0003;
 
         /// <summary>
         /// The integral staticant for the heading PID

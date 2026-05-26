@@ -31,6 +31,10 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
         //FIXME we need to run this command on startup or something
         //  pactl set-sink-volume @DEFAULT_SINK@ 150%
 
+        // we also need to run this command on startup:
+        //   pactl set-default-sink bluez_sink.8C_85_80_BC_73_39.handsfree_head_unit
+        // which should be cross-platform because it's based on the MAC address of the  
+
         _ = Task.Factory.StartNew(
             () => PlaySound("robot-code-start.mp3"),
             token,

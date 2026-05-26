@@ -66,7 +66,7 @@ public class TestVisionLoggerSubsystem() : SubsystemBase
         );
 
         SubscribeImage(
-            "combined_view",
+            "combined_debug",
             OnCombinedImageReceived,
             token
         );
