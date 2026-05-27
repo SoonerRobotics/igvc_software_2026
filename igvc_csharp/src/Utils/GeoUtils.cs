@@ -1,47 +1,26 @@
 using System;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Core.Units;
 
 namespace igvc_csharp.Utils
 {
-    public static class GeoUtils
+    public class GeoUtils
     {
-        // WGS-84 ellipsoid
-        private const double SemiMajorAxis = 6378137.0;
-        private const double Flattening = 1.0 / 298.257223563;
-        private const double EccentricitySqrd = Flattening * (2 - Flattening);
-        private const double RadPerDeg = Math.PI / 180.0;
-        private const double DegPerRad = 180.0 / Math.PI;
+        [Config("geoutils.latitude_length")]
+        public static double LatitudeLength = 110086.2;
         
-        private static (double east_m, double north_m) GenerateOffsetMeters(LatLng a, LatLng b)
-        {
-            var phi0 = a.Latitude * RadPerDeg;
-            var lambda0 = a.Longitude * RadPerDeg;
-            var phi = b.Latitude * RadPerDeg;
-            var lambda = b.Longitude * RadPerDeg;
-
-            var sinPhi0 = Math.Sin(phi0);
-            var cosPhi0 = Math.Cos(phi0);
-            var denom = Math.Sqrt(1.0 - EccentricitySqrd * sinPhi0 * sinPhi0);
-
-            var n = SemiMajorAxis / denom;
-            var m = SemiMajorAxis * (1.0 - EccentricitySqrd) / (denom * denom * denom);
-            
-            var dPhi = phi - phi0;
-            var dLambda = lambda - lambda0;
-
-            var north = m * dPhi;
-            var east  = n * cosPhi0 * dLambda;
-
-            return (east, north);
-        }
+        [Config("geoutils.longitude_length")]
+        public static double LongitudeLength = 81978.2;
         
         /**
-         * Returns the distance between two LatLng points
+         * Returns the distance between two LatLng points in meters
          */
         public static Distance LatLngDistance(LatLng a, LatLng b)
         {
-            var (e, n) = GenerateOffsetMeters(a, b);
-            return DistanceUnit.Meters.Of(Math.Sqrt(e * e + n * n));
+            var northToGps = (b.Latitude - a.Latitude) * LatitudeLength;
+            var eastToGps = (b.Longitude - a.Longitude) * LongitudeLength;
+            
+            return new Distance(Math.Sqrt(northToGps * northToGps + eastToGps * eastToGps));
         }
 
         /**
@@ -50,20 +29,20 @@ namespace igvc_csharp.Utils
          */
         public static Angle? EstimateHeading(LatLng prev, LatLng current)
         {
-            var (east, north) = GenerateOffsetMeters(prev, current);
-
-            if (east == 0.0 && north == 0.0)
+            var distance = LatLngDistance(prev, current);
+            if (distance.To(DistanceUnit.Meters) < 0.1) // If the robot hasn't moved, we can't estimate a heading
             {
                 return null;
             }
-
-            var theta = Math.Atan2(east, north);
-            if (theta < 0)
-            {
-                theta += 2.0 * Math.PI;
-            }
-
-            return AngleUnit.Radians.Of(theta);
+            
+            var deltaLon = (current.Longitude - prev.Longitude) * (Math.PI / 180);
+            var lat1 = prev.Latitude * (Math.PI / 180);
+            var lat2 = current.Latitude * (Math.PI / 180);
+            
+            var x = Math.Sin(deltaLon) * Math.Cos(lat2);
+            var y = Math.Cos(lat1) * Math.Sin(lat2) - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(deltaLon);
+            var heading = Math.Atan2(x, y) % (2 * Math.PI);
+            return new Angle(heading, isRadians: true);
         }
     }
 }

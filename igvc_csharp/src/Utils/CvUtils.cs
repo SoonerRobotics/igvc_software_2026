@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Runtime.InteropServices;
-using Google.FlatBuffers;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
@@ -12,7 +11,7 @@ namespace igvc_csharp.Utils;
 public class CvUtils
 {
     private static ILogger Logger = Logging.From<CvUtils>();
-
+    
     public static Mat AsMat(ImageFrame frame)
     {
         var bytes = frame.GetImageDataArray();
