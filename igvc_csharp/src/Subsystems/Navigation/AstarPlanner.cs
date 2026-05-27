@@ -23,12 +23,12 @@ public record AStarConfig
     /// <summary>
     /// Milliseconds to wait after entering autonomous before waypoints influence path planning.
     /// </summary>
-    public ulong WaypointDelayMs { get; init; } = 8000;
+    public ulong WaypointDelayMs { get; init; } = 6000;
 
     /// <summary>
     /// When true, the cost map is zeroed out and the robot steers purely by waypoint heading.
     /// </summary>
-    public bool UseOnlyWaypoints { get; init; } = false;
+    public bool UseOnlyWaypoints { get; init; } = true;
 }
 
 public static class AStarPlanner

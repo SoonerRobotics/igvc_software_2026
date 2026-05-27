@@ -15,6 +15,7 @@ public class ManualControlSubsystem(
 ) : SubsystemBase
 {
     private DateTime? _dpadDepressedAt;
+    private DateTime? _bDepressedAt;
     private bool _dpadFlashed;
 
     private double _angularVelocity;
@@ -83,10 +84,12 @@ public class ManualControlSubsystem(
             {
                 await chronos.StopRunAsync();
             }
-            chronos.StartRun(SessionType.Autonomous);
 
             SetRobotMode(RobotModeEnum.Autonomous);
-            canbus?.SafetyLights.SetAutonomous();
+            if (BaseRobot.Instance?.State.MotionAllowed == false)
+            {
+                canbus?.SafetyLights.SetAutonomous();
+            }
         };
 
         controller.Buttons.View.OnReleased += async () =>
@@ -111,7 +114,7 @@ public class ManualControlSubsystem(
         {
             if (_dpadDepressedAt == null || _dpadFlashed) return;
             
-            if ((DateTime.Now - _dpadDepressedAt).Value.Milliseconds <= 1500)
+            if ((DateTime.Now - _dpadDepressedAt).Value.TotalMilliseconds <= 1500)
             {
                 return;
             }
@@ -125,7 +128,7 @@ public class ManualControlSubsystem(
             if (_dpadDepressedAt == null) return;
 
             _dpadFlashed = false;
-            if ((DateTime.Now - _dpadDepressedAt).Value.Milliseconds <= 3000)
+            if ((DateTime.Now - _dpadDepressedAt).Value.TotalMilliseconds <= 3000)
             {
                 _dpadDepressedAt = null;
                 return;
@@ -169,6 +172,29 @@ public class ManualControlSubsystem(
         controller.Buttons.RightBumper.OnReleased += () =>
         {
             canbus?.SendMobility(false);
+        };
+
+        controller.Buttons.B.OnPressed += () =>
+        {
+            _bDepressedAt = DateTime.Now;
+        };
+        controller.Buttons.B.OnReleased += () =>
+        {
+            if (_bDepressedAt == null) return;
+
+            if ((DateTime.Now - _bDepressedAt).Value.TotalMilliseconds <= 1500)
+            {
+                return;
+            }
+            
+            Logger.LogInformation("Shutting down robot via controller command");
+            canbus?.SafetyLights.SetShuttingDown();
+
+            // Wait a moment to allow the light command to send before shutting down
+            Task.Delay(1500).ContinueWith(_ =>
+            {
+                RobotManager.Shutdown();
+            });
         };
     }
 }

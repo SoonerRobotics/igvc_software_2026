@@ -85,6 +85,13 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
         if (identifier === "log") {
             const log = buildArcData_Log(payload);
             set((state: any) => ({ logs: [...state.logs, log] }));
+
+            // Keep only the most recent 100 logs to prevent memory issues
+            set((state: any) => ({ logs: state.logs.slice(-100) }));
+
+            // Sort by timestamp just in case they arrive out of order
+            set((state: any) => ({ logs: state.logs.sort((a: ArcLog, b: ArcLog) => Number(a.timestamp) - Number(b.timestamp)) }));
+
             return;
         }
 

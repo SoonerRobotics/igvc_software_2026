@@ -99,6 +99,8 @@ public class CanbusSubsystem(
             _connected = true;
             Logger.LogInformation("Connected to Canbus at {socket}", _canNetwork.Name);
             SetOperatingState(SubsystemState.Operating);
+
+            Task.Delay(1000).ContinueWith(_ => SafetyLights.SetBooting());
         }
     }
 

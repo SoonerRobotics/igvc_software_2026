@@ -17,15 +17,16 @@ public class MotorSubsystem(
     private const float RadiusMax = 4.0f;
 
     // Velocity limits
-    private const double ForwardSpeed = 0.4;
-    private const double AngularAggression = 1;
-    private const double MaxAngularSpeed = 0.7;
+    private const double ForwardSpeed = 0.5;
+    private const double AngularAggression = 1.5;
+    private const double MaxAngularSpeed = 1.5;
 
-    private const float AtGoalDistanceSq = 0.25f;
+    private const float AtGoalDistanceSq = 0.1f;
 
     private readonly PurePursuit _pursuit = new();
 
     private bool _sentStopOnExit = false;
+    private int _reverseFrames = 0;
 
     public override Task Init(CancellationToken token)
     {
@@ -48,12 +49,17 @@ public class MotorSubsystem(
             _sentStopOnExit = true;
         }
 
+        if (updated.MotionAllowed && updated.Mode == RobotModeEnum.Autonomous)
+        {
+            canbus.SafetyLights.SetAutonomous();
+        }
+
         return Task.CompletedTask;
     }
 
     private async Task ControlLoop(CancellationToken token)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(50));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(20));
 
         try
         {
@@ -68,6 +74,13 @@ public class MotorSubsystem(
                         SendVelocities(0, 0, 0);
                         _sentStopOnExit = true;
                     }
+                    continue;
+                }
+
+                if (_reverseFrames > 0)
+                {
+                    SendVelocities(-0.4, 0, 0.1);
+                    _reverseFrames--;
                     continue;
                 }
 
@@ -103,8 +116,9 @@ public class MotorSubsystem(
 
                 if (distSq <= AtGoalDistanceSq)
                 {
-                    Logger.LogDebug("At goal, holding position");
+                    // Logger.LogDebug("At goal, holding position");
                     SendVelocities(0, 0, 0);
+                    _reverseFrames = 15;
                     continue;
                 }
 

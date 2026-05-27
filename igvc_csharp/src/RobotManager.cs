@@ -71,33 +71,32 @@ public class RobotManager
         }
     }
 
+    public static void Shutdown()
+    {
+        if (_shuttingDown)
+        {
+            return;
+        }
+
+        _shuttingDown = true;
+
+        Logger.LogInformation("Shutdown initiated");
+        _gCts?.Cancel();
+    }
+
     private static void CreateShutdownHooks(CancellationTokenSource cts)
     {
         Console.CancelKeyPress += (_, e) =>
         {
-            if (_shuttingDown)
-            {
-                return;
-            }
-
-            _shuttingDown = true;
-
-            Logger.LogWarning("Ctrl + C received, shutting down");
-            e.Cancel = true;
+            Logger.LogInformation("Shutdown initiated via console cancel key press");
+            e.Cancel = true; // prevent the process from being killed immediately
             cts.Cancel();
         };
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            if (_shuttingDown)
-            {
-                return;
-            }
-
-            _shuttingDown = true;
-
-            Logger.LogWarning("Process exit signal received");
-            cts.Cancel();
+            Logger.LogInformation("Shutdown initiated via process exit signal");
+            Shutdown();
         };
     }
 }

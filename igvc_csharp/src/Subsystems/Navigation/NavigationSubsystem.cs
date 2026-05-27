@@ -89,7 +89,9 @@ public class NavigationSubsystem : SubsystemBase
             var curr = new LatLng(msg.Latitude, msg.Longitude);
             var heading = GeoUtils.EstimateHeading(prev, curr);
             if (heading.HasValue)
+            {
                 _robotThetaRad = (float)heading.Value.To(AngleUnit.Radians);
+            }
             // If EstimateHeading returns null (no movement), keep the last known heading
         }
 
@@ -170,7 +172,11 @@ public class NavigationSubsystem : SubsystemBase
 
         // Only pass waypoint influence once the delay has elapsed and we have an active waypoint
         float? activeWaypointHeading = _waypointsActive ? _waypointHeadingRad : null;
-        float? activeRobotTheta = _waypointsActive ? _robotThetaRad : null;
+        float? activeRobotTheta = _robotThetaRad;
+
+        // Log current heading for debugging and the current waypoint, convert robot to degrees
+        Logger.LogInformation("Current robot heading: {RobotTheta}",
+            activeRobotTheta.HasValue ? $"{activeRobotTheta.Value * (180 / Math.PI):F1}°" : "unknown");
 
         var gridPath = AStarPlanner.FindPath(costMap, _config, activeWaypointHeading, activeRobotTheta);
 

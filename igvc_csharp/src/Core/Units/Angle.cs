@@ -7,15 +7,16 @@ public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
 {
     private double Radians { get; set; }
 
-    internal Angle(double radians, bool isRadians = true)
+    internal Angle(double angle, bool isRadians = true)
     {
         if (isRadians)
         {
-            Radians = radians;
+            Radians = angle;
         }
         else
         {
-            Radians = radians * (Math.PI / 180);
+            // convert from degrees to radians
+            Radians = angle * Math.PI / 180.0;
         }
     }
 

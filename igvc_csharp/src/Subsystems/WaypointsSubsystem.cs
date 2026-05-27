@@ -166,17 +166,17 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
             // then pick a set of waypoints based on which direction we are heading
             double heading_degrees = LatLng.TravelHeading(_startGpsPos ?? new(0, 0), new LatLng(msg.Latitude, msg.Longitude))?.To(AngleUnit.Degrees) ?? 0;
-            if (120 < heading_degrees && heading_degrees < 240)
-            {
-                _waypointDirection = -1; // south
+            // if (120 < heading_degrees && heading_degrees < 240)
+            // {
+                // _waypointDirection = -1; // south
                 // if we are going south, make the index the last element in the list and we will work backwards
-                _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
-            }
-            else
-            {
+                // _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
+            // }
+            // else
+            // {
                 _waypointDirection = 1; // north
                 _waypointIndex = 0;
-            }
+            // }
 
 
             Logger.LogInformation("Picked [{}] waypoint set with direction [{}]! Tracking [{}] waypoints...", _waypointSet, _waypointDirection.ToString(), _waypointsDict[_waypointSet].Count);

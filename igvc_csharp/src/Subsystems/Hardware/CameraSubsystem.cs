@@ -50,6 +50,8 @@ public class CameraSubsystem(
         _ = Task.Factory.StartNew(() => mLeftWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         _ = Task.Factory.StartNew(() => mRightWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
+        Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
+
         var processConfig = new ProcessManagerConfig
         {
             AutoRestart = true,
@@ -66,6 +68,16 @@ public class CameraSubsystem(
         await mCameraProcess.StartAsync(token);
 
         SetOperatingState(SubsystemState.Ready);
+    }
+
+    public Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
+    {
+        if (e.Path == "subsystem.camera.fps")
+        {
+            SetCameraProperty(CameraSide.Both, CameraProperty.Fps, e.Value as uint? ?? DefaultFps);
+        }
+
+        return Task.CompletedTask;
     }
 
     public override async Task Shutdown()

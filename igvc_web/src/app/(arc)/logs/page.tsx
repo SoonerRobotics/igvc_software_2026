@@ -34,7 +34,7 @@ function logLevelFromNumber(level: number): LogLevel {
 }
 
 export default function LogsPage() {
-    const logs = useRobotStore((state) => state.logs);
+    const logs = useRobotStore((state) => state.logs.reverse());
 
     return (
         <div className="flex flex-col">

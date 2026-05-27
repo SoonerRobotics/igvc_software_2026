@@ -51,7 +51,7 @@ public class CurrentSensorLayer(CanbusSubsystem canbus)
             throw new ArgumentException($"Invalid current CAN frame ID: {frame.CanId}");
         }
 
-        return BitConverter.ToInt32(frame.Data, 0) / 1000.0;
+        return Math.Abs(BitConverter.ToInt32(frame.Data, 0) / 1000.0);
     }
     
     public static double ParseVoltage(CanFrame frame)
@@ -61,6 +61,6 @@ public class CurrentSensorLayer(CanbusSubsystem canbus)
             throw new ArgumentException($"Invalid voltage CAN frame ID: {frame.CanId}");
         }
 
-        return BitConverter.ToInt32(frame.Data, 0) / 1000.0;
+        return Math.Abs(BitConverter.ToInt32(frame.Data, 0) / 1000.0);
     }
 }

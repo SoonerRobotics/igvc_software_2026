@@ -17,7 +17,7 @@ using igvc_csharp.src.Utils;
 
 namespace igvc_csharp.src.Subsystems;
 
-[Subsystem("FeelerSubsystem", Disabled = false)]
+[Subsystem("FeelerSubsystem", Disabled = true)]
 public class FeelerSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
     // actual feeler stuff

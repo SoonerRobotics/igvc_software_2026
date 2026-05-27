@@ -46,7 +46,7 @@ public static class Configuration
         /// The directory that all presets will be placed in.
         /// <b>NOTE:</b> This will be created if it does not exist.
         /// </summary>
-        public static string PresetsDirectory = "~/.igvc/config";
+        public static string PresetsDirectory = Path.Join(FileUtils.GetProjectRootDirectory(), "..", "config");
 
         /// <summary>
         /// The default preset name.

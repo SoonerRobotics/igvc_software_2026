@@ -1,0 +1,79 @@
+{
+    "robot.periodic_rate": 100,
+    "robot.networking_magic": "SUdWQw==",
+    "subsystem.camera.left_shm": "/camera_left",
+    "subsystem.camera.right_shm": "/camera_right",
+    "subsystem.camera.reconnect_delay_ms": 2000,
+    "subsystem.camera.staleness_threshold_ms": 5000,
+    "subsystem.camera.fps": 20,
+    "hardware.can.interface": "igvc-can0",
+    "hardware.can.timeout": 500,
+    "logging.level": "Trace",
+    "arc.port": 8080,
+    "arc.path": "/",
+    "simulator.host": "127.0.0.1",
+    "simulator.port": 4001,
+    "simulator.reconnect_delay": 3000,
+    "vision.ground_threshold": {
+        "min": {
+            "h": 0,
+            "s": 0,
+            "v": 0
+        },
+        "max": {
+            "h": 179,
+            "s": 200,
+            "v": 190
+        }
+    },
+    "vision.yellow_threshold": {
+        "min": {
+            "h": 14,
+            "s": 80,
+            "v": 80
+        },
+        "max": {
+            "h": 40,
+            "s": 255,
+            "v": 255
+        }
+    },
+    "vision.blur_radius": 5,
+    "vision.blur_strength": 3,
+    "drive.max_forward": {
+        "mph": 2.2369362920544025
+    },
+    "drive.max_sideways": {
+        "mph": 2.2369362920544025
+    },
+    "drive.max_angular": {
+        "dps": 119.99999999999999
+    },
+    "drive.invert_forward": false,
+    "drive.invert_sideways": true,
+    "drive.invert_angular": true,
+    "drive.update_frequency": 20,
+    "feelers.use_feelers": true,
+    "feelers.max_length": 480,
+    "feelers.angle_offset": 2,
+    "feelers.angular_width": 176,
+    "feelers.num_feelers": 32,
+    "feelers.balance_feelers": false,
+    "feelers.use_only_waypoints": false,
+    "feelers.gps_wait_time": 30000,
+    "feelers.gps_bias_weight": 0,
+    "feelers.forward_bias_weight": 0,
+    "feelers.y_percentage": 0.9,
+    "feelers.max_drive_speed": 0.25,
+    "feelers.max_strafe_speed": 0.01,
+    "feelers.max_turn_speed": 0.2,
+    "feelers.drive_kp": 0.0001,
+    "feelers.drive_ki": 0,
+    "feelers.drive_kd": 0,
+    "feelers.heading_kp": 0.0003,
+    "feelers.heading_ki": 0,
+    "feelers.heading_kd": 0,
+    "waypoints.waypoint_pop_dist": 1.5,
+    "waypoints.waypoint_pop_time": 500,
+    "waypoints.gps_wait_time": 2000
+}

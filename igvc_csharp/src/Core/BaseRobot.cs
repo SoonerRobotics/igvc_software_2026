@@ -311,6 +311,13 @@ public abstract class BaseRobot : IDisposable
                 Logger.LogError(ex, "Subsystem shutdown failed: {Subsystem}", subsystem.GetType().Name);
             }
         }
+
+        // Kill the current process after a delay to ensure everything is flushed and stuff
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(1500);
+            Logger.LogInformation("Exiting process");
+        });
     }
 
     public void Dispose()

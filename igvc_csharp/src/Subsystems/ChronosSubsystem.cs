@@ -22,6 +22,9 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         // Current Sensor
         public const ushort CurrentSense = 0x1200;
         public const ushort VoltageSense = 0x1201;
+
+        // Performance
+        public const ushort SystemPerformance = 0x1300;
     }
 
     public static class CameraId
@@ -93,5 +96,15 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         using var writer = new BinaryWriter(ms);
         writer.Write(voltage);
         WriteEntry(EntryId.VoltageSense, ms.ToArray());
+    }
+
+    public void WriteSystemPerformance(float ramUsage, float cpuUsage, float gpuUsage)
+    {
+        using var ms = new MemoryStream(sizeof(float) * 3);
+        using var writer = new BinaryWriter(ms);
+        writer.Write(ramUsage);
+        writer.Write(cpuUsage);
+        writer.Write(gpuUsage);
+        WriteEntry(EntryId.SystemPerformance, ms.ToArray());
     }
 }

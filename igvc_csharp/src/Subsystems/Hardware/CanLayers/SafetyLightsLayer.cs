@@ -46,9 +46,12 @@ public class SafetyLightsLayer(CanbusSubsystem canbus)
         => SetRaw(new SafetyLightsPacket(mode, color, speed));
 
     public void SetAutonomous() => Set(SafetyLightsMode.Blinking, ColorUtils.Color.Autonomous);
+    public void SetHalfAutonomous() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.White, 4000);
     public void SetManual() => Set(SafetyLightsMode.Solid, ColorUtils.Color.Manual);
     public void SetBooting() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.Amaranth, 1500);
     public void SetDisabled() => Set(SafetyLightsMode.Default, ColorUtils.Color.White);
+    public void SetLowPower() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.Red, 3000);
+    public void SetShuttingDown() => Set(SafetyLightsMode.Blinking, ColorUtils.Color.Red, 1000);
 
     public void FlashTemporary(ColorUtils.Color color, CancellationToken token,
         ushort length = 2000, ushort speed = 1000)

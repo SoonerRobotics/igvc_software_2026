@@ -32,34 +32,6 @@ public class ControllerSubsystem : SubsystemBase
 
         _ = Task.Run(() => ReadLoop(token), token);
 
-        // DebugPrints();
-        return Task.CompletedTask;
-    }
-
-    public override Task Periodic(CancellationToken token)
-    {
-        if (Buttons.A.IsDown) Buttons.A.Update(true);
-        if (Buttons.B.IsDown) Buttons.B.Update(true);
-        if (Buttons.X.IsDown) Buttons.X.Update(true);
-        if (Buttons.Y.IsDown) Buttons.Y.Update(true);
-        if (Buttons.LeftStick.IsDown) Buttons.LeftStick.Update(true);
-        if (Buttons.RightStick.IsDown) Buttons.RightStick.Update(true);
-        if (Buttons.LeftBumper.IsDown) Buttons.LeftBumper.Update(true);
-        if (Buttons.RightBumper.IsDown) Buttons.RightBumper.Update(true);
-        if (Buttons.Menu.IsDown) Buttons.Menu.Update(true);
-        if (Buttons.View.IsDown) Buttons.View.Update(true);
-        if (Buttons.Xbox.IsDown) Buttons.Xbox.Update(true);
-
-        if (Dpad.DpadLeft.IsDown) Dpad.DpadLeft.Update(true);
-        if (Dpad.DpadRight.IsDown) Dpad.DpadRight.Update(true);
-        if (Dpad.DpadUp.IsDown) Dpad.DpadUp.Update(true);
-        if (Dpad.DpadDown.IsDown) Dpad.DpadDown.Update(true);
-
-        Axes.LeftStick.Broadcast();
-        Axes.RightStick.Broadcast();
-        Axes.LeftTrigger.Broadcast();
-        Axes.RightTrigger.Broadcast();
-
         return Task.CompletedTask;
     }
 
@@ -99,7 +71,7 @@ public class ControllerSubsystem : SubsystemBase
             {
                 continue;
             }
-            
+
             _controller = _sdl.GameControllerOpen(i);
             if (_controller == null)
             {
@@ -157,6 +129,12 @@ public class ControllerSubsystem : SubsystemBase
 
             SetOperatingState(SubsystemState.Operating);
             PumpEvents();
+            TickAllButtons();
+
+            Axes.LeftStick.Broadcast();
+            Axes.RightStick.Broadcast();
+            Axes.LeftTrigger.Broadcast();
+            Axes.RightTrigger.Broadcast();
 
             await Task.Delay(4, token);
         }
@@ -190,6 +168,26 @@ public class ControllerSubsystem : SubsystemBase
                     break;
             }
         }
+    }
+
+    private void TickAllButtons()
+    {
+        Buttons.A.Tick();
+        Buttons.B.Tick();
+        Buttons.X.Tick();
+        Buttons.Y.Tick();
+        Buttons.LeftStick.Tick();
+        Buttons.RightStick.Tick();
+        Buttons.LeftBumper.Tick();
+        Buttons.RightBumper.Tick();
+        Buttons.Menu.Tick();
+        Buttons.View.Tick();
+        Buttons.Xbox.Tick();
+
+        Dpad.DpadLeft.Tick();
+        Dpad.DpadRight.Tick();
+        Dpad.DpadUp.Tick();
+        Dpad.DpadDown.Tick();
     }
 
     private void HandleButton(ControllerButtonEvent be)
@@ -266,6 +264,11 @@ public class ControllerSubsystem : SubsystemBase
 
             if (_isDown && !_wasDown) OnPressed?.Invoke();
             if (!_isDown && _wasDown) OnReleased?.Invoke();
+            if (_isDown) WhileHeld?.Invoke();
+        }
+
+        public void Tick()
+        {
             if (_isDown) WhileHeld?.Invoke();
         }
 

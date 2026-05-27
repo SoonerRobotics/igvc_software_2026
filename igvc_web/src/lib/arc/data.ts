@@ -4,6 +4,7 @@ import { decodeJson } from "./encoders";
 export interface ArcLog {
     cat: string;
     level: number;
+    timestamp: number;
     id: number;
     name: string;
     message: string;
@@ -33,7 +34,7 @@ export function buildArcData_Log(msg: Uint8Array): ArcLog {
     const name = readString();
     const message = readString();
 
-    return { cat, level, id, name, message };
+    return { cat, level, id, name, message, timestamp: Date.now() };
 }
 
 export function buildArcData_RobotState(msg: Uint8Array) {
