@@ -24,11 +24,6 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
             token
         );
 
-        SubscribeMessage<AudibleFeedback>(
-            MessageType.Waypoint,
-            OnWaypointReceived,
-            token
-        );
         //TODO: subscribe to Waypoint messages as well? if that code does work and gets merged...
 
         SetOperatingState(SubsystemState.Ready);
@@ -109,21 +104,6 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
         }
 
         return Task.CompletedTask;
-    }
-
-    private Task OnWaypointReceived(Waypoint msg, CancellationToken token)
-    {
-        if (msg.num_waypoints > 0)
-        {
-            if (msg.index == 0) //FIXME this doesn't work for south waypoints that we do in reverse
-            {
-                PlaySound("waypoints-start");
-            }
-            else
-            {
-                PlaySound("waypoint-hit.mp3");
-            }
-        }
     }
 
     private Task OnMessageReceived(AudibleFeedback msg, CancellationToken token)

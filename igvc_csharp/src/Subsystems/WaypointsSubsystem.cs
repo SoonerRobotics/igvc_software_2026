@@ -141,6 +141,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
     {
         if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
         {
+            //TODO: publish audible feedback msg for which waypoint set to use
             // pick the set of waypoints based on robot state and GPS position information
             // if (WaypointConfig.Qualificaiton)
             // {
@@ -168,14 +169,14 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             double heading_degrees = LatLng.TravelHeading(_startGpsPos ?? new(0, 0), new LatLng(msg.Latitude, msg.Longitude))?.To(AngleUnit.Degrees) ?? 0;
             // if (120 < heading_degrees && heading_degrees < 240)
             // {
-                // _waypointDirection = -1; // south
-                // if we are going south, make the index the last element in the list and we will work backwards
-                // _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
+            // _waypointDirection = -1; // south
+            // if we are going south, make the index the last element in the list and we will work backwards
+            // _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
             // }
             // else
             // {
-                _waypointDirection = 1; // north
-                _waypointIndex = 0;
+            _waypointDirection = 1; // north
+            _waypointIndex = 0;
             // }
 
 
@@ -199,10 +200,21 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
             builder.Finish(msgOffset.Value);
 
             var waypointMsg = MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray());
-            
+
             EventBus.Instance.Publish(new MessageWrapperEvent(waypointMsg));
 
             canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Blue, token, 2000);
+
+            // and publish audible feedback
+            var audibleBuilder = new FlatBufferBuilder(128);
+            var audibleOffset = AudibleFeedback.CreateAudibleFeedback(
+                audibleBuilder,
+                new StringOffset("waypoints-start.mp3"),
+                false
+            );
+            audibleBuilder.Finish(audibleOffset.Value);
+            var audibleMsg = MessageWrapper.From(MessageType.AudibleFeedback, audibleBuilder.SizedByteArray());
+            EventBus.Instance.Publish(new MessageWrapperEvent(audibleMsg));
         }
 
         return Task.CompletedTask;
@@ -277,6 +289,17 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     EventBus.Instance.Publish(
                         new MessageWrapperEvent(waypointMsg)
                     );
+
+                    // publish audible feedback
+                    var audibleBuilder = new FlatBufferBuilder(128);
+                    var audibleOffset = AudibleFeedback.CreateAudibleFeedback(
+                        audibleBuilder,
+                        new StringOffset("waypoint-hit.mp3"),
+                        false
+                    );
+                    audibleBuilder.Finish(audibleOffset.Value);
+                    var audibleMsg = MessageWrapper.From(MessageType.AudibleFeedback, audibleBuilder.SizedByteArray());
+                    EventBus.Instance.Publish(new MessageWrapperEvent(audibleMsg));
                 }
             }
         }
