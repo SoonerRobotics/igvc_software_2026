@@ -12,6 +12,13 @@ public class SelfdriveMachine
         LaneChangeAtObstacle,
     }
 
+    public enum SelfdriveState
+    {
+        LaneKeeping,
+        Stopping,
+        Turning
+    }
+
     public enum SelfdriveLane
     {
         Left,

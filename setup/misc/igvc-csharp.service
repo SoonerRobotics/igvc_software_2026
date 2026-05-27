@@ -5,10 +5,10 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/scr/igvc_software_2026/igvc_csharp
-ExecStartPre=/bin/sleep 10
+ExecStartPre=/bin/sleep 5
 ExecStart=/home/scr/.dotnet/dotnet run
 Restart=always
-RestartSec=10
+RestartSec=5
 User=scr
 
 [Install]
