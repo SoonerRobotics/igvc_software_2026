@@ -2,6 +2,7 @@ using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Core.Config;
+using igvc_csharp.subsytems.selfdrive.SelfdriveMachine;
 
 [Subsystem("SelfdriveSubsystem", Disabled = true)]
 public class SelfdriveSubsystem(
@@ -40,62 +41,54 @@ public class SelfdriveSubsystem(
 
     private async Task SelfdriveTask(CancellationToken token)
     {
+        var TurnRightAction = new SequentialActionGroup(
+            new LaneKeepAction(SelfdriveMachine.SelfdriveObstacle.WhiteLine, SelfdriveMachine.SelfdriveLane.Right),
+            // new StopAtObstacleAction(SelfdriveMachine.SelfdriveObstacle.WhiteLine),
+            new TimedTurnAction(turningSpeed, turningTime), //TODO make this distance based
+            new LaneKeepAction(SelfdriveMachine.SelfdriveObstacle.Barrel, SelfdriveMachine.SelfdriveLane.Right)
+        );
+
+        var TurnLeftAction = new SequentialActionGroup(
+            new LaneKeepAction(SelfdriveMachine.SelfdriveObstacle.WhiteLine, SelfdriveMachine.SelfdriveLane.Left),
+            // new StopAtObstacleAction(stop sign),
+            new TimedTurnAction(turningSpeed, turningTime), //TODO make this distance based
+            new LaneKeepAction(SelfdriveMachine.SelfdriveObstacle.Obstacle, SelfdriveMachine.SelfdriveLane.Left)
+        );
+
+        var laneKeepAction = new LaneKeepAction(until barrel, lane.Any);
+
+        var ChangeLaneAction = new LaneChangeAction();
+
+        var StopAtObstacle = new StopAction(full stop);
+        
+        var TimedStopAtObstacle = new StopAction(until timed, 3000);
+        
+        var StopAtObstacleUntilClear = new StopAction(until clear);
+
+        var LaneChangeAtObstacle = new SequentialActionGroup(
+            //TODO idk what to do here how this one works
+        );
+
         // 10hz update loop
         while (!token.IsCancellationRequested)
         {
+            SequentialActionGroup action;
             // TODO: Implement
             switch (mGoal.Get())
             {
                 case TurnRight:
+                    action = TurnRightAction; //FIXME is this gonna work right?
+                case TurnLeft:
                     //TODO
-                    break;
-                case TurnLeft: // Q.3 Left Turn
-                    // start
-                    // maintains target speed (3-5 mph)
-                    // turn left into correct lane
-                    // 
-                    //TODO
-                    break;
+                    // break;
                 case LaneKeep:
-                    //TODO: actually publish a laneMessage from visionSubsystem
-
-                    //TODO: A* and purepursuit
-
-                    canbus?.MotorControl.SetVelocities(ForwardSpeed, 0, 0);
-
-                    //TODO: how long do we stay in this goal?
-
+                    //TODO
                     break;
                 case ChangeLane:
-                    if (mLane == SelfdriveMachine.SelfdriveLane.Left)
-                    {
-                        mLane.Set(SelfdriveMachine.SelfdriveLane.Right);
-                        canbus?.MotorControl.SetVelocities(ForwardSpeed, LaneChangeSpeed, 0);
-                    }
-                    else
-                    {
-                        mLane.Set(SelfdriveMachine.SelfdriveLane.Left);
-                        canbus?.MotorControl.SetVelocities(ForwardSpeed, -LaneChangeSpeed, 0);
-                    }
-
-                    await Task.Delay(LaneChangeMs, token);
-
-                    mGoal.Set(SelfdriveMachine.SelfdriveGoal.LaneKeep);
-
-                    break;
-                case StopAtObstacle: // qualifacation Q1, stop within 3 feet
-                    if (stopped)
-                    {
-                        canbus?.MotorControl.SetVelocities(0, 0, 0);
-                    }
-                    else
-                    {
-                        //FIXME how do we stay in the lane? we need a LaneKeep() to calculate turn speed
-                        canbus?.MotorControl.SetVelocities(ForwardSpeed, 0, 0);
-                    }
-
-                    //TODO do we need to switch out of this goal?
-
+                    //TODO
+                    // break;
+                case StopAtObstacle:
+                    //TODO
                     break;
                 case TimedStopAtObstacle:
                     //TODO
@@ -109,6 +102,24 @@ public class SelfdriveSubsystem(
                 default:
                     canbus?.MotorControl.SetVelocities(0, 0, 0);
                     break;
+            }
+
+            SelfdriveContext ctx;
+
+            //TODO: fill context with data and stuff
+
+            if (!action.Init)
+            {
+                action.Init();
+            }
+
+            action.Run(ctx);
+
+            if (action.IsFinished())
+            {
+                action.End();
+
+                action = null; //FIXME what do we do here? default action?
             }
 
             await Task.Delay(100, token);

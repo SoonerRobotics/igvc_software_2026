@@ -1,3 +1,6 @@
+
+namespace igvc_csharp.src.subsystems.selfdrive;
+
 public class SelfdriveMachine
 {
     public enum SelfdriveGoal
@@ -12,11 +15,13 @@ public class SelfdriveMachine
         LaneChangeAtObstacle,
     }
 
-    public enum SelfdriveState
+    public enum SelfdriveObstacles
     {
-        LaneKeeping,
-        Stopping,
-        Turning
+        Barrel,
+        Stopsign,
+        Tire,
+        Pedestrian,
+        WhiteLine
     }
 
     public enum SelfdriveLane
