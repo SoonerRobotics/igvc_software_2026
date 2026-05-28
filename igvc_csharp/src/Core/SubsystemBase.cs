@@ -24,6 +24,8 @@ public class SubsystemBase : ISubsystem
     /// </summary>
     public SubsystemState State { get; private set; } = SubsystemState.Initialized;
 
+    public RobotPosition? Position { get; private set; } = null;
+
     /// <summary>
     /// Called when this subsystems state is changed.
     /// The first parameter is the old state, the 2nd parameter is the new state.
@@ -229,6 +231,15 @@ public class SubsystemBase : ISubsystem
     public virtual Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
         return Task.CompletedTask;
+    }
+
+    public void _OnPositionChanged(RobotPosition position)
+    {
+        Position = position;
+    }
+
+    public virtual void OnPositionChanged(RobotPosition position)
+    {
     }
 
     // Setters

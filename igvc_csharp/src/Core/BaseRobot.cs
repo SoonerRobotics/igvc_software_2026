@@ -320,6 +320,21 @@ public abstract class BaseRobot : IDisposable
         });
     }
 
+    public void SetRobotPosition(RobotPosition position)
+    {
+        CallSubsystemFunction("_OnPositionChanged", position);
+        CallSubsystemFunction("OnPositionChanged", position);
+
+        var arc = GetSubsystem<ArcSubsystem>();
+        if (arc == null) return;
+
+        _ = arc.BroadcastAsync(
+            ArcUtils.CreateArcData_Json("robot_position", position),
+            CancellationToken.None
+        );
+
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -353,7 +368,7 @@ public abstract class BaseRobot : IDisposable
         State.Estopped = estopped;
         CallSubsystemFunction("OnRobotStateChanged", oldState, State);
         Logger.LogDebug("Robot Estopped Changed -> {}", estopped);
-            SendRobotArcState();
+        SendRobotArcState();
     }
 
     public void SetMode(RobotModeEnum mode)

@@ -3,7 +3,7 @@ import { MessageAccumulator } from "./arc/accumulator";
 import { MessageType } from "./arc/type";
 import { ArcData } from "./messages/messages/arc";
 import { ByteBuffer } from "flatbuffers";
-import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged, buildArcData_RobotState } from "./arc/data";
+import { ArcLog, buildArcData_Log, buildArcData_PropertyChanged, buildArcData_RobotPosition, buildArcData_RobotState } from "./arc/data";
 import { VectornavReport } from "./messages/messages/vectornav-report";
 import { ConfigState, configInitialState, handleConfigMessage } from "./robot-config";
 import { encodeSetConfigKey, encodePresetName, encodeJson } from "./arc/encoders";
@@ -102,6 +102,17 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
                 mission: d.Mission,
                 mode: d.Mode
             } });
+            return;
+        }
+
+        if (identifier === "robot_position") {
+            const d = buildArcData_RobotPosition(payload);
+            console.log(d);
+            // set({ state: {
+            //     mobility: d.MotionAllowed,
+            //     mission: d.Mission,
+            //     mode: d.Mode
+            // } });
             return;
         }
 

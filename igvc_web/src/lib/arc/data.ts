@@ -48,6 +48,11 @@ export function buildArcData_RobotState(msg: Uint8Array) {
     return json;
 }
 
+export function buildArcData_RobotPosition(msg: Uint8Array) {
+    const json = decodeJson<any>(msg);
+    return json;
+}
+
 export interface PropertyChanged {
     subsystem: string,
     property: string,
