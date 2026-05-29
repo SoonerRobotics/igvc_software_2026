@@ -1,7 +1,7 @@
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class TurnAction(float forwardSpeed, float sidewaysSpeed, float turnSpeed, int timeout) : SelfdriveAction
+public class TurnAction(SelfdriveMachine.SelfdriveLane direction, ulong timeout) : SelfdriveAction
 {
     private int _startTime = -1;
 
@@ -12,17 +12,19 @@ public class TurnAction(float forwardSpeed, float sidewaysSpeed, float turnSpeed
 
     public override void Run(SelfdriveContext context)
     {
-        if (BaseRobot.Instance?.State.MotionAllowed)
+        if (direction == SelfdriveMachine.SelfdriveLane.Left)
         {
-            context.canbus.MotorControl.SetVelocities(forwardSpeed, sidewaysSpeed, turnSpeed);
+            //TODO: turn left
+        }
+        else
+        {
+            //TODO: turn right
         }
     }
 
     public override void End(SelfdriveContext context)
     {
         //TODO: do nothing??? Mat.Dispose()?
-
-        //TODO: set motors to 0?
     }
 
     public override bool IsFinished(SelfdriveContext context)

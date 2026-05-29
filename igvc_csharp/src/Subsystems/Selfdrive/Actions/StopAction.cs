@@ -1,5 +1,9 @@
 
-public class StopAction : SelfdriveAction
+using igvc_csharp.src.Subsystems.selfdrive;
+
+namespace igvc_csharp.src.Subsystems.selfdrive;
+
+public class StopAction : ISelfdriveAction
 {
     public StopAction(until condition)
     {
