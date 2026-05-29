@@ -1,5 +1,6 @@
 
 using igvc_csharp.Core.Units;
+using igvc_csharp.Events;
 using igvc_csharp.src.selfdrive.actions;
 using igvc_csharp.src.subsystems.selfdrive;
 using igvc_csharp.Utils;
@@ -15,7 +16,7 @@ public class LaneKeepAction(SelfdriveObstacles obstacle, Distance distanceToStop
     {
         return _init;
     }
-    
+
     public void Init(SelfdriveContext context)
     {
         _startTime = TimeUtils.Now();
@@ -51,7 +52,19 @@ public class LaneKeepAction(SelfdriveObstacles obstacle, Distance distanceToStop
         }
         else
         {
-            return false; //FIXME detect if there's an obstacle within 3 feet of us
+            // check for obstacle using the Zed and Yolo.
+            if (context.YoloDetections.TryGetValue(obstacle.ToString(), out YoloDetectionEvent e))
+            {
+                // check for distance, x should be forwards and in meters...
+                if (e.x < distanceToStop.To(DistanceUnit.Meters))
+                {
+                    context.canbus.MotorControl.SetVelocities(0, 0, 0); //TODO: should we set these here or let a following command stop us?
+                                                                        // or heck, make it a parameter?
+                    return true;
+                }
+            }
         }
+        
+        return false;
     }
 }

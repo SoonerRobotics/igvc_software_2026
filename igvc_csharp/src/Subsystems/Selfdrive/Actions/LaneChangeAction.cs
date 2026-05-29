@@ -37,17 +37,19 @@ public class LaneChangeAction(ulong timeoutMs = 0) : ISelfdriveAction
     {
         if (goalLane == SelfdriveLane.Left)
         {
-            //TODO: strafe left
+            // strafe left
+            context.canbus.MotorControl.SetVelocities(1, 0.5, 0); //FIXME make this configurable?
         }
         else
         {
-            //TODO: strafe right
+            // strafe right
+            context.canbus.MotorControl.SetVelocities(1, -0.5, 0); //FIXME make this configurable?
         }
     }
 
     public void End(SelfdriveContext context)
     {
-        //TODO: do nothing??? Mat.Dispose()?
+        //TODO: do nothing??? Mat.Dispose()? set motors to 0?
     }
 
     public bool IsFinished(SelfdriveContext context)

@@ -29,7 +29,7 @@ public class TimedDriveAction(double forwardSpeed, double sidewaysSpeed, double 
         }
         else
         {
-            //TODO: write 0 to motors?
+            context.canbus.MotorControl.SetVelocities(0, 0, 0);
         }
     }
 

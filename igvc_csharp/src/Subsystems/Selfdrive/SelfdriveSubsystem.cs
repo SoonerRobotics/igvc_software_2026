@@ -7,6 +7,7 @@ using igvc_csharp.src.Subsystems.selfdrive;
 using igvc_csharp.src.selfdrive.actions;
 using igvc_csharp.src.Subsystems.selfdrive.actions;
 using igvc_csharp.Core.Units;
+using Messages;
 
 namespace igvc_csharp.src.subsystems.selfdrive;
 
@@ -21,13 +22,15 @@ public class SelfdriveSubsystem(
     [Config("selfdrive.forward_speed")]
     public double ForwardSpeed = 1.0; // default forward speed FIXME target selfdrive speed is 4-5 MPH I think? according to the rules?
     [Config("selfdrive.lane_change_speed")]
-    public double LaneChangeSpeed = 0.4; // positive is to the right
+    public double LaneChangeSpeed = 0.4; // positive is to the left
     [Config("selfdrive.sideways_speed")]
     public double SidewaysSpeed = 0.2; // positive is to the left
     [Config("selfdrive.turn_speed")]
     public double TurnSpeed = 0.4; // positive is to the left
     [Config("selfdrive.lane_change_ms")]
     public double feetToStop = 2;
+    [Config("selfdrive.pull_out_direction")]
+    public int PullOutDirection = 0; // positive is to the left
     [Config("selfdrive.far_feet_to_stop")]
     public double farFeetToStop = 12;
     [Config("selfdrive.lane_change_timeout")]
@@ -42,27 +45,16 @@ public class SelfdriveSubsystem(
     [Config("selfdrive.qualification_mode")]
     public bool QualificationMode = false;
 
-    // PedestrianDetection_FI_1,
-    // TireDetection_FI_2,
-    // StopSignDetection_FII_1,
-    // LaneKeeping_FIII_1,
-    // LeftTurn_FIII_2,
-    // RightTurn_FIII_3,
-    // PullOut_FIV_1,
-    // PullIn_FIV_2,
-    // ParallelPark_FIV_3,
-    // StaticPedestrian_FV_1,
-    // DynamicPedestrian_FV_2,
-    // AvoidPedestrian_FV_3,
-    // BarrelLaneChange_FV_4,
-    // CurvedLaneKeeping_FVI_1,
-    // CurvedLaneChange_FVI_2,
-    // PotholeDetection_FVII_1
 
     private SelfdriveContext context = new();
 
     public override Task Init(CancellationToken token)
     {
+        context = new()
+        {
+            canbus = canbus
+        };
+
         Subscribe<YoloDetectionEvent>(OnDetectionEvent, token);
         // === subscribers ===
         // SubscribeImage(
@@ -99,6 +91,28 @@ public class SelfdriveSubsystem(
     {
         //FIXME do something here?
 
+        return Task.CompletedTask;
+    }
+
+    public Task OnDetectionEvent(YoloDetectionEvent e, CancellationToken token)
+    {
+        if (!context.YoloDetections.TryAdd(e.label, e))
+        {
+            context.YoloDetections.Remove(e.label); //FIXME is there any sort of cleanup / Dispose we need to do here?
+            context.YoloDetections.Add(e.label, e);
+        }
+
+        //TODO: need to like, clear the dictionary once we move to a new action or something...
+        // have a _clearEverything flag? maybe clear it whenever we Init() a new Action?
+
+        return Task.CompletedTask;
+    }
+
+    public Task OnLaneReceived(Lane msg, CancellationToken token)
+    {
+        //FIXME this doesn't account for lane "center" but I don't think that's like, super important?
+        context.CurrentLane = msg.Lane_ > -1 ? SelfdriveLane.Right : SelfdriveLane.Left;
+        
         return Task.CompletedTask;
     }
 
@@ -283,10 +297,5 @@ public class SelfdriveSubsystem(
 
             await Task.Delay(100, token);
         }
-    }
-
-    public Task OnDetectionEvent(YoloDetectionEvent e, CancellationToken token)
-    {
-        return Task.CompletedTask;
     }
 }
