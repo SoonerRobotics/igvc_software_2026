@@ -5,7 +5,7 @@ using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class TurnAction(double forwardSpeed, double sidewaysSpeed, double turnSpeed, ulong timeoutMs) : ISelfdriveAction
+public class TimedDriveAction(double forwardSpeed, double sidewaysSpeed, double turnSpeed, ulong timeoutMs) : ISelfdriveAction
 {
     private ulong _startTime = 0;
     private bool _init = false;

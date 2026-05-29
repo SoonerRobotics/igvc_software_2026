@@ -5,7 +5,7 @@ using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class LaneChangeAction(SelfdriveMachine.SelfdriveLane direction, ulong timeoutMs) : ISelfdriveAction
+public class LaneChangeAction(SelfdriveLane direction, ulong timeoutMs) : ISelfdriveAction
 {
     private ulong _startTime = 0;
     private bool _init = false;
@@ -23,7 +23,7 @@ public class LaneChangeAction(SelfdriveMachine.SelfdriveLane direction, ulong ti
 
     public void Run(SelfdriveContext context)
     {
-        if (direction == SelfdriveMachine.SelfdriveLane.Left)
+        if (direction == SelfdriveLane.Left)
         {
             //TODO: turn left
         }
