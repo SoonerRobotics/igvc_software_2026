@@ -1,8 +1,10 @@
-﻿using igvc_csharp.Core;
+﻿using Google.FlatBuffers;
+using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Subsystems.Hardware.CanLayers;
 using igvc_csharp.Utils.Messages;
+using Messages;
 using Messages.Arc;
 using Microsoft.Extensions.Logging;
 using SocketCANSharp;
@@ -68,6 +70,15 @@ public class CurrentSensorSubsystem(
                         // if current mode is disabled, set low power mode
                         if (BaseRobot.Instance?.State.Mode == RobotModeEnum.Disabled)
                         {
+                            // play low battery noise
+                            var builder = new FlatBufferBuilder(128);
+                            var fileOffset = builder.CreateString("amongus-sound.mp3");
+                            var msg = AudibleFeedback.CreateAudibleFeedback(builder, fileOffset, false);
+                            builder.Finish(msg.Value);
+                            EventBus.Instance.Publish(new MessageWrapperEvent(
+                                MessageWrapper.From(MessageType.AudibleFeedback, builder.SizedByteArray()))
+                            );
+
                             // wait a second for other safety lights to update, then set low power mode
                             Task.Delay(1000).ContinueWith(_ => canbus.SafetyLights.SetLowPower());
                         }
