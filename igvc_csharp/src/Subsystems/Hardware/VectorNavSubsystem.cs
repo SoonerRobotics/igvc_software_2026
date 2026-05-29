@@ -12,7 +12,9 @@ using VectornavReport = Messages.VectornavReport;
 namespace igvc_csharp.Subsystems.Hardware;
 
 [Subsystem("VectorNavSubsystem", Disabled = Configuration.UseSimulation)]
-public class VectorNavSubsystem() : SubsystemBase
+public class VectorNavSubsystem(
+    ChronosSubsystem chronos
+) : SubsystemBase
 {
     private Task? _readTask;
     private CancellationTokenSource? _cts;
@@ -177,8 +179,8 @@ public class VectorNavSubsystem() : SubsystemBase
                     );
 
                     // Chronos
-                    // chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
-                    // chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
+                    chronos.WriteGps(new LatLng(r.Latitude, r.Longitude), r.GpsFix, r.NumSats);
+                    chronos.WriteYpr(new Ypr(r.Yaw, r.Pitch, r.Roll));
 
                     // Logger.LogTrace(
                     //     "[#{Seq}] {Time} | " +

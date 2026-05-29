@@ -38,6 +38,9 @@ public class CanbusSubsystem(
     public MotorControlLayer MotorControl = null!;
     public CurrentSensorLayer CurrentSensor = null!;
 
+    // Simulator
+    private SimulatorSubsystem mSimulatorSubsystem;    
+
     public override Task Init(CancellationToken token)
     {
         SafetyLights = new SafetyLightsLayer(this);
@@ -212,7 +215,8 @@ public class CanbusSubsystem(
         // If we are simulator, write to it instead
         if (Configuration.UseSimulation)
         {
-            // simulatorSubsystem?.SendCanFrame(frame);
+            mSimulatorSubsystem ??= BaseRobot.Instance.GetSubsystem<SimulatorSubsystem>();
+            mSimulatorSubsystem?.SendCanFrame(frame);
             return;
         }
 
