@@ -1,32 +1,52 @@
 
+using igvc_csharp.Core;
+using igvc_csharp.src.selfdrive.actions;
+using igvc_csharp.Utils;
+
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class TurnAction(float forwardSpeed, float sidewaysSpeed, float turnSpeed, int timeout) : SelfdriveAction
+public class TurnAction(double forwardSpeed, double sidewaysSpeed, double turnSpeed, ulong timeoutMs) : ISelfdriveAction
 {
-    private int _startTime = -1;
+    private ulong _startTime = 0;
+    private bool _init = false;
 
-    public override void Init(SelfdriveContext context)
+    public bool IsInit()
     {
-        _startTime = TimeUtils.Now();
+        return _init;
     }
 
-    public override void Run(SelfdriveContext context)
+    public void Init(SelfdriveContext context)
     {
-        if (BaseRobot.Instance?.State.MotionAllowed)
+        _startTime = TimeUtils.Now();
+        _init = true;
+    }
+
+    public void Run(SelfdriveContext context)
+    {
+        if (BaseRobot.Instance?.State.MotionAllowed ?? false)
         {
             context.canbus.MotorControl.SetVelocities(forwardSpeed, sidewaysSpeed, turnSpeed);
         }
+        else
+        {
+            //TODO: write 0 to motors?
+        }
     }
 
-    public override void End(SelfdriveContext context)
+    public void End(SelfdriveContext context)
     {
         //TODO: do nothing??? Mat.Dispose()?
 
         //TODO: set motors to 0?
     }
 
-    public override bool IsFinished(SelfdriveContext context)
+    public bool IsFinished(SelfdriveContext context)
     {
-        return (TimeUtils.Now() - _startTime) > _timeout;
+        if (_startTime == 0)
+        {
+            return false;
+        }
+
+        return (TimeUtils.Now() - _startTime) > timeoutMs;
     }
 }

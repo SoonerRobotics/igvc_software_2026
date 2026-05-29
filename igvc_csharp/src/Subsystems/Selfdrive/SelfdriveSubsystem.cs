@@ -2,7 +2,12 @@ using igvc_csharp.Core;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Core.Config;
-using igvc_csharp.subsytems.selfdrive.SelfdriveMachine;
+using igvc_csharp.Subsystems.Navigation;
+using igvc_csharp.src.Subsystems.selfdrive;
+using igvc_csharp.src.selfdrive.actions;
+using igvc_csharp.src.Subsystems.selfdrive.actions;
+
+namespace igvc_csharp.src.subsystems.selfdrive;
 
 [Subsystem("SelfdriveSubsystem", Disabled = true)]
 public class SelfdriveSubsystem(
@@ -16,6 +21,8 @@ public class SelfdriveSubsystem(
     public double ForwardSpeed = 1.0; // default forward speed FIXME target selfdrive speed is 4-5 MPH I think? according to the rules?
     [Config("selfdrive.lane_change_speed")]
     public double LaneChangeSpeed = 0.4; // positive is to the right
+    [Config("selfdrive.turn_speed")]
+    public double TurnSpeed = 0.4; // positive is to the right
     [Config("selfdrive.lane_change_ms")]
     public int LaneChangeMs = 2000; //FIXME ideally this is distance-based (or actually vision-based)
     [Config("selfdrive.obstacle_stop_ms")]
@@ -25,7 +32,7 @@ public class SelfdriveSubsystem(
     public SubsystemProperty<SelfdriveMachine.SelfdriveGoal> mGoal = new SubsystemProperty<SelfdriveMachine.SelfdriveGoal>("goal", SelfdriveMachine.SelfdriveGoal.LaneKeep);
     public SubsystemProperty<SelfdriveMachine.SelfdriveLane> mLane = new SubsystemProperty<SelfdriveMachine.SelfdriveLane>("lane", SelfdriveMachine.SelfdriveLane.Right);
     // public SubsystemProperty<SelfdriveMachine.SelfdriveTest> mTest = new SubsystemProperty<SelfdriveMachine.SelfdriveTest>("functional_test", SelfdriveMachine.SelfdriveTest.PedestrianDetection_FI_1);
-    public SubsystemProperty<SelfdriveMachine.QualificationTest> mTest = new SubsystemProperty<SelfdriveMachine.QualificationTest>("qualification_test", SelfdriveMachine.SelfdriveTest.LaneKeeping_Q1);
+    public SubsystemProperty<SelfdriveMachine.QualificationTest> mTest = new SubsystemProperty<SelfdriveMachine.QualificationTest>("qualification_test", SelfdriveMachine.QualificationTest.LaneKeeping_Q1);
 
     [Config("selfdrive.qualification_mode")]
     public bool QualificationMode = false;
@@ -128,28 +135,28 @@ public class SelfdriveSubsystem(
             //         break;
             // }
 
-            ISelfdriveAction action;
+            ISelfdriveAction? action = null;
             switch (mTest.Get())
             {
-                case LineDetection_Q2: // literally just display the annotated debug image
-                case LaneKeeping_Q1:
+                case SelfdriveMachine.QualificationTest.LineDetection_Q2: // literally just display the annotated debug image
+                case SelfdriveMachine.QualificationTest.LaneKeeping_Q1:
                     action = new SequentialAction(
-                        new LaneKeepAction(SelfdriveMachine.Lane.Right, SelfdriveMachine.Obstacle.Barrel)
-                    );
+                        [new LaneKeepAction(SelfdriveMachine.SelfdriveLane.Right, SelfdriveMachine.SelfdriveObstacles.Barrel)
+                    ]);
                     break;
 
-                case LeftTurn_Q3:
-                    action = new SequentialAction(
+                case SelfdriveMachine.QualificationTest.LeftTurn_Q3:
+                    action = new SequentialAction([
                         new TurnAction(ForwardSpeed*2, 0f, -TurnSpeed, 5000),
-                        new LaneKeepAction(SelfdriveMachine.Lane.Right, SelfdriveMachine.Obstacle.Barrel)
-                    );
+                        new LaneKeepAction(SelfdriveMachine.SelfdriveLane.Right, SelfdriveMachine.SelfdriveObstacles.Barrel)
+                    ]);
                     break;
 
-                case RightTurn_Q4:
-                    action = new SequentialAction(
+                case SelfdriveMachine.QualificationTest.RightTurn_Q4:
+                    action = new SequentialAction([
                         new TurnAction(ForwardSpeed, 0f, TurnSpeed, 3000),
-                        new LaneKeepAction(SelfdriveMachine.Lane.Right, SelfdriveMachine.Obstacle.Barrel)
-                    );
+                        new LaneKeepAction(SelfdriveMachine.SelfdriveLane.Right, SelfdriveMachine.SelfdriveObstacles.Barrel)
+                    ]);
                     break;
                 default:
                     //FIXME
@@ -158,14 +165,14 @@ public class SelfdriveSubsystem(
 
             var ctx = context.Clone();
 
-            if (!action.Init)
+            if (!action?.IsInit() ?? false)
             {
                 action.Init(ctx);
             }
 
             action.Run(ctx);
 
-            if (action.IsFinished())
+            if (action.IsFinished(ctx))
             {
                 action.End(ctx);
 

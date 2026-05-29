@@ -1,27 +1,30 @@
 
+using igvc_csharp.src.selfdrive.actions;
+using igvc_csharp.src.Subsystems.selfdrive;
+
+namespace igvc_csharp.src.subsystems.selfdrive;
 
 /*
 TODO: document this and like, link to WPILib and stuff
 */
-public class SequentialAction : Action
+public class SequentialAction(List<ISelfdriveAction> actions) : ISelfdriveAction
 {
-    private List<Action> _actions = new();
+    private List<ISelfdriveAction> _actions = actions;
     private int _index = 0;
-    private SelfdriveContext _ctx;
 
-    public SequentialAction(List<Action> actions) //FIXME make this like, variable arguments list?
+    public bool IsInit()
     {
-        _actions = actions;
+        return _actions[0].IsInit();
     }
 
-    public override void Init(SelfdriveContext context)
+    public void Init(SelfdriveContext context)
     {
         _actions[0].Init(context);
     }
 
-    public override void Run(SelfdriveContext context)
+    public void Run(SelfdriveContext context)
     {
-        if (_actions[_index].IsFinished(context) && _index < _actions.Length-1)
+        if (_actions[_index].IsFinished(context) && _index < (_actions.Count - 1))
         {
             _actions[_index].End(context);
             _index++;
@@ -31,13 +34,13 @@ public class SequentialAction : Action
         _actions[_index].Run(context);
     }
 
-    public override void End(context)
+    public void End(SelfdriveContext context)
     {
-        _actions[index].End(context);
+        _actions[_index].End(context);
         //FIXME do we need to do something else here?
     }
 
-    public override boolean IsFinished(SelfdriveContext context)
+    public bool IsFinished(SelfdriveContext context)
     {
         return _actions[-1].IsFinished(context);
     }

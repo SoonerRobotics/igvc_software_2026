@@ -1,4 +1,6 @@
 
+using igvc_csharp.Subsystems.Hardware;
+
 namespace igvc_csharp.src.Subsystems.selfdrive;
 
 public class SelfdriveContext
