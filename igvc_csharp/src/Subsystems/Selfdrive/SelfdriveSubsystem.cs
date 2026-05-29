@@ -60,11 +60,11 @@ public class SelfdriveSubsystem(
     {
         Subscribe<YoloDetectionEvent>(OnDetectionEvent, token);
         // === subscribers ===
-        SubscribeImage(
-            "combined_debug",
-            OnDebugImageReceived,
-            token
-        );
+        // SubscribeImage(
+        //     "combined_debug",
+        //     OnDebugImageReceived,
+        //     token
+        // );
 
         // for A* TODO I don't think we actually need this?
         // SubscribeImage(
@@ -163,8 +163,8 @@ public class SelfdriveSubsystem(
                     break;
             }
 
-            var ctx = context.Clone();
-
+            // var ctx = context.Clone();
+            var ctx = context; // TOOD: Fix
             if (!action?.IsInit() ?? false)
             {
                 action.Init(ctx);
@@ -179,7 +179,7 @@ public class SelfdriveSubsystem(
                 action = null; //FIXME what do we do here? default action?
             }
 
-            ctx.Dispose(); //???
+            // ctx.Dispose(); //???
 
             //TODO: dispose regular context Mats?
 

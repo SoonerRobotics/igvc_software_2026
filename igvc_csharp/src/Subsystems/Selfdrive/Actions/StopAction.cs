@@ -4,7 +4,7 @@ using igvc_csharp.src.Subsystems.selfdrive;
 
 namespace igvc_csharp.src.Subsystems.selfdrive;
 
-public class StopAction(until condition) : ISelfdriveAction
+public class StopAction() : ISelfdriveAction
 {
     private bool _init = false;
 
@@ -31,6 +31,7 @@ public class StopAction(until condition) : ISelfdriveAction
 
     public bool IsFinished(SelfdriveContext context)
     {
-        return condition == true;
+        // return condition == true;
+        return true;
     }
 }
