@@ -19,7 +19,7 @@ public static class Configuration
 
     /// <summary>
     /// Determines if the robot will use the simulator.
-    public const bool UseSimulation = true;
+    public const bool UseSimulation = false;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -138,7 +138,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(179, 200, 190)
+            ColorUtils.Color.FromHsv(179, 149, 222)
         );
 
         [Config("vision.yellow_threshold")]
@@ -151,13 +151,13 @@ public static class Configuration
         /// The radius of blurring we apply
         /// </summary>
         [Config("vision.blur_radius")]
-        public static int BlurRadius = 5;
+        public static int BlurRadius = 7;
 
         /// <summary>
         /// The strength of blurring we apply
         /// </summary>
         [Config("vision.blur_strength")]
-        public static int BlurStrength = 3;
+        public static int BlurStrength = 5;
 
         //FIXME make flattening configurable from the GUI
         // For flattening, the order is [ TL, TR, BR, BL ]
@@ -168,8 +168,8 @@ public static class Configuration
         public static Point2f[] leftSourcePoints =
         [
             new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
-            new(640 - 125, 100), // same here
-            new(640 - 125, 480),
+            new(640 - 70, 100), // same here
+            new(640 - 70, 480),
             new(0, 480),
         ];
 
@@ -214,14 +214,14 @@ public static class Configuration
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_forward")]
-        public static LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MetersPerSecond.Of(1f);
+        public static LinearVelocity MaxForwardSpeed = LinearVelocityUnit.MetersPerSecond.Of(1.5f);
 
         /// <summary>
         /// The max sideways speed of the robot<br/>
         /// <b>NOTE:</b> This defaults to 5mph as per competition rules
         /// </summary>
         [Config("drive.max_sideways")]
-        public static LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MetersPerSecond.Of(1f);
+        public static LinearVelocity MaxSidewaysSpeed = LinearVelocityUnit.MetersPerSecond.Of(1.5f);
 
         /// <summary>
         /// The max angular speed of the robot<br/>
@@ -405,7 +405,7 @@ public static class Configuration
         /// How close we have to be for a GPS waypoint to be considered 'reached,' in meters
         /// </summary>
         [Config("waypoints.waypoint_pop_dist")]
-        public static double WaypointPopDist = 1.5;
+        public static double WaypointPopDist = 0.75;
 
         /// <summary>
         /// How long we have to be within the WaypointPopDist, in milliseconds

@@ -136,6 +136,7 @@ public class NavigationSubsystem : SubsystemBase
         }
         else
         {
+            Logger.LogDebug("wtf");
             using var mat = CvUtils.AsMat(frame);
             using var resized = new Mat();
             if (mat.Width != W || mat.Height != H)

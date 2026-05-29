@@ -25,7 +25,7 @@ namespace igvc_csharp.Utils
         public static Angle? EstimateHeading(LatLng prev, LatLng current)
         {
             var distance = LatLngDistance(prev, current);
-            if (distance.To(DistanceUnit.Meters) < 0.2) // If the robot hasn't moved, we can't estimate a heading
+            if (distance.To(DistanceUnit.Meters) < 0.05) // If the robot hasn't moved, we can't estimate a heading
             {
                 return null;
             }

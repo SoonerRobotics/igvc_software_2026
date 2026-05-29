@@ -14,7 +14,7 @@ FlatBufferRegistry.Scan();
 
 // Initialize configuration & presets
 ConfigManager.Initialize();
-PresetManager.Initialize();
+// PresetManager.Initialize();
 
 // Run the robot
 await RobotManager.Run();

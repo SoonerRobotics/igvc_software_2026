@@ -26,11 +26,13 @@ public class DefaultSubsystem : SubsystemBase
         var ll = new LatLng(report.Latitude, report.Longitude);
         if (mLastLatLng == null)
         {
+            Logger.LogWarning("Received first VN report");
             mLastLatLng = ll;
             return Task.CompletedTask;
         }
 
         var distance = GeoUtils.LatLngDistance(mLastLatLng, ll);
+        // Logger.LogDebug("Moved: {meters}", distance.To(DistanceUnit.Meters));
         if (distance.To(DistanceUnit.Meters) < 0.05)
         {
             // Still update the position, but don't update the heading since we can't get a good estimate of it
@@ -46,6 +48,7 @@ public class DefaultSubsystem : SubsystemBase
         }
 
         var heading = GeoUtils.EstimateHeading(mLastLatLng, ll);
+        // Logger.LogDebug("Robot Moved: {hd}", heading);
         if (heading == null || !heading.HasValue)
         {
             return Task.CompletedTask;

@@ -11,7 +11,7 @@ using static igvc_csharp.Subsystems.ChronosSubsystem;
 
 namespace igvc_csharp.Subsystems.Hardware;
 
-[Subsystem("CameraSubsystem", Disabled = Configuration.UseSimulation)]
+[Subsystem("CameraSubsystem", Disabled = Configuration.UseSimulation || true)]
 public class CameraSubsystem(
     ChronosSubsystem? chronos
 ) : SubsystemBase

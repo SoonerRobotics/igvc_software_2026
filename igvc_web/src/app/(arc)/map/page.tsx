@@ -37,7 +37,7 @@ export default function MapPage() {
 
     return (
         <SatelliteMap
-            location={LOCATIONS[1]}
+            location={LOCATIONS[0]}
             robot={robot}
             waypoints={waypoints}
             distanceLine={distanceLine}

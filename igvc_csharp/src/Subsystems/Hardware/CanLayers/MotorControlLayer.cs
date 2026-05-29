@@ -27,6 +27,11 @@ public class MotorControlLayer(CanbusSubsystem canbus)
 
     public void SetVelocities(double forwardVelocity, double sidewaysVelocity, double angularVelocity)
     {
+        if (forwardVelocity > 0)
+        {
+            angularVelocity -= 0.04;
+        }
+
         var fv = (short)(forwardVelocity / 0.001);
         var sv = (short)(sidewaysVelocity / 0.001);
         var av = (short)(angularVelocity / 0.001);

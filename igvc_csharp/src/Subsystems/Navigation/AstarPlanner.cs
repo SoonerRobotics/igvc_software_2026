@@ -20,11 +20,9 @@ public record AStarConfig
     public byte ObstacleThreshold { get; init; } = 50;
 
     public float WaypointWeight { get; init; } = 5.0f;
-    public float WaypointMaxWeight { get; init; } = 180.0f;
+    public float WaypointMaxWeight { get; init; } = 200.0f;
 
-    public ulong WaypointDelayMs { get; init; } = 6000;
-
-    [Config("astar.use_only_waypoints")]
+    public ulong WaypointDelayMs { get; init; } = 60000;
     public bool UseOnlyWaypoints { get; init; } = false;
 }
 
