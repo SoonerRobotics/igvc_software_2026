@@ -5,10 +5,12 @@ using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class LaneChangeAction(SelfdriveLane direction, ulong timeoutMs) : ISelfdriveAction
+public class LaneChangeAction(ulong timeoutMs = 0) : ISelfdriveAction
 {
     private ulong _startTime = 0;
     private bool _init = false;
+    private SelfdriveContext? context;
+    private SelfdriveLane? goalLane;
 
     public bool IsInit()
     {
@@ -19,17 +21,27 @@ public class LaneChangeAction(SelfdriveLane direction, ulong timeoutMs) : ISelfd
     {
         _startTime = TimeUtils.Now();
         _init = true;
+        this.context = context;
+
+        if (context.CurrentLane == SelfdriveLane.Left)
+        {
+            goalLane = SelfdriveLane.Right;
+        }
+        else
+        {
+            goalLane = SelfdriveLane.Left;
+        }
     }
 
     public void Run(SelfdriveContext context)
     {
-        if (direction == SelfdriveLane.Left)
+        if (goalLane == SelfdriveLane.Left)
         {
-            //TODO: turn left
+            //TODO: strafe left
         }
         else
         {
-            //TODO: turn right
+            //TODO: strafe right
         }
     }
 
@@ -44,7 +56,11 @@ public class LaneChangeAction(SelfdriveLane direction, ulong timeoutMs) : ISelfd
         {
             return false;
         }
+        else if ((TimeUtils.Now() - _startTime) > timeoutMs && timeoutMs > 0)
+        {
+            return true;
+        }
 
-        return (TimeUtils.Now() - _startTime) > timeoutMs;
+        return context.CurrentLane == goalLane;
     }
 }

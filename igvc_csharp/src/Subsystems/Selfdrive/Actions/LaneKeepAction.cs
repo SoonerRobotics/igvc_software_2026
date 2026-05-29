@@ -1,11 +1,12 @@
 
+using igvc_csharp.Core.Units;
 using igvc_csharp.src.selfdrive.actions;
 using igvc_csharp.src.subsystems.selfdrive;
 using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class LaneKeepAction(SelfdriveLane lane, SelfdriveObstacles obstacle, ulong timeout = 0) : ISelfdriveAction
+public class LaneKeepAction(SelfdriveObstacles obstacle, Distance distanceToStop, ulong timeout = 0) : ISelfdriveAction
 {
     private ulong _startTime = 0;
     private bool _init = false;

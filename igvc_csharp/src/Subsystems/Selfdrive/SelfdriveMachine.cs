@@ -21,6 +21,7 @@ public enum SelfdriveObstacles
     Tire,
     Pedestrian,
     WhiteLine,
+    Pothole,
     Any
 }
 

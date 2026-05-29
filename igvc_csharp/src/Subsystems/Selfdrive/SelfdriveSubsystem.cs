@@ -6,6 +6,7 @@ using igvc_csharp.Subsystems.Navigation;
 using igvc_csharp.src.Subsystems.selfdrive;
 using igvc_csharp.src.selfdrive.actions;
 using igvc_csharp.src.Subsystems.selfdrive.actions;
+using igvc_csharp.Core.Units;
 
 namespace igvc_csharp.src.subsystems.selfdrive;
 
@@ -26,9 +27,11 @@ public class SelfdriveSubsystem(
     [Config("selfdrive.turn_speed")]
     public double TurnSpeed = 0.4; // positive is to the left
     [Config("selfdrive.lane_change_ms")]
-    public int LaneChangeMs = 2000; //FIXME ideally this is distance-based (or actually vision-based)
-    [Config("selfdrive.obstacle_stop_ms")]
-    public int ObstacleStopMs = 5000; //FIXME ideally this is distance-based (or actually vision-based)
+    public double feetToStop = 2;
+    [Config("selfdrive.far_feet_to_stop")]
+    public double farFeetToStop = 12;
+    [Config("selfdrive.lane_change_timeout")]
+    public ulong laneChangeTimeoutMs = 3000;
 
 
     public SubsystemProperty<SelfdriveGoal> mGoal = new SubsystemProperty<SelfdriveGoal>("goal", SelfdriveGoal.LaneKeep);
@@ -134,31 +137,31 @@ public class SelfdriveSubsystem(
                         break;
                     case SelfdriveTest.LaneKeeping_FIII_1:
                         action = new SequentialAction([
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Stopsign),
+                            new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
                             //FIXME we might need to insert a DriveStraightTimed here to make it through the intersection?
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.LeftTurn_FIII_2:
                         action = new SequentialAction([
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Stopsign),
+                            new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
                             //FIXME might need a WaitTimeout() so it's a "full" stop
                             new TimedDriveAction(ForwardSpeed*2, 0, TurnSpeed, 5000),
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.RightTurn_FIII_3:
                         action = new SequentialAction([
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Stopsign),
+                            new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
                             //FIXME might need a WaitTimeout() so it's a "full" stop
                             new TimedDriveAction(ForwardSpeed, 0, -TurnSpeed, 3000),
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.PullOut_FIV_1:
                         action = new SequentialAction([
                             new TimedDriveAction(ForwardSpeed, 0, TurnSpeed*PullOutDirection, 5000),
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.PullIn_FIV_2:
@@ -175,43 +178,47 @@ public class SelfdriveSubsystem(
                         break;
                     case SelfdriveTest.StaticPedestrian_FV_1:
                         action = new SequentialAction([
-                            // no action, static test
+                            new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(6)) //FIXME configurable PedestrianStop distance?
                         ]);
                         break;
                     case SelfdriveTest.DynamicPedestrian_FV_2:
                         action = new SequentialAction([
-                            new LaneKeepAction(SelfdriveLane.Left, SelfdriveObstacles.Pedestrian),
+                            new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(6)),
                             //TODO: might want a TimedWaitAction() for a full stop here?
                             //TODO: need a WaitForClear here
-                            new LaneKeepAction(SelfdriveLane.Left, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.AvoidPedestrian_FV_3:
                         action = new SequentialAction([
-                            new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Pedestrian),
-                            new LaneChangeAction(SelfdriveLane.Left, 3000), //FIXME this can be replaced by a TimedDriveAction
-                            //also FIXME don't need to pass it the lane to change into, it's always the opposite of thel lane you're in, obviously
-                            new LaneKeepAction(SelfdriveLane.Left, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(11)),
+                            new LaneChangeAction(laneChangeTimeoutMs),
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.BarrelLaneChange_FV_4:
                         action = new SequentialAction([
-
+                            //FIXME we need to change lanes within a certain distance, not end within a certain distance?
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop)),
+                            new LaneChangeAction(laneChangeTimeoutMs),
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.CurvedLaneKeeping_FVI_1:
                         action = new SequentialAction([
-
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     case SelfdriveTest.CurvedLaneChange_FVI_2:
                         action = new SequentialAction([
-
+                            //FIXME this is just the same as the regular lane change no?
                         ]);
                         break;
                     case SelfdriveTest.PotholeDetection_FVII_1:
                         action = new SequentialAction([
-
+                            new LaneKeepAction(SelfdriveObstacles.Pothole, DistanceUnit.Feet.Of(feetToStop)),
+                            new LaneChangeAction(laneChangeTimeoutMs),
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
 
@@ -229,21 +236,21 @@ public class SelfdriveSubsystem(
                     case QualificationTest.LineDetection_Q2: // literally just display the annotated debug image
                     case QualificationTest.LaneKeeping_Q1:
                         action = new SequentialAction(
-                            [new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            [new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
 
                     case QualificationTest.LeftTurn_Q3:
                         action = new SequentialAction([
                             new TimedDriveAction(ForwardSpeed*2, 0f, TurnSpeed, 5000),
-                        new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
 
                     case QualificationTest.RightTurn_Q4:
                         action = new SequentialAction([
                             new TimedDriveAction(ForwardSpeed, 0f, -TurnSpeed, 3000),
-                        new LaneKeepAction(SelfdriveLane.Right, SelfdriveObstacles.Barrel)
+                            new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
                         ]);
                         break;
                     default:
@@ -256,17 +263,19 @@ public class SelfdriveSubsystem(
             var ctx = context; // TOOD: Fix
             if (!action?.IsInit() ?? false)
             {
-                action.Init(ctx);
+                action?.Init(ctx);
             }
 
-            action.Run(ctx);
+            action?.Run(ctx);
 
-            if (action.IsFinished(ctx))
+            if (action?.IsFinished(ctx) ?? false)
             {
                 action.End(ctx);
 
                 action = null; //FIXME what do we do here? default action?
             }
+
+            //TODO if we are completely out of actions then what?
 
             // ctx.Dispose(); //???
 
