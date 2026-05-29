@@ -1,8 +1,7 @@
 ﻿using System.Threading.Channels;
+using Google.FlatBuffers;
 using igvc_csharp.Core;
-using igvc_csharp.Core.Config;
 using igvc_csharp.Events;
-using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
@@ -15,7 +14,7 @@ using VisionConfig = igvc_csharp.Configuration.VisionSubsystem;
 namespace igvc_csharp.Subsystems.Vision;
 
 [Subsystem("VisionSubsystem", Disabled = false)]
-public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
+public class VisionSubsystem() : SubsystemBase
 {
     private readonly List<IFilter> _leftFilters = [];
     private readonly List<IFilter> _rightFilters = [];
@@ -48,7 +47,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
     public override Task Init(CancellationToken token)
     {
-        RebuildFilters(BaseRobot.Instance.State);
+        RebuildFilters(BaseRobot.Instance?.State);
 
         SubscribeImage("left", OnLeftImageReceived, token);
         SubscribeImage("right", OnRightImageReceived, token);
@@ -80,12 +79,17 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
             return Task.CompletedTask;
 
         Logger.LogInformation("Vision config changed ({Path}), rebuilding filters", e.Path);
-        RebuildFilters(BaseRobot.Instance.State);
+        RebuildFilters(BaseRobot.Instance?.State);
         return Task.CompletedTask;
     }
 
-    private void RebuildFilters(RobotState state)
+    private void RebuildFilters(RobotState? state)
     {
+        if (state == null)
+        {
+            return;
+        }
+
         lock (_filterLock)
         {
             _leftFilters.Clear();
@@ -172,11 +176,11 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
 
                 var combinedFiltered = new Mat();
 
-                if (BaseRobot.Instance.State.Mission == MissionEnum.Selfdrive)
+                if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
                 {
                     combinedFiltered = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
                 }
-                else if (BaseRobot.Instance.State.Mission == MissionEnum.Autonav)
+                else if (BaseRobot.Instance?.State.Mission == MissionEnum.Autonav)
                 {
                     Cv2.HConcat([leftMat, rightMat], combinedFiltered);
                 }
@@ -282,12 +286,21 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         var rightYellowCount = Cv2.CountNonZero(rightYellow);
 
         string laneLabel;
+        int laneNumber = 0;
         if (leftYellowCount == 0 && rightYellowCount == 0)
+        {
             laneLabel = "Lane: UNKNOWN";
+        }
         else if (leftYellowCount > rightYellowCount * 1.5)
+        {
             laneLabel = "Lane: RIGHT";
+            laneNumber = 1;
+        }
         else if (rightYellowCount > leftYellowCount * 1.5)
+        {
             laneLabel = "Lane: LEFT";
+            laneNumber = -1;
+        }
         else
             laneLabel = "Lane: CENTER";
 
@@ -320,6 +333,13 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
         var textX = combined.Width / 2 - textSize.Width / 2;
         Cv2.Rectangle(combined, new Rect(textX - 10, 8, textSize.Width + 20, bannerH - 16), new Scalar(0, 0, 0), thickness: -1);
         Cv2.PutText(combined, laneLabel, new Point(textX, 35), HersheyFonts.HersheySimplex, 1.0, textColor, thickness: 2);
+
+        // publish lane message for SelfdriveSubsystem
+        var builder = new FlatBufferBuilder(32);
+        var msg = Lane.CreateLane(builder, TimeUtils.Now(), laneNumber);
+        builder.Finish(msg.Value);
+        EventBus.Instance.Publish(new MessageWrapperEvent(
+            MessageWrapper.From(MessageType.Lane, builder.SizedByteArray())));
 
         return combined;
     }

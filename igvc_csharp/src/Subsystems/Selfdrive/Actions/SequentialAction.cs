@@ -14,17 +14,24 @@ public class SequentialAction(List<ISelfdriveAction> actions) : ISelfdriveAction
 
     public bool IsInit()
     {
+        if (_actions.Count == 0)
+        {
+            return true;
+        }
         return _actions[0].IsInit();
     }
 
     public void Init(SelfdriveContext context)
     {
-        _actions[0].Init(context);
+        if (_actions.Count > 0)
+        {
+            _actions[0].Init(context);
+        }
     }
 
     public void Run(SelfdriveContext context)
     {
-        if (_actions[_index].IsFinished(context) && _index < (_actions.Count - 1))
+        if (_index < (_actions.Count - 1) && _actions[_index].IsFinished(context))
         {
             _actions[_index].End(context);
             _index++;
@@ -36,12 +43,19 @@ public class SequentialAction(List<ISelfdriveAction> actions) : ISelfdriveAction
 
     public void End(SelfdriveContext context)
     {
-        _actions[_index].End(context);
+        if (_actions.Count > 0)
+        {
+            _actions[_index].End(context);
+        }
         //FIXME do we need to do something else here?
     }
 
     public bool IsFinished(SelfdriveContext context)
     {
+        if (_actions.Count == 0)
+        {
+            return true;
+        }
         return _actions[-1].IsFinished(context);
     }
 }

@@ -18,29 +18,45 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
     {
         SetOperatingState(SubsystemState.Starting);
 
+        
+
         SubscribeMessage<AudibleFeedback>(
             MessageType.AudibleFeedback,
             OnMessageReceived,
             token
         );
 
-        //TODO: subscribe to Waypoint messages as well? if that code does work and gets merged...
+        // set the default audio output to be the bluetooth speaker (Soundcore 2)
+        using (Process setDefaultSink = new())
+        {
+            setDefaultSink.StartInfo.UseShellExecute = true;
+            setDefaultSink.StartInfo.FileName = "pactl";
+            setDefaultSink.StartInfo.CreateNoWindow = true;
+            setDefaultSink.StartInfo.ErrorDialog = false;
+            setDefaultSink.StartInfo.Arguments = " set-default-sink bluez_sink.8C_85_80_BC_73_39.handsfree_head_unit";
+            setDefaultSink.Start();
+        }
 
-        SetOperatingState(SubsystemState.Ready);
+        // set the volume to be louder
+        using (Process setVolume = new())
+        {
+            setVolume.StartInfo.UseShellExecute = true;
+            setVolume.StartInfo.FileName = "ffplay";
+            setVolume.StartInfo.CreateNoWindow = true;
+            setVolume.StartInfo.ErrorDialog = false;
+            setVolume.StartInfo.Arguments = " @DEFAULT_SINK@ 150%";
+            setVolume.Start();
+        }
 
-        //FIXME we need to run this command on startup or something
-        //  pactl set-sink-volume @DEFAULT_SINK@ 150%
-
-        // we also need to run this command on startup:
-        //   pactl set-default-sink bluez_sink.8C_85_80_BC_73_39.handsfree_head_unit
-        // which should be cross-platform because it's based on the MAC address of the  
-
+        // play robot starting sound on robot code startup
         _ = Task.Factory.StartNew(
             () => PlaySound("robot-code-start.mp3"),
             token,
             TaskCreationOptions.None,
             TaskScheduler.Default
         );
+        
+        SetOperatingState(SubsystemState.Ready);
 
         return Task.CompletedTask;
     }
@@ -55,8 +71,7 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
                 case RobotModeEnum.Autonomous:
                     if (updated.Mission == MissionEnum.Autonav)
                     {
-                        PlaySound("autonav-mode.mp3"); //FIXME this is temporary
-                        // PlaySound("waypoints-start.mp3");
+                        PlaySound("autonav-mode.mp3");
                     }
                     else
                     {
@@ -79,7 +94,7 @@ public class AudioSubsystem(ChronosSubsystem chronos) : SubsystemBase
             switch (updated.Mission)
             {
                 case MissionEnum.Autonav:
-                    PlaySound("self-drive.mp3");
+                    PlaySound("autonav-mode.mp3");
                     break;
                 case MissionEnum.Selfdrive:
                     PlaySound("self-drive.mp3"); //FIXME

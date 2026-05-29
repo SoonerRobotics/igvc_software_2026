@@ -1,0 +1,12 @@
+namespace {NAMESPACE_PLACEHOLDER};
+
+table Lane {
+    // The timestamp of the image frame in microseconds
+    timestamp: ulong;
+
+    // The current lane the robot is in
+    // -1 is left, 0 is center / uknown, 1 is right.
+    lane: int;
+}
+
+root_type Lane;

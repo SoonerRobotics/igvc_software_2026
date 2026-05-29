@@ -10,6 +10,7 @@ public enum MessageType : ushort
     ZedFrame = 0x09,
     Waypoint = 0x10,
     AudibleFeedback = 0x11,
+    Lane = 0x12,
     
     // Reserved Stuff
     CapabilityReq = 60_000,
