@@ -4,6 +4,4 @@
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:19:7:float radiansA(double)	1
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:23:1:SwerveModule::SwerveModule(SwerveModuleConfig)	1
 ../Core/Inc/SwerveDrive/SwerveModule.cpp:34:7:float SwerveModule::getDriveDelta()	2
-../Core/Inc/SwerveDrive/SwerveModule.cpp:48:6:void SwerveModule::updateState(SwerveModuleState)	8
-../Core/Inc/SwerveDrive/SwerveModule.cpp:81:1:void __static_initialization_and_destruction_0()	1
-../Core/Inc/SwerveDrive/SwerveModule.cpp:81:1:cpp)	1
+../Core/Inc/SwerveDrive/SwerveModule.cpp:50:6:void SwerveModule::updateState(SwerveModuleState)	8

@@ -80,7 +80,7 @@ static void sendOdometry(const SwerveDriveState &state)
 	CAN_TxHeaderTypeDef tx = {};
 	tx.IDE = CAN_ID_STD;
 	tx.RTR = CAN_RTR_DATA;
-	tx.StdId = ODOMETRY_CAN_ID;
+	tx.StdId = 0xB;
 	tx.DLC = sizeof(MotorOdometryMsg); // 6 bytes
 
 	uint32_t mailbox;
