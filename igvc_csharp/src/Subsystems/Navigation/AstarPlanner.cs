@@ -1,3 +1,5 @@
+using igvc_csharp.Core.Config;
+using igvc_csharp.Utils;
 using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Navigation;
@@ -17,18 +19,13 @@ public record AStarConfig
 
     public byte ObstacleThreshold { get; init; } = 50;
 
-    public float WaypointWeight { get; init; } = 1.0f;
-    public float WaypointMaxWeight { get; init; } = 10.0f;
+    public float WaypointWeight { get; init; } = 5.0f;
+    public float WaypointMaxWeight { get; init; } = 180.0f;
 
-    /// <summary>
-    /// Milliseconds to wait after entering autonomous before waypoints influence path planning.
-    /// </summary>
     public ulong WaypointDelayMs { get; init; } = 6000;
 
-    /// <summary>
-    /// When true, the cost map is zeroed out and the robot steers purely by waypoint heading.
-    /// </summary>
-    public bool UseOnlyWaypoints { get; init; } = true;
+    [Config("astar.use_only_waypoints")]
+    public bool UseOnlyWaypoints { get; init; } = false;
 }
 
 public static class AStarPlanner
@@ -58,9 +55,7 @@ public static class AStarPlanner
     private static float AngleDifference(float to, float from)
     {
         float delta = to - from;
-        delta = (delta + MathF.PI) % (2 * MathF.PI) - MathF.PI;
-        if (delta < -MathF.PI) delta += 2 * MathF.PI;
-        return delta;
+        return (float)(MathUtils.Modulo(delta + Math.PI, 2 * Math.PI) - Math.PI);
     }
 
     private static (int x, int y) FindBestGoal(
@@ -91,10 +86,13 @@ public static class AStarPlanner
 
                 if (waypointHeadingRad.HasValue && robotThetaRad.HasValue)
                 {
-                    float angleToCell = MathF.Atan2(W / 2f - x, H - 2f - y);
+                    var dx = x - W / 2f;
+                    var dy = H - 2f - y;
+                    float angleToCell = MathF.Atan2(dx, dy);
                     float headingToCell = robotThetaRad.Value + angleToCell;
-                    float headingErr = MathF.Abs(AngleDifference(headingToCell, waypointHeadingRad.Value)) * (180f / MathF.PI);
-                    score -= MathF.Max(headingErr, config.WaypointMaxWeight) * config.WaypointWeight;
+                    float headingErr = MathF.Abs(AngleDifference(headingToCell, waypointHeadingRad.Value))
+                                       * (180f / MathF.PI);
+                    score -= MathF.Min(headingErr, config.WaypointMaxWeight) * config.WaypointWeight;
                 }
 
                 if (score > bestCost)

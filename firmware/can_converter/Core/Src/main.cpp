@@ -13,65 +13,86 @@ static void MX_CAN1_Init(void);
 static void MX_CAN2_Init(void);
 static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank);
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
-CanSparkMax *s_spark_registry[64] = { nullptr };
-SwerveDrive* InitSwerveDrive();
+CanSparkMax *s_spark_registry[64] = {nullptr};
+SwerveDrive *InitSwerveDrive();
 SwerveDrive *g_swerve_drive = nullptr;
-SwerveDriveState cmd { };
+SwerveDriveState cmd{};
 
-static bool WaitForTxMailbox(CAN_HandleTypeDef *hcan, uint32_t timeout_ms) {
+static bool WaitForTxMailbox(CAN_HandleTypeDef *hcan, uint32_t timeout_ms)
+{
 	uint32_t start = HAL_GetTick();
-	while (HAL_CAN_GetTxMailboxesFreeLevel(hcan) == 0) {
-		if ((HAL_GetTick() - start) >= timeout_ms) {
-			return false;  // timed out
+	while (HAL_CAN_GetTxMailboxesFreeLevel(hcan) == 0)
+	{
+		if ((HAL_GetTick() - start) >= timeout_ms)
+		{
+			return false; // timed out
 		}
 	}
 	return true;
 }
 
-SwerveDrive* InitSwerveDrive() {
+SwerveDrive *InitSwerveDrive()
+{
 
-	static SwerveModuleConfig fl_config = { .x_pos = 0.6604, .y_pos = 0.3048,
-			.drive_motor_id = 1, .angle_motor_id = 2, .is_drive_motor_reversed =
-					false, .is_angle_motor_reversed = false };
+	static SwerveModuleConfig fl_config = {.x_pos = 0.6604, .y_pos = 0.3048, .drive_motor_id = 1, .angle_motor_id = 2, .is_drive_motor_reversed = false, .is_angle_motor_reversed = false};
 
-	static SwerveModuleConfig fr_config = { .x_pos = 0.6604, .y_pos = -0.3048,
-			.drive_motor_id = 4, .angle_motor_id = 3, .is_drive_motor_reversed =
-					false, .is_angle_motor_reversed = false };
+	static SwerveModuleConfig fr_config = {.x_pos = 0.6604, .y_pos = -0.3048, .drive_motor_id = 4, .angle_motor_id = 3, .is_drive_motor_reversed = false, .is_angle_motor_reversed = false};
 
-	static SwerveModuleConfig bl_config = { .x_pos = -0.6604, .y_pos = 0.3048,
-			.drive_motor_id = 5, .angle_motor_id = 6, .is_drive_motor_reversed =
-					false, .is_angle_motor_reversed = false };
+	static SwerveModuleConfig bl_config = {.x_pos = -0.6604, .y_pos = 0.3048, .drive_motor_id = 5, .angle_motor_id = 6, .is_drive_motor_reversed = false, .is_angle_motor_reversed = false};
 
-	static SwerveModuleConfig br_config = { .x_pos = -0.6604, .y_pos = -0.3048,
-			.drive_motor_id = 8, .angle_motor_id = 7, .is_drive_motor_reversed =
-					false, .is_angle_motor_reversed = false };
+	static SwerveModuleConfig br_config = {.x_pos = -0.6604, .y_pos = -0.3048, .drive_motor_id = 8, .angle_motor_id = 7, .is_drive_motor_reversed = false, .is_angle_motor_reversed = false};
 	static SwerveModule fl_module(fl_config);
 	static SwerveModule fr_module(fr_config);
 	static SwerveModule bl_module(bl_config);
 	static SwerveModule br_module(br_config);
-	static SwerveDriveConfig drive_config = { .front_left = &fl_module,
-			.front_right = &fr_module, .back_left = &bl_module, .back_right =
-					&br_module };
+	static SwerveDriveConfig drive_config = {.front_left = &fl_module,
+											 .front_right = &fr_module,
+											 .back_left = &bl_module,
+											 .back_right =
+												 &br_module};
 	static SwerveDrive drive(drive_config);
 	g_swerve_drive = &drive;
 	return &drive;
 }
 
 // motor command stuff
-typedef struct {
+typedef struct
+{
 	int16_t forward_velocity;
 	int16_t sideways_velocity;
 	int16_t angular_velocity;
 } MotorCommandMsg;
 
-// motor odometry stuff
-typedef struct {
+typedef struct
+{
 	int16_t delta_x;
 	int16_t delta_y;
 	int16_t delta_theta;
 } MotorOdometryMsg;
 
-int main(void) {
+static void sendOdometry(const SwerveDriveState &state)
+{
+	MotorOdometryMsg msg;
+	msg.delta_x = (int16_t)(state.delta_x * 1000.0);
+	msg.delta_y = (int16_t)(state.delta_y * 1000.0);
+	msg.delta_theta = (int16_t)(state.delta_theta * 1000.0);
+
+	CAN_TxHeaderTypeDef tx = {};
+	tx.IDE = CAN_ID_STD;
+	tx.RTR = CAN_RTR_DATA;
+	tx.StdId = ODOMETRY_CAN_ID;
+	tx.DLC = sizeof(MotorOdometryMsg); // 6 bytes
+
+	uint32_t mailbox;
+	uint8_t buf[8] = {};
+	memcpy(buf, &msg, sizeof(msg));
+
+	WaitForTxMailbox(&hcan1, 5);
+	HAL_CAN_AddTxMessage(&hcan1, &tx, buf, &mailbox);
+}
+
+int main(void)
+{
 
 	HAL_Init();
 	SystemClock_Config();
@@ -79,11 +100,13 @@ int main(void) {
 	MX_CAN1_Init();
 	MX_CAN2_Init();
 	MX_USB_DEVICE_Init();
-	if (HAL_CAN_Start(&hcan1) != HAL_OK) {
-		Error_Handler();  // CAN failed to start
+	if (HAL_CAN_Start(&hcan1) != HAL_OK)
+	{
+		Error_Handler(); // CAN failed to start
 	}
-	if (HAL_CAN_Start(&hcan2) != HAL_OK) {
-		Error_Handler();  // CAN failed to start
+	if (HAL_CAN_Start(&hcan2) != HAL_OK)
+	{
+		Error_Handler(); // CAN failed to start
 	}
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 	HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -91,13 +114,19 @@ int main(void) {
 	SwerveDrive *swerveDrive = InitSwerveDrive();
 	uint32_t last = HAL_GetTick();
 	const uint32_t period_ms = 20;
-	while (1) {
+	while (1)
+	{
 		uint32_t now = HAL_GetTick();
-		if ((now - last) >= period_ms) {
+		if ((now - last) >= period_ms)
+		{
 			SwerveDriveState measured = swerveDrive->updateState(cmd);
-			for (int i = 1; i <= 8; i++) {
+			sendOdometry(measured);
+
+			for (int i = 1; i <= 8; i++)
+			{
 				CanSparkMax *hb_spark = s_spark_registry[i];
-				if (hb_spark) {
+				if (hb_spark)
+				{
 					hb_spark->sendHeartbeat();
 				}
 			}
@@ -108,12 +137,14 @@ int main(void) {
 		uint32_t err2 = HAL_CAN_GetError(&hcan2);
 
 		// Also add Bus-Off recovery
-		if (err1 & HAL_CAN_ERROR_BOF) {
+		if (err1 & HAL_CAN_ERROR_BOF)
+		{
 			HAL_CAN_Stop(&hcan1);
 			HAL_CAN_Start(&hcan1);
 			HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 		}
-		if (err2 & HAL_CAN_ERROR_BOF) {
+		if (err2 & HAL_CAN_ERROR_BOF)
+		{
 			HAL_CAN_Stop(&hcan2);
 			HAL_CAN_Start(&hcan2);
 			HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -121,37 +152,42 @@ int main(void) {
 	}
 }
 
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-	if (hcan->Instance == CAN1) {
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	if (hcan->Instance == CAN1)
+	{
 		CAN_RxHeaderTypeDef rxHeader;
 		uint8_t data[8];
-		if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, data)
-				!= HAL_OK) {
+		if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, data) != HAL_OK)
+		{
 			return;
 		}
 		uint32_t can_id = rxHeader.StdId;
-		if ((can_id == 0xA) && (rxHeader.DLC == 6)) {
-			MotorCommandMsg *msg = (MotorCommandMsg*) data;
-			cmd.delta_x = msg->forward_velocity * 0.0001;
-			cmd.delta_y = msg->sideways_velocity * 0.0001;
+		if ((can_id == 0xA) && (rxHeader.DLC == 6))
+		{
+			MotorCommandMsg *msg = (MotorCommandMsg *)data;
+			cmd.delta_x = msg->forward_velocity * 0.001;
+			cmd.delta_y = msg->sideways_velocity * 0.001;
 			cmd.delta_theta = msg->angular_velocity * 0.001;
 			HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
 		}
-
-	} else if (hcan->Instance == CAN2) {
+	}
+	else if (hcan->Instance == CAN2)
+	{
 		CAN_RxHeaderTypeDef rxHeader;
 		uint8_t data[8];
 
-		if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, data)
-				!= HAL_OK) {
+		if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, data) != HAL_OK)
+		{
 			return;
 		}
 		uint32_t can_id = rxHeader.ExtId;
-		uint8_t deviceID = can_id & 0x3F;       // lower 6 bits
-		uint8_t api_index = (can_id >> 6) & 0x0F;       // next 4 bits
-		uint8_t api_class = (can_id >> 10) & 0x3F;       // next 6 bits
+		uint8_t deviceID = can_id & 0x3F;		   // lower 6 bits
+		uint8_t api_index = (can_id >> 6) & 0x0F;  // next 4 bits
+		uint8_t api_class = (can_id >> 10) & 0x3F; // next 6 bits
 		CanSparkMax *spark = s_spark_registry[deviceID];
-		if (spark) {
+		if (spark)
+		{
 
 			spark->handleFeedback(api_class, api_index, data);
 			HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
@@ -159,7 +195,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	}
 }
 
-static void MX_CAN1_Init(void) {
+static void MX_CAN1_Init(void)
+{
 	hcan1.Instance = CAN1;
 	hcan1.Init.Prescaler = 16;
 	hcan1.Init.Mode = CAN_MODE_NORMAL;
@@ -172,11 +209,12 @@ static void MX_CAN1_Init(void) {
 	hcan1.Init.AutoRetransmission = DISABLE;
 	hcan1.Init.ReceiveFifoLocked = DISABLE;
 	hcan1.Init.TransmitFifoPriority = DISABLE;
-	if (HAL_CAN_Init(&hcan1) != HAL_OK) {
+	if (HAL_CAN_Init(&hcan1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 
-	CAN_FilterTypeDef filter = { 0 };
+	CAN_FilterTypeDef filter = {0};
 
 	filter.FilterActivation = CAN_FILTER_ENABLE;
 	filter.FilterBank = 1;
@@ -194,10 +232,10 @@ static void MX_CAN1_Init(void) {
 	filter.FilterMaskIdLow = 0x0000;
 	filter.SlaveStartFilterBank = 14;
 	HAL_CAN_ConfigFilter(&hcan1, &filter);
-
 }
 
-static void MX_CAN2_Init(void) {
+static void MX_CAN2_Init(void)
+{
 	hcan2.Instance = CAN2;
 	hcan2.Init.Prescaler = 2;
 	hcan2.Init.Mode = CAN_MODE_NORMAL;
@@ -210,16 +248,18 @@ static void MX_CAN2_Init(void) {
 	hcan2.Init.AutoRetransmission = DISABLE;
 	hcan2.Init.ReceiveFifoLocked = DISABLE;
 	hcan2.Init.TransmitFifoPriority = DISABLE;
-	if (HAL_CAN_Init(&hcan2) != HAL_OK) {
+	if (HAL_CAN_Init(&hcan2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 
 	configFilter(&hcan2, 0x02051840, 16);
-	configFilter(&hcan2, 0x02051880, 17); //dont use RPM
-	configFilter(&hcan2, 0x02051940, 18); //RPM, and encoder feedback ids
+	configFilter(&hcan2, 0x02051880, 17); // dont use RPM
+	configFilter(&hcan2, 0x02051940, 18); // RPM, and encoder feedback ids
 }
 
-static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank) {
+static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank)
+{
 	const uint32_t m_shift = (0xFFFFFFC0u << 3);
 	CAN_FilterTypeDef f;
 	f.FilterBank = bank;
@@ -227,17 +267,18 @@ static void configFilter(CAN_HandleTypeDef *hcan, uint32_t id, uint32_t bank) {
 	f.FilterFIFOAssignment = CAN_FILTER_FIFO0;
 	f.FilterScale = CAN_FILTERSCALE_32BIT;
 	f.FilterMode = CAN_FILTERMODE_IDMASK;
-	f.FilterMaskIdHigh = (uint16_t) (m_shift >> 16);
-	f.FilterMaskIdLow = (uint16_t) (m_shift & 0xFFFF);
+	f.FilterMaskIdHigh = (uint16_t)(m_shift >> 16);
+	f.FilterMaskIdLow = (uint16_t)(m_shift & 0xFFFF);
 	f.FilterMaskIdLow |= (1u << 2) | (1u << 1);
-	f.FilterIdHigh = (uint16_t) ((id << 3) >> 16);
-	f.FilterIdLow = (uint16_t) ((id << 3) & 0xFFFF);
+	f.FilterIdHigh = (uint16_t)((id << 3) >> 16);
+	f.FilterIdLow = (uint16_t)((id << 3) & 0xFFFF);
 	f.FilterIdLow |= (1u << 2) | (0u << 1);
 	HAL_CAN_ConfigFilter(&hcan2, &f);
 }
 
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+static void MX_GPIO_Init(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOD_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
@@ -252,12 +293,12 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
 }
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
-	RCC_PeriphCLKInitTypeDef PeriphClkInit = { 0 };
+void SystemClock_Config(void)
+{
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+	RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
 	/** Initializes the RCC Oscillators according to the specified parameters
 	 * in the RCC_OscInitTypeDef structure.
@@ -271,25 +312,27 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
 	RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL_NONE;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
 		Error_Handler();
 	}
 
 	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
 	PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL_DIV3;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
+	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	{
 		Error_Handler();
 	}
 
@@ -305,28 +348,30 @@ void SystemClock_Config(void) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
-	while (1) {
+	while (1)
+	{
 	}
 	/* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+	/* USER CODE BEGIN 6 */
+	/* User can add his own implementation to report the file name and line number,
+	   ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	/* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

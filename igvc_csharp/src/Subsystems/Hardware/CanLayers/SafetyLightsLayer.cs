@@ -6,57 +6,76 @@ namespace igvc_csharp.Subsystems.Hardware.CanLayers;
 
 public class SafetyLightsLayer(CanbusSubsystem canbus)
 {
-    private SafetyLightsPacket? _lastPacket;
-    private CancellationTokenSource? _flashCts;
-    private readonly object _flashLock = new();
-
     public enum SafetyLightsMode : byte
     {
-        /// <summary>A default "booting" mode, whatever the firmware decides</summary>
-        Default,
-        /// <summary>A "chasing" or loading animation</summary>
-        Chasing,
-        /// <summary>The led strip is solid the current color</summary>
-        Solid,
-        /// <summary>The led strip is blinking the current color</summary>
-        Blinking,
-        /// <summary>RGB go brr but at full capacity</summary>
-        Rainbow
+        Disabled = 0,
+
+        Manual = 1,
+
+        AutoEnabled = 2,
+
+        AutoDisabled = 3,
+
+        LowPower = 4,
+
+        TurnLeft = 5,
+
+        TurnRight = 6,
+
+        WaypointReached = 7,
+
+        WaypointFollow = 8,
+
+        Booting = 9,
+
+        Shutdown = 10,
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct SafetyLightsPacket(SafetyLightsMode mode, ColorUtils.Color color, ushort speed)
+    private struct SafetyLightsPacket(SafetyLightsMode mode)
     {
         public SafetyLightsMode Mode = mode;
-        public byte R = color.R;
-        public byte G = color.G;
-        public byte B = color.B;
-        public ushort Speed = speed;
-        public ushort Unused = 0;
+
+        private readonly byte _r1 = 0;
+        private readonly byte _r2 = 0;
+        private readonly byte _r3 = 0;
+        private readonly byte _r4 = 0;
+        private readonly byte _r5 = 0;
+        private readonly byte _r6 = 0;
+        private readonly byte _r7 = 0;
     }
 
-    private void SetRaw(SafetyLightsPacket packet)
+    private SafetyLightsMode _currentMode = SafetyLightsMode.Booting;
+
+    private readonly object _flashLock = new();
+    private CancellationTokenSource? _flashCts;
+
+    private void Send(SafetyLightsMode mode)
     {
-        _lastPacket = packet;
-        var bytes = CanbusSubsystem.PacketToBytes(packet);
+        _currentMode = mode;
+        var bytes = CanbusSubsystem.PacketToBytes(new SafetyLightsPacket(mode));
         canbus.SendCanFrame(new CanFrame((uint)CanId.SafetyLights, bytes));
     }
 
-    public void Set(SafetyLightsMode mode, ColorUtils.Color color, ushort speed = 2000)
-        => SetRaw(new SafetyLightsPacket(mode, color, speed));
+    public void SetDisabled() => Send(SafetyLightsMode.Disabled);
+    public void SetManual() => Send(SafetyLightsMode.Manual);
+    public void SetAutoEnabled() => Send(SafetyLightsMode.AutoEnabled);
+    public void SetAutoDisabled() => Send(SafetyLightsMode.AutoDisabled);
+    public void SetLowPower() => Send(SafetyLightsMode.LowPower);
+    public void SetTurnLeft() => Send(SafetyLightsMode.TurnLeft);
+    public void SetTurnRight() => Send(SafetyLightsMode.TurnRight);
+    public void SetBooting() => Send(SafetyLightsMode.Booting);
+    public void SetShutdown() => Send(SafetyLightsMode.Shutdown);
 
-    public void SetAutonomous() => Set(SafetyLightsMode.Blinking, ColorUtils.Color.Autonomous);
-    public void SetHalfAutonomous() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.White, 4000);
-    public void SetManual() => Set(SafetyLightsMode.Solid, ColorUtils.Color.Manual);
-    public void SetBooting() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.Amaranth, 1500);
-    public void SetDisabled() => Set(SafetyLightsMode.Default, ColorUtils.Color.White);
-    public void SetLowPower() => Set(SafetyLightsMode.Chasing, ColorUtils.Color.Red, 3000);
-    public void SetShuttingDown() => Set(SafetyLightsMode.Blinking, ColorUtils.Color.Red, 1000);
+    public void FlashWaypointReached(CancellationToken token, int duration = 3000)
+        => FlashTemporary(SafetyLightsMode.WaypointReached, token, duration);
 
-    public void FlashTemporary(ColorUtils.Color color, CancellationToken token,
-        ushort length = 2000, ushort speed = 1000)
+    public void FlashWaypointFollow(CancellationToken token, int duration = 3000)
+        => FlashTemporary(SafetyLightsMode.WaypointFollow, token, duration);
+
+    private void FlashTemporary(SafetyLightsMode flashMode, CancellationToken token, int duration)
     {
-        SafetyLightsPacket restoreTo;
+        SafetyLightsMode restore;
         CancellationTokenSource cts;
 
         lock (_flashLock)
@@ -64,21 +83,19 @@ public class SafetyLightsLayer(CanbusSubsystem canbus)
             _flashCts?.Cancel();
             _flashCts?.Dispose();
 
-            restoreTo = _lastPacket
-                ?? new SafetyLightsPacket(SafetyLightsMode.Default, ColorUtils.Color.White, 1000);
-
+            restore = _currentMode;
             cts = CancellationTokenSource.CreateLinkedTokenSource(token);
             _flashCts = cts;
         }
 
-        Set(SafetyLightsMode.Blinking, color, speed);
+        Send(flashMode);
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(length, cts.Token);
-                SetRaw(restoreTo);
+                await Task.Delay(duration, cts.Token);
+                Send(restore);
             }
             catch (OperationCanceledException) { /* superseded or shutdown */ }
             finally

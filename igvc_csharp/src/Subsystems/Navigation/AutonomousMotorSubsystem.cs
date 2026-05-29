@@ -1,4 +1,5 @@
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
 using igvc_csharp.Subsystems.Navigation;
@@ -17,11 +18,16 @@ public class MotorSubsystem(
     private const float RadiusMax = 4.0f;
 
     // Velocity limits
-    private const double ForwardSpeed = 0.5;
-    private const double AngularAggression = 1.5;
-    private const double MaxAngularSpeed = 1.5;
+    [Config("autonomous.forward_speed")]
+    public static double ForwardSpeed = 2.0;
 
-    private const float AtGoalDistanceSq = 0.1f;
+    [Config("autonomous.angular_aggression")]
+    public static double AngularAggression = 1.0;
+
+    [Config("autonomous.max_angular_speed")]
+    public static double MaxAngularSpeed = 1.2;
+
+    public const float AtGoalDistanceSq = 0.1f;
 
     private readonly PurePursuit _pursuit = new();
 
@@ -51,7 +57,7 @@ public class MotorSubsystem(
 
         if (updated.MotionAllowed && updated.Mode == RobotModeEnum.Autonomous)
         {
-            canbus.SafetyLights.SetAutonomous();
+            canbus.SafetyLights.SetAutoEnabled();
         }
 
         return Task.CompletedTask;
@@ -124,7 +130,12 @@ public class MotorSubsystem(
 
                 double angleToLookahead = Math.Atan2(lookahead.Value.Y, lookahead.Value.X);
                 double error = NormaliseAngle(angleToLookahead) / Math.PI;
-                double forward = ForwardSpeed * Math.Pow(1.0 - Math.Abs(error), 5);
+
+                // Deadband — ignore tiny errors to prevent oscillation
+                if (Math.Abs(error) < 0.02)
+                    error = 0;
+
+                double forward = ForwardSpeed * Math.Max(0.15, Math.Pow(1.0 - Math.Abs(error), 2));
                 double angular = Math.Clamp(
                     error * AngularAggression,
                     -MaxAngularSpeed,

@@ -19,7 +19,7 @@ public static class Configuration
 
     /// <summary>
     /// Determines if the robot will use the simulator.
-    public const bool UseSimulation = false;
+    public const bool UseSimulation = true;
 
     /// <summary>
     /// A magic header for all networking nonsense
@@ -225,10 +225,10 @@ public static class Configuration
 
         /// <summary>
         /// The max angular speed of the robot<br/>
-        /// <b>NOTE:</b> This defaults to 180 degrees per second (feels like a sane default)
+        /// <b>NOTE:</b> This defaults to 60 degrees per second
         /// </summary>
         [Config("drive.max_angular")]
-        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(120);
+        public static AngularVelocity MaxAngularSpeed = AngularVelocityUnit.DegreesPerSecond.Of(60);
 
         [Config("drive.invert_forward")]
         public static bool InvertForwardVelocity = false;
@@ -411,7 +411,7 @@ public static class Configuration
         /// How long we have to be within the WaypointPopDist, in milliseconds
         /// </summary>
         [Config("waypoints.waypoint_pop_time")]
-        public static ulong WaypointPopTime = 500;
+        public static ulong WaypointPopTime = 250;
 
         /// <summary>
         /// How long to wait, after starting the run, before factoring in the GPS waypoints, in milliseconds

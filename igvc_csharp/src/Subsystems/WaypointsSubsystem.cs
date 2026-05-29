@@ -1,6 +1,6 @@
-
 using Google.FlatBuffers;
 using igvc_csharp.Core;
+using igvc_csharp.Core.Config;
 using igvc_csharp.Core.Units;
 using igvc_csharp.Events;
 using igvc_csharp.Subsystems.Hardware;
@@ -12,83 +12,94 @@ using WaypointConfig = igvc_csharp.Configuration.WaypointSubsystem;
 
 namespace igvc_csharp.src.Subsystems;
 
+public enum WaypointSetEnum
+{
+    None,
+    Qualification,
+    Selfdrive,
+    Equad,
+    Practice,
+    Autonav,
+    Simulation
+}
+
+public enum WaypointDirectionEnum
+{
+    North,
+    South
+}
+
 [Subsystem("WaypointsSubsystem", Disabled = false)]
 public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
 {
-    // GPS stuff
-    private VectornavReport? _position;
+    private RobotPosition? _position;
     private ulong _runStartTime = 0;
     private ulong _waypointTimeStart = 0;
     private LatLng? _startGpsPos;
-    private Dictionary<string, List<LatLng>> _waypointsDict = [];
+    private Dictionary<WaypointSetEnum, List<LatLng>> _waypointsDict = [];
+
     private int _waypointIndex = 0;
-    private string _waypointSet = ""; //FIXME make this an enum or something?
-    private int _waypointDirection = 0;
     private bool _waypointsFinished = false;
+
+    [Config("waypoints.set")]
+    public WaypointSetEnum _waypointSet = WaypointSetEnum.None;
+
+    [Config("waypoints.direction")]
+    public WaypointDirectionEnum _waypointDirection = WaypointDirectionEnum.North;
 
     public override Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
-
         ReadWaypointsFile();
-
-        SubscribeMessage<VectornavReport>(
-            MessageType.VectorNav,
-            OnPositionReceived,
-            token
-        );
-
+        Subscribe<ArcClientConnectedEvent>((evt, ct) =>
+        {
+            BroadcastWaypointState();
+            return Task.CompletedTask;
+        }, token);
         SetOperatingState(SubsystemState.Ready);
-
         return Task.CompletedTask;
     }
 
     private Task ReadWaypointsFile()
     {
-        int numWaypoints = 0;
-        // === read waypoints from file === (copied and pasted from 2025's C++ feeler code, which was copied from 2024's feat/astar_rewrite_v3 branch)
-        string? line;
+        _waypointsDict.Clear();
+        int count = 0;
 
-        using (StreamReader waypointsFile = new(FileUtils.GetFileRelativeToRoot(WaypointConfig.WaypointsFilename)))
+        try
         {
-            if (waypointsFile == null)
-            {
-                SetOperatingState(SubsystemState.Errored);
+            using var file = new StreamReader(FileUtils.GetFileRelativeToRoot(WaypointConfig.WaypointsFilename));
 
-                Logger.LogError("Failed to read waypoints file! Waypoints will not work!");
+            file.ReadLine(); // skip header
 
-                return Task.CompletedTask;
-            }
-
-            // skip the first line
-            line = waypointsFile.ReadLine();
-            while ((line = waypointsFile.ReadLine()) != null)
+            string? line;
+            while ((line = file.ReadLine()) != null)
             {
                 var tokens = line.Split(",");
+                if (tokens.Length < 3) continue;
 
-                LatLng point = new(
-                    double.Parse(tokens[1]),
-                    double.Parse(tokens[2])
-                );
+                var set = Enum.Parse<WaypointSetEnum>(tokens[0], ignoreCase: true);
+                var point = new LatLng(double.Parse(tokens[1]), double.Parse(tokens[2]));
 
-                if (!_waypointsDict.ContainsKey(tokens[0]))
-                {
-                    _waypointsDict[tokens[0]] = [];
-                }
+                if (!_waypointsDict.ContainsKey(set))
+                    _waypointsDict[set] = [];
 
-                // waypoints are stored like {"north":[GPSPoint, GPSPoint]}
-                _waypointsDict[tokens[0]].Add(point);
-                numWaypoints++;
+                _waypointsDict[set].Add(point);
+                count++;
             }
         }
-        _waypointIndex = 0;
-        // === /read waypoints ===
-
-        Logger.LogInformation("Number of waypoints read: " + numWaypoints);
-
-        if (numWaypoints < 1)
+        catch (Exception ex)
         {
-            Logger.LogWarning("No waypoints read! Waypoint messages will not be published!");
+            Logger.LogError(ex, "Failed to read waypoints file! Waypoints will not work!");
+            SetOperatingState(SubsystemState.Errored);
+            return Task.CompletedTask;
+        }
+
+        _waypointIndex = 0;
+        Logger.LogInformation("Read {Count} waypoints", count);
+
+        if (count < 1)
+        {
+            Logger.LogWarning("No waypoints read, waypoint messages will not be published!");
         }
 
         return Task.CompletedTask;
@@ -99,211 +110,183 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         if (updated.Mode == RobotModeEnum.Autonomous)
         {
             if (updated.MotionAllowed && _runStartTime == 0)
-            {
-                if (_position.HasValue)
-                {
-                    Logger.LogDebug("Starting Waypoints Run!");
-
-                    _runStartTime = TimeUtils.Now();
-                    _startGpsPos = new LatLng(_position.Value.Latitude, _position.Value.Longitude);
-                    _waypointsFinished = false;
-                    SetOperatingState(SubsystemState.Operating);
-                }
-                else
-                {
-                    Logger.LogError("GPS Subsystem is not running! WaypointSubsystem cannot start operating!");
-                }
-            }
+                TryStartRun();
         }
         else
         {
-            // reset everything if we don't get put in autonomous
-            if (State != SubsystemState.Ready)
-            {
-                SetOperatingState(SubsystemState.Ready);
-            }
-
-            _waypointsDict.Clear();
-            ReadWaypointsFile();
-
-            _runStartTime = 0;
-            _startGpsPos = null;
-            _waypointSet = "";
-            _waypointDirection = 0;
-            _waypointsFinished = false;
-            _waypointTimeStart = 0;
+            Reset();
         }
 
         return Task.CompletedTask;
     }
 
-    private Task CheckDirection(VectornavReport msg, CancellationToken token)
+    private void TryStartRun()
     {
-        if ((TimeUtils.Now() - _runStartTime) > WaypointConfig.GpsWaitTime)
+        if (_position == null)
+            return; // Not an error — just waiting for first GPS fix
+
+        Logger.LogDebug("Starting waypoints run");
+        _runStartTime = TimeUtils.Now();
+        _startGpsPos = new LatLng(_position.Coordinates.Latitude, _position.Coordinates.Longitude);
+        _waypointsFinished = false;
+        SetOperatingState(SubsystemState.Operating);
+    }
+
+    private void Reset()
+    {
+        if (State != SubsystemState.Ready)
+            SetOperatingState(SubsystemState.Ready);
+
+        ReadWaypointsFile();
+        _runStartTime = 0;
+        _startGpsPos = null;
+        _waypointSet = WaypointSetEnum.None;
+        _waypointDirection = WaypointDirectionEnum.North;
+        _waypointsFinished = false;
+        _waypointTimeStart = 0;
+    }
+
+    public override void OnPositionChanged(RobotPosition position)
+    {
+        _position = position;
+
+        // If we're in autonomous but couldn't start yet due to missing GPS, try again now
+        if (_runStartTime == 0
+            && BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous
+            && BaseRobot.Instance?.State.MotionAllowed == true)
         {
-            //TODO: publish audible feedback msg for which waypoint set to use
-            // pick the set of waypoints based on robot state and GPS position information
-            // if (WaypointConfig.Qualificaiton)
-            // {
-            //     _waypointSet = "qualification";
-            // }
-            // else if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
-            // {
-            //     _waypointSet = "selfdrive";
-            // }
-            // else if (msg.Latitude < WaypointConfig.EquadLatitude)
-            // {
-            //     _waypointSet = "equad";
-            // }
-            // else if (msg.Longitude > WaypointConfig.PracticeLongitude)
-            // {
-            //     _waypointSet = "practice";
-            // }
-            // else
-            // {
-            //     _waypointSet = "autonav";
-            // }
-            _waypointSet = "equad";
-
-            // then pick a set of waypoints based on which direction we are heading
-            double heading_degrees = LatLng.TravelHeading(_startGpsPos ?? new(0, 0), new LatLng(msg.Latitude, msg.Longitude))?.To(AngleUnit.Degrees) ?? 0;
-            // if (120 < heading_degrees && heading_degrees < 240)
-            // {
-            // _waypointDirection = -1; // south
-            // if we are going south, make the index the last element in the list and we will work backwards
-            // _waypointIndex = _waypointsDict[_waypointSet].Count() - 1;
-            // }
-            // else
-            // {
-            _waypointDirection = 1; // north
-            _waypointIndex = 0;
-            // }
-
-
-            Logger.LogInformation("Picked [{}] waypoint set with direction [{}]! Tracking [{}] waypoints...", _waypointSet, _waypointDirection.ToString(), _waypointsDict[_waypointSet].Count);
-
-            _waypointsFinished = false;
-            _waypointTimeStart = 0;
-
-            // and publish the first waypoint
-            var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
-            var builder = new FlatBufferBuilder(128);
-            var msgOffset = Waypoint.CreateWaypoint(
-                builder,
-                TimeUtils.Now(),
-                new StringOffset(_waypointSet.Length), //FIXME does this actually put the string in there or is like... this not gonna work.
-                _waypointIndex,
-                (uint)_waypointsDict[_waypointSet].Count,
-                goalPoint.Latitude,
-                goalPoint.Longitude
-            );
-            builder.Finish(msgOffset.Value);
-
-            var waypointMsg = MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray());
-
-            EventBus.Instance.Publish(new MessageWrapperEvent(waypointMsg));
-
-            canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Blue, token, 2000);
-
-            // and publish audible feedback
-            var audibleBuilder = new FlatBufferBuilder(128);
-            var audibleOffset = AudibleFeedback.CreateAudibleFeedback(
-                audibleBuilder,
-                new StringOffset("waypoints-start.mp3"),
-                false
-            );
-            audibleBuilder.Finish(audibleOffset.Value);
-            var audibleMsg = MessageWrapper.From(MessageType.AudibleFeedback, audibleBuilder.SizedByteArray());
-            EventBus.Instance.Publish(new MessageWrapperEvent(audibleMsg));
+            TryStartRun();
         }
 
-        return Task.CompletedTask;
-    }
-
-    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
-    {
-        _position = msg;
-
-        // don't do anything until we're running
         if (_runStartTime == 0)
+            return;
+
+        if (!_waypointsFinished && _waypointSet == WaypointSetEnum.None)
+            TryPickWaypointSet(position);
+
+        if (!_waypointsFinished && _waypointSet != WaypointSetEnum.None && _waypointsDict.Count != 0)
+            CheckWaypointReached(position);
+
+        BroadcastWaypointState();
+    }
+
+    private void TryPickWaypointSet(RobotPosition position)
+    {
+        if ((TimeUtils.Now() - _runStartTime) < WaypointConfig.GpsWaitTime)
+            return;
+
+        // TODO: pick set based on mission/GPS region when competition logic is needed
+        _waypointSet = WaypointSetEnum.Simulation;
+        _waypointDirection = WaypointDirectionEnum.North;
+        _waypointIndex = 0;
+        _waypointsFinished = false;
+        _waypointTimeStart = 0;
+
+        Logger.LogInformation(
+            "Picked [{Set}] waypoints, direction [{Dir}], tracking {Count} points",
+            _waypointSet, _waypointDirection, _waypointsDict[_waypointSet].Count);
+
+        PublishCurrentWaypoint();
+        PublishAudio("waypoints-start.mp3");
+        canbus.SafetyLights.FlashWaypointFollow(CancellationToken.None);
+        BroadcastWaypointState();
+    }
+
+    private void CheckWaypointReached(RobotPosition position)
+    {
+        var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
+        var dist = position.Coordinates.Distance(goalPoint);
+        if (dist.To(DistanceUnit.Meters) >= WaypointConfig.WaypointPopDist)
+            return;
+
+        if (_waypointTimeStart == 0)
         {
-            return Task.CompletedTask;
+            _waypointTimeStart = TimeUtils.Now();
+            return;
         }
 
-        if (_waypointSet == "")
+        if ((TimeUtils.Now() - _waypointTimeStart) < WaypointConfig.WaypointPopTime)
+            return;
+
+        // Dwell time elapsed — advance to the next waypoint
+        _waypointTimeStart = 0;
+        _waypointIndex += _waypointDirection == WaypointDirectionEnum.North ? 1 : -1;
+
+        canbus.SafetyLights.FlashWaypointReached(CancellationToken.None);
+        if (_waypointIndex < 0 || _waypointIndex >= _waypointsDict[_waypointSet].Count)
         {
-            CheckDirection(msg, token);
+            _waypointsFinished = true;
+            Logger.LogInformation("Reached end of waypoints list");
+            return;
         }
 
-        // waypoint reach detection
-        if (_waypointSet != "" && _waypointsDict.Count() != 0 && !_waypointsFinished)
+        Logger.LogInformation("Waypoint reached — heading to waypoint {Index}", _waypointIndex);
+        PublishCurrentWaypoint();
+        PublishAudio("waypoint-hit.mp3");
+        BroadcastWaypointState();
+    }
+
+    private void PublishCurrentWaypoint()
+    {
+        var point = _waypointsDict[_waypointSet][_waypointIndex];
+        var builder = new FlatBufferBuilder(128);
+        var setOffset = builder.CreateString(_waypointSet.ToString());
+        var msg = Waypoint.CreateWaypoint(
+            builder,
+            TimeUtils.Now(),
+            setOffset,
+            _waypointIndex,
+            (uint)_waypointsDict[_waypointSet].Count,
+            point.Latitude,
+            point.Longitude
+        );
+        builder.Finish(msg.Value);
+        EventBus.Instance.Publish(new MessageWrapperEvent(
+            MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray())));
+    }
+
+    private void BroadcastWaypointState()
+    {
+        if (_waypointSet == WaypointSetEnum.None || !_waypointsDict.ContainsKey(_waypointSet))
+            return;
+
+        var waypoints = _waypointsDict[_waypointSet];
+        var current = _position != null && !_waypointsFinished
+            ? waypoints[_waypointIndex]
+            : (LatLng?)null;
+
+        double? distanceMeters = null;
+        double? bearingDegrees = null;
+
+        if (_position != null && current != null)
         {
-            var current_gps = new LatLng(msg.Latitude, msg.Longitude);
-            var goalPoint = _waypointsDict[_waypointSet][_waypointIndex];
-
-            var dist = current_gps.Distance(goalPoint);
-
-            // if we are close enough to the waypoint
-            if (dist.To(DistanceUnit.Meters) < WaypointConfig.WaypointPopDist)
-            {
-                if (_waypointTimeStart == 0)
-                {
-                    // start the clock for how long we have to be close to it
-                    _waypointTimeStart = TimeUtils.Now();
-                }
-                else if ((TimeUtils.Now() - _waypointTimeStart) > WaypointConfig.WaypointPopTime)
-                {
-                    //FIXME we should add like, waypoint pass detection to just go to the next one if we've gone past it maybe? so we don't get stuck in a loop of death or something
-
-                    // then go to the next waypoint
-                    _waypointIndex += _waypointDirection;
-
-                    if (_waypointIndex < 0 || _waypointIndex + 1 > _waypointsDict[_waypointSet].Count)
-                    {
-                        // we've reached the end of the list, publish no more
-                        _waypointsFinished = true;
-                        Logger.LogInformation("Reached end of waypoints list!");
-                    }
-                    else
-                    {
-                        Logger.LogInformation("Waypoint Reached! Heading to next...");
-                    }
-
-                    _waypointTimeStart = 0;
-
-                    canbus.SafetyLights.FlashTemporary(ColorUtils.Color.Green, token, 2000, 500);
-
-                    // publish a Waypoint message for the next waypoint
-                    var builder = new FlatBufferBuilder(128);
-                    var msgOffset = Waypoint.CreateWaypoint(
-                        builder,
-                        TimeUtils.Now(),
-                        new StringOffset(_waypointSet.Length), //FIXME does this actually put the string in there or is like... this not gonna work.
-                        _waypointIndex,
-                        (uint)_waypointsDict[_waypointSet].Count,
-                        goalPoint.Latitude,
-                        goalPoint.Longitude
-                    );
-                    builder.Finish(msgOffset.Value);
-                    var waypointMsg = MessageWrapper.From(MessageType.Waypoint, builder.SizedByteArray());
-                    EventBus.Instance.Publish(
-                        new MessageWrapperEvent(waypointMsg)
-                    );
-
-                    // publish audible feedback
-                    var audibleBuilder = new FlatBufferBuilder(128);
-                    var audibleOffset = AudibleFeedback.CreateAudibleFeedback(
-                        audibleBuilder,
-                        new StringOffset("waypoint-hit.mp3"),
-                        false
-                    );
-                    audibleBuilder.Finish(audibleOffset.Value);
-                    var audibleMsg = MessageWrapper.From(MessageType.AudibleFeedback, audibleBuilder.SizedByteArray());
-                    EventBus.Instance.Publish(new MessageWrapperEvent(audibleMsg));
-                }
-            }
+            distanceMeters = GeoUtils.LatLngDistance(_position.Coordinates, current).To(DistanceUnit.Meters); 
+            bearingDegrees = GeoUtils.HeadingToPosition(_position.Coordinates, current).To(AngleUnit.Degrees);
         }
 
-        return Task.CompletedTask;
+        var payload = new
+        {
+            waypointSet = _waypointSet.ToString(),
+            direction = _waypointDirection.ToString(),
+            currentIndex = _waypointIndex,
+            finished = _waypointsFinished,
+            distanceMeters,
+            bearingDegrees,
+            target = current != null ? new { lat = current.Latitude, lng = current.Longitude } : null,
+            waypoints = waypoints.Select((wp, i) => new { lat = wp.Latitude, lng = wp.Longitude, index = i }).ToList()
+        };
+
+        EventBus.Instance.Publish(new MessageWrapperEvent(
+            ArcUtils.CreateArcData_Json("waypoint_state", payload)));
+    }
+
+    private void PublishAudio(string filename)
+    {
+        var builder = new FlatBufferBuilder(128);
+        var fileOffset = builder.CreateString(filename);
+        var msg = AudibleFeedback.CreateAudibleFeedback(builder, fileOffset, false);
+        builder.Finish(msg.Value);
+        EventBus.Instance.Publish(new MessageWrapperEvent(
+            MessageWrapper.From(MessageType.AudibleFeedback, builder.SizedByteArray())));
     }
 }

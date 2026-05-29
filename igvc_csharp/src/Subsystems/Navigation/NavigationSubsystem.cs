@@ -16,17 +16,14 @@ public class NavigationSubsystem : SubsystemBase
     private readonly AStarConfig _config = new();
     private readonly PurePursuit _pursuit = new();
 
-    // GPS heading estimation — derived from consecutive VN position fixes
     private VectornavReport? _prevPosition;
     private VectornavReport? _position;
     private float? _robotThetaRad;
 
-    // Current active waypoint, set by WaypointsSubsystem messages
     private double? _waypointLat;
     private double? _waypointLng;
     private float? _waypointHeadingRad;
 
-    // Waypoint delay — we ignore waypoint influence until this time has passed
     private ulong _autonomousStartTime = 0;
     private bool _waypointsActive = false;
 
@@ -37,7 +34,6 @@ public class NavigationSubsystem : SubsystemBase
     {
         SubscribeImage("combined_inflated", OnInflatedImageReceived, token);
         SubscribeMessage<Waypoint>(MessageType.Waypoint, OnWaypointReceived, token);
-        SubscribeMessage<VectornavReport>(MessageType.VectorNav, OnPositionReceived, token);
 
         SetOperatingState(SubsystemState.Operating);
         return Task.CompletedTask;
@@ -56,7 +52,6 @@ public class NavigationSubsystem : SubsystemBase
         }
         else
         {
-            // Reset on leaving autonomous
             _autonomousStartTime = 0;
             _waypointsActive = false;
             _waypointLat = null;
@@ -73,32 +68,25 @@ public class NavigationSubsystem : SubsystemBase
     {
         _waypointLat = msg.Latitude;
         _waypointLng = msg.Longitude;
+        Logger.LogDebug("Waypoint received — lat={Lat} lng={Lng}", _waypointLat, _waypointLng);
 
-        if (_position.HasValue)
-            UpdateWaypointHeading(_position.Value);
+        if (Position != null)
+        {
+            UpdateWaypointHeading(Position);
+        }
 
         return Task.CompletedTask;
     }
 
-    private Task OnPositionReceived(VectornavReport msg, CancellationToken token)
+    public override void OnPositionChanged(RobotPosition position)
     {
-        // Estimate robot heading from consecutive GPS fixes using GeoUtils
-        if (_position.HasValue)
+        if (position.Heading == null)
         {
-            var prev = new LatLng(_position.Value.Latitude, _position.Value.Longitude);
-            var curr = new LatLng(msg.Latitude, msg.Longitude);
-            var heading = GeoUtils.EstimateHeading(prev, curr);
-            if (heading.HasValue)
-            {
-                _robotThetaRad = (float)heading.Value.To(AngleUnit.Radians);
-            }
-            // If EstimateHeading returns null (no movement), keep the last known heading
+            return;
         }
 
+        _robotThetaRad = (float)position.Heading.Value.To(AngleUnit.Radians);
         _prevPosition = _position;
-        _position = msg;
-
-        // Check if the waypoint delay has elapsed
         if (!_waypointsActive && _autonomousStartTime != 0)
         {
             if ((TimeUtils.Now() - _autonomousStartTime) >= _config.WaypointDelayMs)
@@ -108,20 +96,17 @@ public class NavigationSubsystem : SubsystemBase
             }
         }
 
-        UpdateWaypointHeading(msg);
-
-        return Task.CompletedTask;
+        UpdateWaypointHeading(position);
     }
 
-    private void UpdateWaypointHeading(VectornavReport msg)
+    private void UpdateWaypointHeading(RobotPosition position)
     {
-        if (!_waypointLat.HasValue || !_waypointLng.HasValue)
-            return;
+        if (!_waypointLat.HasValue || !_waypointLng.HasValue) return;
 
-        var robotPos = new LatLng(msg.Latitude, msg.Longitude);
+        var robotPos = new LatLng(position.Coordinates.Latitude, position.Coordinates.Longitude);
         var waypointPos = new LatLng(_waypointLat.Value, _waypointLng.Value);
-        var heading = GeoUtils.EstimateHeading(robotPos, waypointPos);
-        _waypointHeadingRad = heading.HasValue ? (float)heading.Value.To(AngleUnit.Radians) : _waypointHeadingRad;
+        var headingToWaypoint = GeoUtils.HeadingToPosition(robotPos, waypointPos);
+        _waypointHeadingRad = (float)headingToWaypoint.To(AngleUnit.Radians);
     }
 
     private Task OnInflatedImageReceived(ImageFrame frame, CancellationToken token)
@@ -170,16 +155,10 @@ public class NavigationSubsystem : SubsystemBase
                     costMap[x + W * y] = gray.At<byte>(y, x);
         }
 
-        // Only pass waypoint influence once the delay has elapsed and we have an active waypoint
         float? activeWaypointHeading = _waypointsActive ? _waypointHeadingRad : null;
         float? activeRobotTheta = _robotThetaRad;
 
-        // Log current heading for debugging and the current waypoint, convert robot to degrees
-        Logger.LogInformation("Current robot heading: {RobotTheta}",
-            activeRobotTheta.HasValue ? $"{activeRobotTheta.Value * (180 / Math.PI):F1}°" : "unknown");
-
         var gridPath = AStarPlanner.FindPath(costMap, _config, activeWaypointHeading, activeRobotTheta);
-
         if (gridPath is null || gridPath.Count == 0)
         {
             Logger.LogWarning("A* found no path — open space may be fully blocked");

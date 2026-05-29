@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using igvc_csharp.Core.Config;
+using igvc_csharp.Utils;
 
 namespace igvc_csharp.Core.Units;
 
@@ -15,8 +16,7 @@ public struct Angle : IEquatable<Angle>, IComparable<Angle>, IConfigSerializable
         }
         else
         {
-            // convert from degrees to radians
-            Radians = angle * Math.PI / 180.0;
+            Radians = MathUtils.ToRadians(angle);
         }
     }
 

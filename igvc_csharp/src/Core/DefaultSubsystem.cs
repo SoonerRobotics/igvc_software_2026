@@ -11,6 +11,7 @@ namespace igvc_csharp.Core;
 public class DefaultSubsystem : SubsystemBase
 {
     private LatLng? mLastLatLng = null;
+    private RobotPosition? mLastPosition = null;
 
     public override Task Init(CancellationToken token)
     {
@@ -30,8 +31,17 @@ public class DefaultSubsystem : SubsystemBase
         }
 
         var distance = GeoUtils.LatLngDistance(mLastLatLng, ll);
-        if (distance.To(DistanceUnit.Meters) < 0.1)
+        if (distance.To(DistanceUnit.Meters) < 0.05)
         {
+            // Still update the position, but don't update the heading since we can't get a good estimate of it
+            var h = mLastPosition?.Heading;
+            if (h != null)
+            {
+                var p = new RobotPosition(ll, h.Value);
+                BaseRobot.Instance?.SetRobotPosition(p);
+                mLastPosition = p;
+            }
+
             return Task.CompletedTask;
         }
 
@@ -41,9 +51,10 @@ public class DefaultSubsystem : SubsystemBase
             return Task.CompletedTask;
         }
         
-        Logger.LogDebug("Heading: {Heading}", heading.Value.To(AngleUnit.Degrees));
         var position = new RobotPosition(ll, heading.Value);
         BaseRobot.Instance?.SetRobotPosition(position);
+        mLastLatLng = ll;
+        mLastPosition = position;
         return Task.CompletedTask;
     }
     

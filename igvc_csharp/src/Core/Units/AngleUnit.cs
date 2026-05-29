@@ -18,5 +18,5 @@ public sealed class AngleUnit
 
     public static readonly AngleUnit Radians = new(1.0, "rad");
 
-    public static readonly AngleUnit Degrees = new(Math.PI / 180.0, "deg");
+    public static readonly AngleUnit Degrees = new(Math.PI / 180.0, "°");
 }

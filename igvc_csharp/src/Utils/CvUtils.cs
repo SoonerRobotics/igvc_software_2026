@@ -4,6 +4,7 @@ using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using Tesseract;
 using ZstdSharp;
 
 namespace igvc_csharp.Utils;
@@ -11,7 +12,7 @@ namespace igvc_csharp.Utils;
 public class CvUtils
 {
     private static ILogger Logger = Logging.From<CvUtils>();
-    
+
     public static Mat AsMat(ImageFrame frame)
     {
         var bytes = frame.GetImageDataArray();
@@ -65,7 +66,7 @@ public class CvUtils
         }
     }
 
-    public static float SampleDepth(Mat depthMat, Rect bounding)
+    public static float SampleDepth(Mat depthMat, OpenCvSharp.Rect bounding)
     {
         int cx = bounding.X + bounding.Width / 2;
         int cy = bounding.Y + bounding.Height / 2;
@@ -148,7 +149,7 @@ public class CvUtils
     /// <summary>
     /// Extracts the HSV color range from a mat
     /// </summary>
-    public static ColorUtils.ColorRange ExtractHsvRange(Mat mat, Rect rect)
+    public static ColorUtils.ColorRange ExtractHsvRange(Mat mat, OpenCvSharp.Rect rect)
     {
         using var roi = new Mat(mat, rect);
         using var hsv = new Mat();
@@ -171,5 +172,40 @@ public class CvUtils
             foreach (var c in channels)
                 c.Dispose();
         }
+    }
+
+    private static readonly Lazy<TesseractEngine> _engine = new(() =>
+    {
+        var engine = new TesseractEngine(
+            FileUtils.GetFileRelativeToRoot("resources/eng.traineddata"),
+            "eng",
+            EngineMode.LstmOnly  // faster than Default for simple text
+        );
+        engine.SetVariable("tessedit_char_whitelist", "STOP");
+        engine.SetVariable("tessedit_pageseg_mode", "8"); // PSM_WORD — single word mode
+        return engine;
+    });
+
+    // Reusable Mats to avoid per-call allocation
+    [ThreadStatic] private static Mat? _gray;
+    [ThreadStatic] private static Mat? _upscaled;
+    [ThreadStatic] private static Mat? _thresh;
+
+    public static bool IsValidStopsign(Mat mat)
+    {
+        _gray ??= new Mat();
+        _upscaled ??= new Mat();
+        _thresh ??= new Mat();
+
+        Cv2.CvtColor(mat, _gray, ColorConversionCodes.RGB2GRAY);
+        Cv2.Resize(_gray, _upscaled, new Size(), 2, 2, InterpolationFlags.Cubic);
+        Cv2.Threshold(_upscaled, _thresh, 0, 255, ThresholdTypes.Otsu | ThresholdTypes.BinaryInv);
+
+        using var pix = Pix.LoadFromMemory(_thresh.ToBytes(".png"));
+        using var page = _engine.Value.Process(pix, PageSegMode.SingleWord);
+
+        var text = page.GetText().Trim();
+        Logger.LogInformation("OCR Result: '{Text}'", text);
+        return text.Equals("STOP", StringComparison.OrdinalIgnoreCase);
     }
 }

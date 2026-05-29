@@ -45,8 +45,6 @@ public class ManualControlSubsystem(
             }
             
             canbus?.MotorControl.SetVelocities(_forwardVelocity, _sidewaysVelocity, _angularVelocity);
-            // Logger.LogDebug("FW: {ForwardVelocity}, SD: {SidewaysVelocity}, AN: {AngularVelocity}",
-            //     _forwardVelocity, _sidewaysVelocity, _angularVelocity);
         }
     }
 
@@ -88,7 +86,7 @@ public class ManualControlSubsystem(
             SetRobotMode(RobotModeEnum.Autonomous);
             if (BaseRobot.Instance?.State.MotionAllowed == false)
             {
-                canbus?.SafetyLights.SetAutonomous();
+                canbus?.SafetyLights.SetAutoDisabled();
             }
         };
 
@@ -120,7 +118,7 @@ public class ManualControlSubsystem(
             }
             
             _dpadFlashed = true;
-            canbus?.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
+            // canbus?.SafetyLights.FlashTemporary(ColorUtils.Color.CadetBlue, token, length: 1200);
             Logger.LogDebug("Flashing DPad for mission switch");
         };
         controller.Dpad.DpadRight.OnReleased += () =>
@@ -188,7 +186,7 @@ public class ManualControlSubsystem(
             }
             
             Logger.LogInformation("Shutting down robot via controller command");
-            canbus?.SafetyLights.SetShuttingDown();
+            canbus?.SafetyLights.SetShutdown();
 
             // Wait a moment to allow the light command to send before shutting down
             Task.Delay(1500).ContinueWith(_ =>

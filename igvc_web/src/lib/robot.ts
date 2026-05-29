@@ -39,7 +39,17 @@ type RobotState = ConfigState & {
         mobility: boolean;
         mission: MissionEnum;
         mode: RobotModeEnum;
-    }
+    };
+    waypointState?: {
+        waypointSet: string;
+        direction: string;
+        currentIndex: number;
+        finished: boolean;
+        distanceMeters: number | null;
+        bearingDegrees: number | null;
+        target: { lat: number; lng: number } | null;
+        waypoints: { lat: number; lng: number; index: number }[];
+    };
 };
 
 let ws: WebSocket | null = null;
@@ -65,8 +75,7 @@ function savePath(path: string) {
 }
 
 function sendRaw(frame: Uint8Array) {
-    if (ws?.readyState === WebSocket.OPEN)
-    {
+    if (ws?.readyState === WebSocket.OPEN) {
         ws.send(frame.slice().buffer);
     }
 }
@@ -97,11 +106,13 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
 
         if (identifier === "robot_state") {
             const d = buildArcData_RobotState(payload);
-            set({ state: {
-                mobility: d.MotionAllowed,
-                mission: d.Mission,
-                mode: d.Mode
-            } });
+            set({
+                state: {
+                    mobility: d.MotionAllowed,
+                    mission: d.Mission,
+                    mode: d.Mode
+                }
+            });
             return;
         }
 
@@ -113,6 +124,12 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
             //     mission: d.Mission,
             //     mode: d.Mode
             // } });
+            return;
+        }
+
+        if (identifier === "waypoint_state") {
+            const json = JSON.parse(new TextDecoder().decode(payload));
+            set({ waypointState: json });
             return;
         }
 

@@ -20,15 +20,15 @@ public class MotorControlLayer(CanbusSubsystem canbus)
         public short RawDeltaY;
         public short RawDeltaTheta;
 
-        public float DeltaX => RawDeltaX * 0.0001f;
-        public float DeltaY => RawDeltaY * 0.0001f;
+        public float DeltaX => RawDeltaX * 0.001f;
+        public float DeltaY => RawDeltaY * 0.001f;
         public float DeltaTheta => RawDeltaTheta * 0.001f;
     }
 
     public void SetVelocities(double forwardVelocity, double sidewaysVelocity, double angularVelocity)
     {
-        var fv = (short)(forwardVelocity / 0.0001);
-        var sv = (short)(sidewaysVelocity / 0.0001);
+        var fv = (short)(forwardVelocity / 0.001);
+        var sv = (short)(sidewaysVelocity / 0.001);
         var av = (short)(angularVelocity / 0.001);
 
         var packet = new MotorControlPacket(fv, sv, av);

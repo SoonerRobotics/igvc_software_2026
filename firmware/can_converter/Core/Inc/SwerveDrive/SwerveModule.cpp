@@ -7,14 +7,14 @@
 #include "SwerveModule.h"
 #include <cmath>
 
-// #define ZEMLIN 149.5
-#define ZEMLIN 151.1
+// Constnats
+static constexpr float kGearRatio = 14.2f; // motor rotations per wheel rotation
+static constexpr float kWheelRadiusMeters = 6.0f * 0.0254f; // 6 inch wheel radius in meters
+static constexpr float kWheelCircumference = M_PI * kWheelRadiusMeters; // wheel circumference
 
-// float driveMotorGearRatio = 1.0f / ((10.0f / 60.0f) * (15.0f / 36.0f));
-float driveMotorGearRatio = (60.0f / 10.0f) * (36.0f / 15.0f);
-float wheelRadius = 0.0762f; // 3 inch diameter wheel, converted to meters
-// float driveMotorConversion = wheelRadius * (driveMotorGearRatio / (2 * wheelRadius * M_PI));
-float driveMotorConversion = (2.0f * M_PI * wheelRadius) / driveMotorGearRatio;
+// Calculations
+static constexpr float kMpsToRpm = (kGearRatio * 60.0f) / kWheelCircumference; // conversion factor from m/s to RPM
+static constexpr float kRpmToMeters = kWheelCircumference / kGearRatio;
 
 float radiansA(double degrees) {
     return degrees * M_PI / 180.0f;
@@ -32,16 +32,18 @@ SwerveModule::SwerveModule(SwerveModuleConfig config)
 
 }
 float SwerveModule::getDriveDelta() {
-	if (drive_motor_last_position == 0.0) {
-		drive_motor_last_position = drive_motor_.getDrivePosition() / driveMotorConversion;
-		return 0.0;
-	}
+    float current_pos_rotations = drive_motor_.getDrivePosition(); // raw motor rotations
 
-	float current_drive_motor_position = drive_motor_.getDrivePosition() * driveMotorConversion;
-	last_drive_motor_delta = (current_drive_motor_position - drive_motor_last_position);
-	drive_motor_last_position = current_drive_motor_position;
-	current_angle_motor_position = angle_motor_.getAngle();
-	return last_drive_motor_delta;
+    if (drive_motor_last_position == 0.0f) {
+        drive_motor_last_position = current_pos_rotations;
+        return 0.0f;
+    }
+
+    float delta_rotations = current_pos_rotations - drive_motor_last_position;
+    drive_motor_last_position = current_pos_rotations;
+    current_angle_motor_position = angle_motor_.getAngle();
+	
+    return delta_rotations * kRpmToMeters;
 }
 
 
@@ -72,12 +74,9 @@ void SwerveModule::updateState(SwerveModuleState desired_state) {
 		last_set_angle_ = desired_angle;
 		angle_motor_.setPosition((desired_angle)/(2*M_PI));
 	}
-	// drive_motor_.setVelocity(desired_drive_speed * 42.0f); //no clue about 42 zemlin gap
 
 	desired_drive_speed *= cos(desired_angle - getCurrentAngleRad());
-//	float meters_per_motor_rotation = (2.0f * M_PI * wheelRadius) / driveMotorGearRatio;
-//	float motor_rpm = desired_drive_speed / meters_per_motor_rotation * 15;
-	drive_motor_.setVelocity(desired_drive_speed * ZEMLIN);
+	drive_motor_.setVelocity(desired_drive_speed * kMpsToRpm);
 }
 
 

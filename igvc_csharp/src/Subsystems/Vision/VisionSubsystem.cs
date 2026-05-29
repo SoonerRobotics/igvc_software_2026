@@ -197,7 +197,7 @@ public class VisionSubsystem(CanbusSubsystem canbus) : SubsystemBase
                     var thresholdFilter = new ThresholdFilter();
                     var combinedThresholded = thresholdFilter.Apply(combinedFiltered);
 
-                    var inflationFilter = new InflationFilter(kernelWidth: 95, kernelHeight: 95);
+                    var inflationFilter = new InflationFilter();
                     combinedThresholded = inflationFilter.Apply(combinedThresholded);
 
                     var combinedInflatedBytes = CvUtils.FromMat(combinedThresholded);
