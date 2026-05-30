@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/scr/igvc_software_2026/igvc_csharp
-ExecStartPre=/bin/sleep 5
-ExecStart=/home/scr/.dotnet/dotnet run
+WorkingDirectory=/home/scr/igvc_software_2026/setup/misc
+ExecStartPre=/bin/sleep 2
+ExecStart=/bin/bash /home/scr/igvc_software_2026/setup/misc/igvc_launch.sh
 Restart=always
-RestartSec=5
+RestartSec=2
 User=scr
 
 [Install]

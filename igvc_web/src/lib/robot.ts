@@ -29,6 +29,7 @@ type RobotState = ConfigState & {
     setMobility: (mobility: boolean) => void;
     setMission: (mission: number) => void;
     setMode: (mode: number) => void;
+    calibrateHsvThreshold: () => void;
 
     // Data
     logs: ArcLog[];
@@ -191,6 +192,9 @@ export const useRobotStore = create<RobotState>((set, get) => ({
 
     setMode: (mode: number) =>
         sendRaw(buildCommandReq(ArcCommandId.SetMode, encodeJson({ mode }))),
+
+    calibrateHsvThreshold: () =>
+        sendRaw(buildCommandReq(ArcCommandId.ToolsStartHsvCalibration)),
 
     // ── Connection ────────────────────────────────────────────────────────
     connect: () => {

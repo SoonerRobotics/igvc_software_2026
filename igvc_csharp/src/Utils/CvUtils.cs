@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Runtime.InteropServices;
+using igvc_csharp.src.subsystems.selfdrive;
 using igvc_csharp.Utils.Messages;
 using Messages;
 using Microsoft.Extensions.Logging;
@@ -148,30 +149,56 @@ public class CvUtils
 
     /// <summary>
     /// Extracts the HSV color range from a mat
+    /// Takes in a point and a radius to sample around, and returns the min/max HSV values in that area within the 10% lower and upper percentiles to filter out outliers
     /// </summary>
-    public static ColorUtils.ColorRange ExtractHsvRange(Mat mat, OpenCvSharp.Rect rect)
+    public static ColorUtils.ColorRange? ExtractHsvRange(Mat mat, Point center, int radius)
     {
-        using var roi = new Mat(mat, rect);
-        using var hsv = new Mat();
-        Cv2.CvtColor(roi, hsv, ColorConversionCodes.RGB2HSV);
-        Cv2.Split(hsv, out var channels);
+        int x0 = Math.Max(0, center.X - radius);
+        int y0 = Math.Max(0, center.Y - radius);
+        int x1 = Math.Min(mat.Width - 1, center.X + radius);
+        int y1 = Math.Min(mat.Height - 1, center.Y + radius);
 
-        try
+        var hsvValues = new List<Vec3b>((x1 - x0 + 1) * (y1 - y0 + 1));
+        for (int y = y0; y <= y1; y++)
         {
-            Cv2.MinMaxLoc(channels[0], out var minH, out double maxH);
-            Cv2.MinMaxLoc(channels[1], out var minS, out double maxS);
-            Cv2.MinMaxLoc(channels[2], out var minV, out double maxV);
+            for (int x = x0; x <= x1; x++)
+            {
+                hsvValues.Add(mat.At<Vec3b>(y, x));
+            }
+        }
 
-            return ColorUtils.ColorRange.From(
-                ColorUtils.Color.FromHsv((int)minH, (int)minS, (int)minV),
-                ColorUtils.Color.FromHsv((int)maxH, (int)maxS, (int)maxV)
-            );
-        }
-        finally
+        if (hsvValues.Count == 0)
         {
-            foreach (var c in channels)
-                c.Dispose();
+            return null;
         }
+
+        hsvValues.Sort((a, b) =>
+        {
+            int ha = a.Item0 * 256 * 256 + a.Item1 * 256 + a.Item2;
+            int hb = b.Item0 * 256 * 256 + b.Item1 * 256 + b.Item2;
+            return ha.CompareTo(hb);
+        });
+
+        int lowerIndex = (int)(hsvValues.Count * 0.1);
+        int upperIndex = (int)(hsvValues.Count * 0.9);
+
+        var lower = hsvValues[lowerIndex];
+        var upper = hsvValues[upperIndex];
+
+        return ColorUtils.ColorRange.From(
+            ColorUtils.Color.FromHsv(lower.Item0, lower.Item1, lower.Item2),
+            ColorUtils.Color.FromHsv(upper.Item0, upper.Item1, upper.Item2)
+        );
+    }
+
+    public static void DrawHsvTargetCircle(Mat mat, Point center, int radius)
+    {
+        Cv2.Circle(mat, center, radius, new Scalar(0, 255, 255), 2);
+    }
+
+    public static Point GetCenterPoint(Mat mat)
+    {
+        return new Point(mat.Width / 2, mat.Height / 2);
     }
 
     private static readonly Lazy<TesseractEngine> _engine = new(() =>
@@ -207,5 +234,28 @@ public class CvUtils
         var text = page.GetText().Trim();
         Logger.LogInformation("OCR Result: '{Text}'", text);
         return text.Equals("STOP", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static SelfdriveLane ExtractLane(Mat left, Mat right)
+    {
+        using var leftYellow = new Mat();
+        using var rightYellow = new Mat();
+        Cv2.InRange(left, new Scalar(0, 254, 254), new Scalar(1, 255, 255), leftYellow);
+        Cv2.InRange(right, new Scalar(0, 254, 254), new Scalar(1, 255, 255), rightYellow);
+
+        var leftYellowCount = Cv2.CountNonZero(leftYellow);
+        var rightYellowCount = Cv2.CountNonZero(rightYellow);
+
+        var lane = SelfdriveLane.Unknown;
+        if (leftYellowCount > rightYellowCount * 1.5)
+        {
+            lane = SelfdriveLane.Right;
+        }
+        else if (rightYellowCount > leftYellowCount * 1.5)
+        {
+            lane = SelfdriveLane.Left;
+        }
+
+        return lane;
     }
 }

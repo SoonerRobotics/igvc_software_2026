@@ -27,4 +27,14 @@ public class TopDownFilter(Point2f[] sourcePoints, Point2f[] destinationPoints, 
         new(outputSize.Width, outputSize.Height), // bottom-right
         new(0, outputSize.Height) // bottom-left
     ];
+
+    public Mat Draw(Mat frame)
+    {
+        var result = frame.Clone();
+        Cv2.Line(result, sourcePoints[0].ToPoint(), sourcePoints[1].ToPoint(), Scalar.Red, 2);
+        Cv2.Line(result, sourcePoints[1].ToPoint(), sourcePoints[2].ToPoint(), Scalar.Red, 2);
+        Cv2.Line(result, sourcePoints[2].ToPoint(), sourcePoints[3].ToPoint(), Scalar.Red, 2);
+        Cv2.Line(result, sourcePoints[3].ToPoint(), sourcePoints[0].ToPoint(), Scalar.Red, 2);
+        return result;
+    }
 }

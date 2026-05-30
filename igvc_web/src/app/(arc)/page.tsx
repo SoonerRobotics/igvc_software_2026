@@ -10,6 +10,7 @@ export default function Home() {
     const voltage = useRobotStore((s) => s.voltage);
     const current = useRobotStore((s) => s.current);
     const ws = useRobotStore((s) => s.waypointState);
+    const calibrate = useRobotStore((s) => s.calibrateHsvThreshold);
 
     return (
         <div className="flex flex-col">
@@ -33,6 +34,10 @@ export default function Home() {
                         <span className="text-lg text-white/80">{ws?.bearingDegrees?.toFixed(2) ?? "N/A"}°</span>
                     </div>
                 </div>
+
+                <button className="px-4 py-2 bg-blue-500 text-white rounded mt-4" onClick={() => calibrate()}>
+                    Calibrate HSV Threshold
+                </button>
             </div>
 
             <div className="flex flex-row items-center max-w-full">

@@ -165,6 +165,7 @@ public static class Configuration
         /// <summary>
         /// The source points for the left camera image flattening
         /// </summary>
+        [Config("vision.left_source_points")]
         public static Point2f[] leftSourcePoints =
         [
             new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
@@ -176,6 +177,7 @@ public static class Configuration
         /// <summary>
         /// The destination points for the left camera image flattening
         /// </summary>
+        [Config("vision.left_dest_points")]
         public static Point2f[] leftDestPoints =
         [
             new(0, 0),
@@ -187,6 +189,7 @@ public static class Configuration
         /// <summary>
         /// The source points for the right camera image flattening
         /// </summary>
+        [Config("vision.right_source_points")]
         public static Point2f[] rightSourcePoints =
         [
             new(0 + 125, 100),    // same here
@@ -198,6 +201,7 @@ public static class Configuration
         /// <summary>
         /// The destination points for the right camera image flattening
         /// </summary>
+        [Config("vision.right_dest_points")]
         public static Point2f[] rightDestPoints =
         [
             new(0, 0),

@@ -28,7 +28,8 @@ public enum SelfdriveObstacles
 public enum SelfdriveLane
 {
     Left,
-    Right
+    Right,
+    Unknown
 }
 
 public enum QualificationTest

@@ -2,10 +2,12 @@
 using Google.FlatBuffers;
 using igvc_csharp.Core;
 using igvc_csharp.Events;
+using igvc_csharp.Subsystems.Arc;
 using igvc_csharp.Subsystems.Vision.Filters;
 using igvc_csharp.Utils;
 using igvc_csharp.Utils.Messages;
 using Messages;
+using Messages.Arc;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 
@@ -21,6 +23,7 @@ public class VisionSubsystem() : SubsystemBase
 
     // Guards against concurrent filter rebuilds (config change vs state change)
     private readonly Lock _filterLock = new();
+    private bool _needsHsvCalibration = false;
 
     // Config paths that require a filter rebuild when changed
     private static readonly HashSet<string> _visionConfigPaths =
@@ -225,6 +228,38 @@ public class VisionSubsystem() : SubsystemBase
                 // Raw combined view for debug
                 var leftRaw = CvUtils.AsMat(leftFrame);
                 var rightRaw = CvUtils.AsMat(rightFrame);
+                if (_needsHsvCalibration)
+                {
+                    var centerPoint = CvUtils.GetCenterPoint(leftRaw);
+                    var leftRange = CvUtils.ExtractHsvRange(leftRaw, centerPoint, 50);
+                    var rightRange = CvUtils.ExtractHsvRange(rightRaw, centerPoint, 50);
+
+                    if (leftRange != null && rightRange != null)
+                    {
+                        // Convert both ranges to their HSV values
+                        var (lowerH, lowerS, lowerV) = leftRange.Lower.ToHsv();
+                        var (upperH, upperS, upperV) = leftRange.Upper.ToHsv();
+                        var (lowerH2, lowerS2, lowerV2) = rightRange.Lower.ToHsv();
+                        var (upperH2, upperS2, upperV2) = rightRange.Upper.ToHsv();
+                        
+                        // Get the min/max of both ranges
+                        var lowerHFinal = Math.Min(lowerH, lowerH2);
+                        var lowerSFinal = Math.Min(lowerS, lowerS2);
+                        var lowerVFinal = Math.Min(lowerV, lowerV2);
+                        var upperHFinal = Math.Max(upperH, upperH2);
+                        var upperSFinal = Math.Max(upperS, upperS2);
+                        var upperVFinal = Math.Max(upperV, upperV2);
+
+                        // Apply it to the configuration
+                        var realRange = ColorUtils.ColorRange.From(
+                            ColorUtils.Color.FromHsv(lowerHFinal, lowerSFinal, lowerVFinal),
+                            ColorUtils.Color.FromHsv(upperHFinal, upperSFinal, upperVFinal)
+                        );
+                        var (rH, rS, rV) = realRange.Lower.ToHsv();
+                        var (rH2, rS2, rV2) = realRange.Upper.ToHsv();
+                        VisionConfig.GroundThreshold = realRange;
+                    }
+                }
 
                 var leftFilter = new TopDownFilter(
                     VisionConfig.leftSourcePoints,
@@ -236,8 +271,18 @@ public class VisionSubsystem() : SubsystemBase
                     VisionConfig.rightDestPoints,
                     new Size(640, 480)
                 );
-                leftRaw = leftFilter.Apply(leftRaw);
-                rightRaw = rightFilter.Apply(rightRaw);
+                leftRaw = leftFilter.Draw(leftFilter.Apply(leftRaw));
+                rightRaw = rightFilter.Draw(rightFilter.Apply(rightRaw));
+                CvUtils.DrawHsvTargetCircle(
+                    leftRaw,
+                    CvUtils.GetCenterPoint(leftRaw),
+                    50
+                );
+                CvUtils.DrawHsvTargetCircle(
+                    rightRaw,
+                    CvUtils.GetCenterPoint(rightRaw),
+                    50
+                );
 
                 var combinedRaw = new Mat();
                 Cv2.HConcat([leftRaw, rightRaw], combinedRaw);
@@ -354,5 +399,11 @@ public class VisionSubsystem() : SubsystemBase
     {
         _rightChannel.Writer.TryWrite(frame);
         return Task.CompletedTask;
+    }
+
+    [ArcCommand(ArcCommandId.ToolsStartHsvCalibration)]
+    public void InitiateHsvCalibration()
+    {
+        _needsHsvCalibration = true;
     }
 }
