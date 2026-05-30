@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using Tesseract;
 using ZstdSharp;
+using Rect = OpenCvSharp.Rect;
 
 namespace igvc_csharp.Utils;
 
@@ -241,7 +242,7 @@ public class CvUtils
         return text.Equals("STOP", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static SelfdriveLane ExtractLane(Mat left, Mat right)
+    public static SelfdriveLane ExtractLaneDual(Mat left, Mat right)
     {
         using var leftYellow = new Mat();
         using var rightYellow = new Mat();
@@ -262,5 +263,60 @@ public class CvUtils
         }
 
         return lane;
+    }
+
+    public static SelfdriveLane ExtractLaneSingle(Mat left)
+    {
+        // Draw a straight line down the center of the image and calculate 
+        // yellows on either side
+        using var yellowMask = new Mat();
+        Cv2.InRange(left, new Scalar(0, 254, 254), new Scalar(1, 255, 255), yellowMask);
+        int midX = left.Width / 2;
+
+        // only look at the bottom half of the image since that's where the lane lines will be
+        var leftHalf = new Mat(yellowMask, new Rect(0, left.Height / 2, midX, left.Height / 2));
+        var rightHalf = new Mat(yellowMask, new Rect(midX, left.Height / 2, midX, left.Height / 2));
+        var rightYellowCount = Cv2.CountNonZero(rightHalf);
+        var leftYellowCount = Cv2.CountNonZero(leftHalf);
+
+        var lane = SelfdriveLane.Unknown;
+        if (leftYellowCount > rightYellowCount * 1.5)
+        {
+            lane = SelfdriveLane.Right;
+        }
+        else if (rightYellowCount > leftYellowCount * 1.5)
+        {
+            lane = SelfdriveLane.Left;
+        }
+
+        return lane;
+    }
+
+    public static double DistanceToWhiteLane(Mat center)
+    {
+        using var whiteMask = new Mat();
+        Cv2.InRange(center, new Scalar(0, 0, 254), new Scalar(255, 255, 255), whiteMask);
+
+        // Find contours in the mask and calculate distance to the largest one
+        var contours = Cv2.FindContoursAsArray(whiteMask, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+        if (contours.Length == 0)
+        {
+            return double.NaN;
+        }
+
+        var largestContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).First();
+        var moments = Cv2.Moments(largestContour);
+        if (moments.M00 == 0)
+        {
+            return double.NaN;
+        }
+
+        int cx = (int)(moments.M10 / moments.M00);
+        int cy = (int)(moments.M01 / moments.M00);
+
+        // Calculate distance from center of image to contour center
+        int midX = center.Width / 2;
+        int midY = center.Height / 2;
+        return Math.Sqrt(Math.Pow(cx - midX, 2) + Math.Pow(cy - midY, 2));
     }
 }

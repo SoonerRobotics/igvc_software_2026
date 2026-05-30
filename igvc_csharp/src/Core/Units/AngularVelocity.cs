@@ -49,6 +49,8 @@ public struct AngularVelocity : IEquatable<AngularVelocity>, IComparable<Angular
 
     public static bool operator >=(AngularVelocity a, AngularVelocity b) => a.RadiansPerSecond >= b.RadiansPerSecond;
 
+    public static AngularVelocity operator -(AngularVelocity a) => new(-1 * a.RadiansPerSecond);
+
     public static AngularVelocity operator +(AngularVelocity a, AngularVelocity b) =>
         new(a.RadiansPerSecond + b.RadiansPerSecond);
 

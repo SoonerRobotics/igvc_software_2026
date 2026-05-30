@@ -1,11 +1,12 @@
 
 using igvc_csharp.Core;
+using igvc_csharp.Core.Units;
 using igvc_csharp.src.selfdrive.actions;
 using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class TimedDriveAction(double forwardSpeed, double sidewaysSpeed, double turnSpeed, ulong timeoutMs) : ISelfdriveAction
+public class TimedDriveAction(LinearVelocity forwardSpeed, LinearVelocity sidewaysSpeed, AngularVelocity turnSpeed, ulong timeoutMs) : ISelfdriveAction
 {
     private ulong _startTime = 0;
     private bool _init = false;
@@ -25,7 +26,7 @@ public class TimedDriveAction(double forwardSpeed, double sidewaysSpeed, double 
     {
         if (BaseRobot.Instance?.State.MotionAllowed ?? false)
         {
-            context.canbus.MotorControl.SetVelocities(forwardSpeed, sidewaysSpeed, turnSpeed);
+            // context.canbus.MotorControl.SetVelocities(forwardSpeed, sidewaysSpeed, turnSpeed);
         }
         else
         {

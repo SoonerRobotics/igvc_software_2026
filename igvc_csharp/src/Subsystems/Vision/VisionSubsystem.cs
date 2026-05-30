@@ -115,28 +115,81 @@ public class VisionSubsystem() : SubsystemBase
                     {
                         new(centerMat.Width * 0.29, centerMat.Height),
                         new(centerMat.Width * 0.68, centerMat.Height),
-                        new(centerMat.Width * 0.65 - 50, centerMat.Height * 0.80),
-                        new(centerMat.Width * 0.29 + 50, centerMat.Height * 0.80),
+                        new(centerMat.Width * 0.65 - 50, centerMat.Height * 0.70),
+                        new(centerMat.Width * 0.29 + 50, centerMat.Height * 0.70),
                     }
                 };
                 Cv2.FillPoly(centerMat, points, Scalar.Black);
 
-                // Draw the region of disinterest as described above
-                var centerMatClone = centerMat.Clone();
-                Cv2.Polylines(centerMatClone, points, true, Scalar.Red, 2);
+                // Perform top down transformation
+                var topDownInput = new[]
+                {
+                    new Point2f(260, 200), //TL
+                    new Point2f(380, 200), //TR
+                    new Point2f(120, 480), //BL
+                    new Point2f(520, 480), //BR
+                };
+
+                var topDownOutput = new[]
+                {
+                    new Point2f(240, 0),
+                    new Point2f(380, 0),
+                    new Point2f(240, 480),
+                    new Point2f(380, 480),
+                };
+
+                // Draw the region of disinterest and perspective transform corners
+                var debugMat = centerMat.Clone();
+                // Convert to BGR so colored overlays are visible (HsvFilter output is grayscale)
+                if (debugMat.Channels() == 1)
+                {
+                    var tmp = new Mat();
+                    Cv2.CvtColor(debugMat, tmp, ColorConversionCodes.GRAY2BGR);
+                    debugMat.Dispose();
+                    debugMat = tmp;
+                }
+                Cv2.Polylines(debugMat, points, true, Scalar.Red, 2);
+
+                // Draw topDownInput quadrilateral (green) to verify perspective source coords
+                var inputDebugPoly = new[]
+                {
+                    new Point[]
+                    {
+                        new((int)topDownInput[0].X, (int)topDownInput[0].Y),
+                        new((int)topDownInput[1].X, (int)topDownInput[1].Y),
+                        new((int)topDownInput[3].X, (int)topDownInput[3].Y),
+                        new((int)topDownInput[2].X, (int)topDownInput[2].Y),
+                    }
+                };
+                Cv2.Polylines(debugMat, inputDebugPoly, true, new Scalar(0, 255, 0), 2);
+                string[] cornerLabels = ["TL", "TR", "BL", "BR"];
+                Point2f[] labelOrder = [topDownInput[0], topDownInput[1], topDownInput[2], topDownInput[3]];
+                for (int i = 0; i < labelOrder.Length; i++)
+                {
+                    var pt = new Point((int)labelOrder[i].X, (int)labelOrder[i].Y);
+                    Cv2.Circle(debugMat, pt, 6, new Scalar(0, 255, 255), -1);
+                    Cv2.PutText(debugMat, cornerLabels[i], new Point(pt.X + 8, pt.Y + 8),
+                        HersheyFonts.HersheySimplex, 0.5, new Scalar(0, 255, 255), 1);
+                }
 
                 // Publish debug image
-                var hsvBytes = CvUtils.FromMat(centerMatClone);
+                var hsvBytes = CvUtils.FromMat(debugMat);
                 var hsvFrame = MessageConstructor.CreateImageFrame(
-                    (uint)centerMatClone.Width,
-                    (uint)centerMatClone.Height,
+                    (uint)debugMat.Width,
+                    (uint)debugMat.Height,
                     "combined_filtered",
                     hsvBytes
                 );
                 EventBus.Instance.Publish(new MessageWrapperEvent(
                     MessageWrapper.From(MessageType.ImageFrame, hsvFrame.ByteBuffer.ToFullArray())
                 ));
-                centerMatClone.Dispose();
+                debugMat.Dispose();
+
+                var topDownFilter = new TopDownFilter(
+                    topDownInput, topDownOutput, new Size(640, 480)
+                );
+
+                centerMat = topDownFilter.Apply(centerMat);
 
                 // Inflate the image
                 var inflationFilter = new InflationFilter();

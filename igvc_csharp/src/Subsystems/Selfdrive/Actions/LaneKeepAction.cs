@@ -53,13 +53,11 @@ public class LaneKeepAction(SelfdriveObstacles obstacle, Distance distanceToStop
         else
         {
             // check for obstacle using the Zed and Yolo.
-            if (context.YoloDetections.TryGetValue(obstacle.ToString(), out YoloDetectionEvent e))
+            if (context.YoloDetections.TryGetValue(obstacle.ToString(), out var e))
             {
-                // check for distance, x should be forwards and in meters...
-                if (e.x < distanceToStop.To(DistanceUnit.Meters))
+                if (e.x <= distanceToStop.To(DistanceUnit.Meters))
                 {
-                    context.canbus.MotorControl.SetVelocities(0, 0, 0); //TODO: should we set these here or let a following command stop us?
-                                                                        // or heck, make it a parameter?
+                    context.canbus.MotorControl.SetVelocities(0, 0, 0);
                     return true;
                 }
             }
