@@ -41,8 +41,7 @@ export default function Home() {
             </div>
 
             <div className="flex flex-row items-center max-w-full">
-                <Camera id="left" />
-                <Camera id="right" />
+                <Camera id="center" />
                 {/* <Camera id="debug_feelers" /> */}
             </div>
 

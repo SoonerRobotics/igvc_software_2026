@@ -18,16 +18,8 @@ namespace igvc_csharp.Subsystems.Vision;
 [Subsystem("VisionSubsystem", Disabled = false)]
 public class VisionSubsystem() : SubsystemBase
 {
-    private readonly List<IFilter> _leftFilters = [];
-    private readonly List<IFilter> _rightFilters = [];
-
-    // Guards against concurrent filter rebuilds (config change vs state change)
+    private readonly List<IFilter> _centerFilters = [];
     private readonly Lock _filterLock = new();
-
-    // volatile so the processing task sees writes from the ARC command thread immediately
-    private volatile bool _needsHsvCalibration = false;
-
-    // Config paths that require a filter rebuild when changed
     private static readonly HashSet<string> _visionConfigPaths =
     [
         "vision.ground_threshold",
@@ -36,14 +28,7 @@ public class VisionSubsystem() : SubsystemBase
         "vision.blur_strength",
     ];
 
-    private readonly Channel<ImageFrame> _leftChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
-    {
-        SingleReader = true,
-        SingleWriter = false,
-        FullMode = BoundedChannelFullMode.DropOldest
-    });
-
-    private readonly Channel<ImageFrame> _rightChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
+    private readonly Channel<ImageFrame> mCenterChannel = Channel.CreateBounded<ImageFrame>(new BoundedChannelOptions(1)
     {
         SingleReader = true,
         SingleWriter = false,
@@ -54,9 +39,7 @@ public class VisionSubsystem() : SubsystemBase
     {
         RebuildFilters(BaseRobot.Instance?.State);
 
-        SubscribeImage("left", OnLeftImageReceived, token);
-        SubscribeImage("right", OnRightImageReceived, token);
-
+        SubscribeImage("center", OnCenterImageReceived, token);
         Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
 
         _ = Task.Factory.StartNew(
@@ -81,7 +64,9 @@ public class VisionSubsystem() : SubsystemBase
     private Task OnConfigChanged(ConfigChangedEvent e, CancellationToken token)
     {
         if (!_visionConfigPaths.Contains(e.Path))
+        {
             return Task.CompletedTask;
+        }
 
         Logger.LogInformation("Vision config changed ({Path}), rebuilding filters", e.Path);
         RebuildFilters(BaseRobot.Instance?.State);
@@ -97,41 +82,13 @@ public class VisionSubsystem() : SubsystemBase
 
         lock (_filterLock)
         {
-            _leftFilters.Clear();
-            _rightFilters.Clear();
+            _centerFilters.Clear();
             AddFilters(state);
         }
     }
 
     private void AddFilters(RobotState newState)
     {
-        // standard lane / obstacle detection
-        _leftFilters.Add(new HsvFilter(VisionConfig.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
-        _rightFilters.Add(new HsvFilter(VisionConfig.GroundThreshold, HsvFilter.OutputMode.WhiteForOutside));
-
-        if (newState.Mission == MissionEnum.Autonav)
-        {
-            _leftFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
-            _rightFilters.Insert(0, new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength, BlurFilter.BlurMethod.BoxBlur));
-
-            _leftFilters.Add(new TopDownFilter(
-                VisionConfig.leftSourcePoints,
-                VisionConfig.leftDestPoints,
-                new Size(640, 480)
-            ));
-
-            _rightFilters.Add(new TopDownFilter(
-                VisionConfig.rightSourcePoints,
-                VisionConfig.rightDestPoints,
-                new Size(640, 480)
-            ));
-        }
-
-        if (newState.Mission == MissionEnum.Selfdrive)
-        {
-            _leftFilters.Add(new LaneDetectionFilter());
-            _rightFilters.Add(new LaneDetectionFilter());
-        }
     }
 
     private async Task ImageProcessingTask(CancellationToken token)
@@ -140,30 +97,51 @@ public class VisionSubsystem() : SubsystemBase
         {
             while (!token.IsCancellationRequested)
             {
-                var leftTask = _leftChannel.Reader.ReadAsync(token).AsTask();
-                var rightTask = _rightChannel.Reader.ReadAsync(token).AsTask();
-                await Task.WhenAll(leftTask, rightTask);
+                // Apply HSV and Blur
+                var centerFrame = await mCenterChannel.Reader.ReadAsync(token).AsTask();
+                var centerMat = CvUtils.AsMat(centerFrame);
+                var blurFilter = new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength);
+                var hsvFilter = new HsvFilter(
+                    VisionConfig.GroundThreshold,
+                    HsvFilter.OutputMode.WhiteForOutside
+                );
+                centerMat = blurFilter.Apply(centerMat);
+                centerMat = hsvFilter.Apply(centerMat);
 
-                var leftFrame = leftTask.Result;
-                var rightFrame = rightTask.Result;
-
-                var leftMat = CvUtils.AsMat(leftFrame);
-                var rightMat = CvUtils.AsMat(rightFrame);
-
-                // Snapshot the filter lists under lock so a concurrent rebuild
-                // doesn't modify them mid-pipeline.
-                IFilter[] leftFilters;
-                IFilter[] rightFilters;
-                lock (_filterLock)
+                // Apply ROI
+                var points = new[]
                 {
-                    leftFilters = [.. _leftFilters];
-                    rightFilters = [.. _rightFilters];
-                }
+                    new Point[]
+                    {
+                        new(centerMat.Width * 0.29, centerMat.Height),
+                        new(centerMat.Width * 0.68, centerMat.Height),
+                        new(centerMat.Width * 0.65 - 50, centerMat.Height * 0.80),
+                        new(centerMat.Width * 0.29 + 50, centerMat.Height * 0.80),
+                    }
+                };
+                Cv2.FillPoly(centerMat, points, Scalar.Black);
 
-                leftMat = leftFilters.Aggregate(leftMat, (current, filter) => filter.Apply(current));
-                rightMat = rightFilters.Aggregate(rightMat, (current, filter) => filter.Apply(current));
+                // Draw the region of disinterest as described above
+                var centerMatClone = centerMat.Clone();
+                Cv2.Polylines(centerMatClone, points, true, Scalar.Red, 2);
 
-                // Ensure both mats are BGR before combining
+                // Publish debug image
+                var hsvBytes = CvUtils.FromMat(centerMatClone);
+                var hsvFrame = MessageConstructor.CreateImageFrame(
+                    (uint)centerMatClone.Width,
+                    (uint)centerMatClone.Height,
+                    "combined_filtered",
+                    hsvBytes
+                );
+                EventBus.Instance.Publish(new MessageWrapperEvent(
+                    MessageWrapper.From(MessageType.ImageFrame, hsvFrame.ByteBuffer.ToFullArray())
+                ));
+                centerMatClone.Dispose();
+
+                // Inflate the image
+                var inflationFilter = new InflationFilter();
+                centerMat = inflationFilter.Apply(centerMat);
+
                 static Mat EnsureBgr(Mat m)
                 {
                     if (m.Channels() == 1)
@@ -176,152 +154,19 @@ public class VisionSubsystem() : SubsystemBase
                     return m;
                 }
 
-                leftMat = EnsureBgr(leftMat);
-                rightMat = EnsureBgr(rightMat);
-
-                var combinedFiltered = new Mat();
-
-                if (BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive)
-                {
-                    combinedFiltered = CombineAndAnnotate(leftMat, rightMat, scale: 0.5);
-                }
-                else if (BaseRobot.Instance?.State.Mission == MissionEnum.Autonav)
-                {
-                    Cv2.HConcat([leftMat, rightMat], combinedFiltered);
-                }
-
-                if (!combinedFiltered.Empty())
-                {
-                    var combinedFilteredBytes = CvUtils.FromMat(combinedFiltered);
-                    var newFrame = MessageConstructor.CreateImageFrame(
-                        (uint)combinedFiltered.Width,
-                        (uint)combinedFiltered.Height,
-                        "combined_filtered",
-                        combinedFilteredBytes
-                    );
-
-                    EventBus.Instance.Publish(new MessageWrapperEvent(
-                        MessageWrapper.From(MessageType.ImageFrame, newFrame.ByteBuffer.ToFullArray())));
-
-                    var thresholdFilter = new ThresholdFilter();
-                    var combinedThresholded = thresholdFilter.Apply(combinedFiltered);
-
-                    var inflationFilter = new InflationFilter();
-                    combinedThresholded = inflationFilter.Apply(combinedThresholded);
-
-                    var combinedInflatedBytes = CvUtils.FromMat(combinedThresholded);
-                    var inflatedFrame = MessageConstructor.CreateImageFrame(
-                        (uint)combinedThresholded.Width,
-                        (uint)combinedThresholded.Height,
-                        "combined_inflated",
-                        combinedInflatedBytes
-                    );
-
-                    EventBus.Instance.Publish(new MessageWrapperEvent(
-                        MessageWrapper.From(MessageType.ImageFrame, inflatedFrame.ByteBuffer.ToFullArray())));
-
-                    combinedThresholded.Dispose();
-                }
-                else
-                {
-                    Logger.LogWarning("No mission matched, skipping combined publish");
-                }
-
-                // Raw combined view for debug — also used for HSV calibration
-                var leftRaw = CvUtils.AsMat(leftFrame);
-                var rightRaw = CvUtils.AsMat(rightFrame);
-
-                if (_needsHsvCalibration)
-                {
-                    var centerPoint = CvUtils.GetCenterPoint(leftRaw);
-
-                    // ExtractHsvRange expects a BGR mat and converts to HSV internally
-                    var leftRange = CvUtils.ExtractHsvRange(leftRaw, centerPoint, 50);
-                    var rightRange = CvUtils.ExtractHsvRange(rightRaw, centerPoint, 50);
-
-                    if (leftRange != null && rightRange != null)
-                    {
-                        var (lowerH, lowerS, lowerV) = leftRange.Lower.ToHsv();
-                        var (upperH, upperS, upperV) = leftRange.Upper.ToHsv();
-                        var (lowerH2, lowerS2, lowerV2) = rightRange.Lower.ToHsv();
-                        var (upperH2, upperS2, upperV2) = rightRange.Upper.ToHsv();
-
-                        // Merge both cameras: take the widest range across both
-                        var lowerHFinal = Math.Min(lowerH, lowerH2);
-                        var lowerSFinal = Math.Min(lowerS, lowerS2);
-                        var lowerVFinal = Math.Min(lowerV, lowerV2);
-                        var upperHFinal = Math.Max(upperH, upperH2);
-                        var upperSFinal = Math.Max(upperS, upperS2);
-                        var upperVFinal = Math.Max(upperV, upperV2);
-
-                        var calibratedRange = ColorUtils.ColorRange.From(
-                            ColorUtils.Color.FromHsv(lowerHFinal, lowerSFinal, lowerVFinal),
-                            ColorUtils.Color.FromHsv(upperHFinal, upperSFinal, upperVFinal)
-                        );
-
-                        Logger.LogInformation(
-                            "HSV calibration complete — H:[{LH},{UH}] S:[{LS},{US}] V:[{LV},{UV}]",
-                            lowerHFinal, upperHFinal,
-                            lowerSFinal, upperSFinal,
-                            lowerVFinal, upperVFinal
-                        );
-
-                        VisionConfig.GroundThreshold = calibratedRange;
-
-                        // Rebuild filters so the new threshold takes effect immediately
-                        RebuildFilters(BaseRobot.Instance?.State);
-                    }
-                    else
-                    {
-                        Logger.LogWarning("HSV calibration skipped — could not extract range from one or both cameras");
-                    }
-
-                    _needsHsvCalibration = false;
-                }
-
-                var leftFilter = new TopDownFilter(
-                    VisionConfig.leftSourcePoints,
-                    VisionConfig.leftDestPoints,
-                    new Size(640, 480)
-                );
-                var rightFilter = new TopDownFilter(
-                    VisionConfig.rightSourcePoints,
-                    VisionConfig.rightDestPoints,
-                    new Size(640, 480)
-                );
-                leftRaw = leftFilter.Draw(leftFilter.Apply(leftRaw));
-                rightRaw = rightFilter.Draw(rightFilter.Apply(rightRaw));
-                CvUtils.DrawHsvTargetCircle(
-                    leftRaw,
-                    CvUtils.GetCenterPoint(leftRaw),
-                    50
-                );
-                CvUtils.DrawHsvTargetCircle(
-                    rightRaw,
-                    CvUtils.GetCenterPoint(rightRaw),
-                    50
-                );
-
-                var combinedRaw = new Mat();
-                Cv2.HConcat([leftRaw, rightRaw], combinedRaw);
-
-                var combinedBytes = CvUtils.FromMat(combinedRaw);
-                var rawFrame = MessageConstructor.CreateImageFrame(
-                    (uint)combinedRaw.Width,
-                    (uint)combinedRaw.Height,
-                    "combined_debug",
-                    combinedBytes
+                // Publish image
+                centerMat = EnsureBgr(centerMat);
+                var combinedInflatedBytes = CvUtils.FromMat(centerMat);
+                var inflatedFrame = MessageConstructor.CreateImageFrame(
+                    (uint)centerMat.Width,
+                    (uint)centerMat.Height,
+                    "combined_inflated",
+                    combinedInflatedBytes
                 );
 
                 EventBus.Instance.Publish(new MessageWrapperEvent(
-                    MessageWrapper.From(MessageType.ImageFrame, rawFrame.ByteBuffer.ToFullArray())));
-
-                leftMat.Dispose();
-                rightMat.Dispose();
-                combinedFiltered.Dispose();
-                leftRaw.Dispose();
-                rightRaw.Dispose();
-                combinedRaw.Dispose();
+                    MessageWrapper.From(MessageType.ImageFrame, inflatedFrame.ByteBuffer.ToFullArray())
+                ));
             }
         }
         catch (OperationCanceledException) { }
@@ -331,97 +176,9 @@ public class VisionSubsystem() : SubsystemBase
         }
     }
 
-    private static Mat CombineAndAnnotate(Mat left, Mat right, double scale = 0.5)
+    private Task OnCenterImageReceived(ImageFrame frame, CancellationToken token)
     {
-        var scaledLeft = new Mat();
-        var scaledRight = new Mat();
-        Cv2.Resize(left, scaledLeft, new Size(0, 0), scale, scale, InterpolationFlags.Area);
-        Cv2.Resize(right, scaledRight, new Size(0, 0), scale, scale, InterpolationFlags.Area);
-        left = scaledLeft;
-        right = scaledRight;
-
-        using var leftYellow = new Mat();
-        using var rightYellow = new Mat();
-        Cv2.InRange(left, new Scalar(0, 254, 254), new Scalar(1, 255, 255), leftYellow);
-        Cv2.InRange(right, new Scalar(0, 254, 254), new Scalar(1, 255, 255), rightYellow);
-
-        var leftYellowCount = Cv2.CountNonZero(leftYellow);
-        var rightYellowCount = Cv2.CountNonZero(rightYellow);
-
-        string laneLabel;
-        int laneNumber = 0;
-        if (leftYellowCount == 0 && rightYellowCount == 0)
-        {
-            laneLabel = "Lane: UNKNOWN";
-        }
-        else if (leftYellowCount > rightYellowCount * 1.5)
-        {
-            laneLabel = "Lane: RIGHT";
-            laneNumber = 1;
-        }
-        else if (rightYellowCount > leftYellowCount * 1.5)
-        {
-            laneLabel = "Lane: LEFT";
-            laneNumber = -1;
-        }
-        else
-            laneLabel = "Lane: CENTER";
-
-        var divider = new Mat(left.Height, 4, MatType.CV_8UC3, new Scalar(80, 80, 80));
-        var leftLabeled = left.Clone();
-        var rightLabeled = right.Clone();
-        Cv2.PutText(leftLabeled, "LEFT VIEW", new Point(10, 30), HersheyFonts.HersheySimplex, 0.8, new Scalar(200, 200, 200), 2);
-        Cv2.PutText(rightLabeled, "RIGHT VIEW", new Point(10, 30), HersheyFonts.HersheySimplex, 0.8, new Scalar(200, 200, 200), 2);
-
-        var combined = new Mat();
-        Cv2.HConcat(new[] { leftLabeled, divider, rightLabeled }, combined);
-        leftLabeled.Dispose();
-        rightLabeled.Dispose();
-        divider.Dispose();
-        scaledLeft.Dispose();
-        scaledRight.Dispose();
-
-        var bannerH = 50;
-        var (bannerColor, textColor) = laneLabel switch
-        {
-            "Lane: LEFT" => (new Scalar(255, 100, 0), new Scalar(255, 255, 255)),
-            "Lane: RIGHT" => (new Scalar(0, 100, 255), new Scalar(255, 255, 255)),
-            "Lane: CENTER" => (new Scalar(0, 200, 80), new Scalar(0, 0, 0)),
-            _ => (new Scalar(40, 40, 40), new Scalar(160, 160, 160)),
-        };
-
-        Cv2.Rectangle(combined, new Rect(0, 0, combined.Width, bannerH), bannerColor, thickness: -1);
-
-        var textSize = Cv2.GetTextSize(laneLabel, HersheyFonts.HersheySimplex, 1.0, 2, out _);
-        var textX = combined.Width / 2 - textSize.Width / 2;
-        Cv2.Rectangle(combined, new Rect(textX - 10, 8, textSize.Width + 20, bannerH - 16), new Scalar(0, 0, 0), thickness: -1);
-        Cv2.PutText(combined, laneLabel, new Point(textX, 35), HersheyFonts.HersheySimplex, 1.0, textColor, thickness: 2);
-
-        // publish lane message for SelfdriveSubsystem
-        var builder = new FlatBufferBuilder(32);
-        var msg = Lane.CreateLane(builder, TimeUtils.Now(), laneNumber);
-        builder.Finish(msg.Value);
-        EventBus.Instance.Publish(new MessageWrapperEvent(
-            MessageWrapper.From(MessageType.Lane, builder.SizedByteArray())));
-
-        return combined;
-    }
-
-    private Task OnLeftImageReceived(ImageFrame frame, CancellationToken token)
-    {
-        _leftChannel.Writer.TryWrite(frame);
+        mCenterChannel.Writer.TryWrite(frame);
         return Task.CompletedTask;
-    }
-
-    private Task OnRightImageReceived(ImageFrame frame, CancellationToken token)
-    {
-        _rightChannel.Writer.TryWrite(frame);
-        return Task.CompletedTask;
-    }
-
-    [ArcCommand(ArcCommandId.ToolsStartHsvCalibration)]
-    public void InitiateHsvCalibration()
-    {
-        _needsHsvCalibration = true;
     }
 }

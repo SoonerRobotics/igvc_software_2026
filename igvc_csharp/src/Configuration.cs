@@ -138,7 +138,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(179, 149, 222)
+            ColorUtils.Color.FromHsv(179, 113, 200)
         );
 
         [Config("vision.yellow_threshold")]
@@ -161,30 +161,6 @@ public static class Configuration
 
         //FIXME make flattening configurable from the GUI
         // For flattening, the order is [ TL, TR, BR, BL ]
-
-        /// <summary>
-        /// The source points for the left camera image flattening
-        /// </summary>
-        [Config("vision.left_source_points")]
-        public static Point2f[] leftSourcePoints =
-        [
-            new(60, 100), //TODO: since these are the only 2 points actually modified, do something?
-            new(640 - 70, 100), // same here
-            new(640 - 70, 480),
-            new(0, 480),
-        ];
-
-        /// <summary>
-        /// The destination points for the left camera image flattening
-        /// </summary>
-        [Config("vision.left_dest_points")]
-        public static Point2f[] leftDestPoints =
-        [
-            new(0, 120),
-            new(640, 120),
-            new(640, 480), // same here
-            new(0, 480), // same here
-        ];
 
         /// <summary>
         /// The source points for the right camera image flattening

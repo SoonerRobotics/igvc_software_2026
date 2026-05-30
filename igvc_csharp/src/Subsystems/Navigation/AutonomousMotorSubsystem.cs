@@ -19,7 +19,7 @@ public class MotorSubsystem(
 
     // Velocity limits
     [Config("autonomous.forward_speed")]
-    public static double ForwardSpeed = 0.8;
+    public static double ForwardSpeed = 0.95;
 
     [Config("autonomous.angular_aggression")]
     public static double AngularAggression = 1.7;

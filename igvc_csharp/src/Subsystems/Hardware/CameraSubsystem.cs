@@ -16,11 +16,8 @@ public class CameraSubsystem(
     ChronosSubsystem? chronos
 ) : SubsystemBase
 {
-    [Config("subsystem.camera.left_shm")]
-    public static string LeftShmName = "/camera_left";
-
-    [Config("subsystem.camera.right_shm")]
-    public static string RightShmName = "/camera_right";
+    [Config("subsystem.camera.center_shm")]
+    public static string CenterShmName = "/camera_center";
 
     [Config("subsystem.camera.reconnect_delay_ms")]
     public static int ReconnectDelayMs = 2000;
@@ -31,24 +28,18 @@ public class CameraSubsystem(
     [Config("subsystem.camera.fps")]
     public static uint DefaultFps = 20;
 
-    private CameraWorker? mLeftWorker;
-    private CameraWorker? mRightWorker;
-    private CameraCommandShmWriter? mLeftCmd;
-    private CameraCommandShmWriter? mRightCmd;
+    private CameraWorker? mCenterWorker;
+    private CameraCommandShmWriter? mCenterCmd;
     private ProcessManager? mCameraProcess;
 
     public override async Task Init(CancellationToken token)
     {
         SetOperatingState(SubsystemState.Starting);
 
-        mLeftWorker = new CameraWorker("left", LeftShmName, LeftShmName + "_sem", Logger, chronos);
-        mRightWorker = new CameraWorker("right", RightShmName, RightShmName + "_sem", Logger, chronos);
+        mCenterWorker = new CameraWorker("center", CenterShmName, CenterShmName + "_sem", Logger, chronos);
+        mCenterCmd = new CameraCommandShmWriter("/camera_cmd_center");
 
-        mLeftCmd = new CameraCommandShmWriter("/camera_cmd_left");
-        mRightCmd = new CameraCommandShmWriter("/camera_cmd_right");
-
-        _ = Task.Factory.StartNew(() => mLeftWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        _ = Task.Factory.StartNew(() => mRightWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        _ = Task.Factory.StartNew(() => mCenterWorker.RunAsync(token), token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         Subscribe<ConfigChangedEvent>(OnConfigChanged, token);
 
@@ -74,7 +65,7 @@ public class CameraSubsystem(
     {
         if (e.Path == "subsystem.camera.fps")
         {
-            SetCameraProperty(CameraSide.Both, CameraProperty.Fps, e.Value as uint? ?? DefaultFps);
+            SetCameraProperty(CameraProperty.Fps, e.Value as uint? ?? DefaultFps);
         }
 
         return Task.CompletedTask;
@@ -82,10 +73,8 @@ public class CameraSubsystem(
 
     public override async Task Shutdown()
     {
-        mLeftWorker?.Stop();
-        mRightWorker?.Stop();
-        mLeftCmd?.Dispose();
-        mRightCmd?.Dispose();
+        mCenterWorker?.Stop();
+        mCenterCmd?.Dispose();
 
         if (mCameraProcess?.Status == ProcessStatus.Running)
             await mCameraProcess.StopAsync();
@@ -93,18 +82,12 @@ public class CameraSubsystem(
 
     private void OnProcessLog(object? sender, SpdLogStructure log)
     {
-        if (log.Message.StartsWith("CAMERA_LEFT_CONNECTED"))
-            Logger.LogInformation("Left camera connected");
-        else if (log.Message.StartsWith("CAMERA_RIGHT_CONNECTED"))
-            Logger.LogInformation("Right camera connected");
-        else if (log.Message.StartsWith("CAMERA_LEFT_DISCONNECTED"))
-            Logger.LogWarning("Left camera disconnected");
-        else if (log.Message.StartsWith("CAMERA_RIGHT_DISCONNECTED"))
-            Logger.LogWarning("Right camera disconnected");
-        else if (log.Message.StartsWith("CAMERA_LEFT_PROPS_APPLIED"))
-            Logger.LogInformation("Left camera properties applied");
-        else if (log.Message.StartsWith("CAMERA_RIGHT_PROPS_APPLIED"))
-            Logger.LogInformation("Right camera properties applied");
+        if (log.Message.StartsWith("CAMERA_CENTER_CONNECTED"))
+            Logger.LogInformation("Center camera connected");
+        else if (log.Message.StartsWith("CAMERA_CENTER_DISCONNECTED"))
+            Logger.LogWarning("Center camera disconnected");
+        else if (log.Message.StartsWith("CAMERA_CENTER_PROPS_APPLIED"))
+            Logger.LogInformation("Center camera properties applied");
         else if (log.Message.StartsWith("SHM_INIT_FAILED"))
         {
             SetOperatingState(SubsystemState.Errored);
@@ -113,21 +96,16 @@ public class CameraSubsystem(
         }
     }
 
-    public enum CameraSide { Left, Right, Both }
-
-    public void SetCameraProperty(CameraSide side, CameraProperty prop, uint value)
+    public void SetCameraProperty(CameraProperty prop, uint value)
     {
-        if (side is CameraSide.Left or CameraSide.Both) mLeftCmd?.Set(prop, value);
-        if (side is CameraSide.Right or CameraSide.Both) mRightCmd?.Set(prop, value);
-
-        Logger.LogInformation("Camera {Side} {Prop} set to {Value}", side, prop, value);
+        mCenterCmd?.Set(prop, value);
+        Logger.LogInformation("Camera Center {Prop} set to {Value}", prop, value);
     }
 
     public enum CameraProperty { Fps, Width, Height, Fourcc }
 
     public sealed unsafe class CameraCommandShmWriter : IDisposable
     {
-        // Convenience fourcc constants
         public const uint FourccMjpg = 0x47504A4D;
         public const uint FourccYuy2 = 0x32595559;
         public const uint FourccH264 = 0x34363248;
@@ -157,13 +135,10 @@ public class CameraSubsystem(
             [DllImport(Libc, SetLastError = true)]
             public static extern int close(int fd);
 
-            // oflag
             public const int O_CREAT = 0x40;
             public const int O_RDWR = 0x02;
-            // prot
             public const int PROT_READ = 0x1;
             public const int PROT_WRITE = 0x2;
-            // flags
             public const int MAP_SHARED = 0x01;
 
             public static readonly IntPtr MAP_FAILED = new(-1);
@@ -182,7 +157,7 @@ public class CameraSubsystem(
         {
             _shmName = shmName;
 
-            int fd = Posix.shm_open(shmName, Posix.O_CREAT | Posix.O_RDWR, 0b110_110_110 /* 0666 */);
+            int fd = Posix.shm_open(shmName, Posix.O_CREAT | Posix.O_RDWR, 0b110_110_110);
             if (fd < 0)
                 throw new IOException($"shm_open({shmName}) failed: errno {Marshal.GetLastPInvokeError()}");
 
@@ -203,7 +178,7 @@ public class CameraSubsystem(
                 Posix.close(fd);
             }
 
-            Flush(); // write defaults before C++ process starts
+            Flush();
         }
 
         public void Set(CameraProperty prop, uint value)
@@ -297,7 +272,6 @@ public class CameraSubsystem(
         {
             using var shm = new CameraFrameSharedMemoryReader(shmName, semName);
 
-            // Wait for the C++ process to create the SHM region
             while (!token.IsCancellationRequested && !mIsStopped && !shm.IsOpen)
             {
                 if (shm.TryOpen()) break;
@@ -319,7 +293,7 @@ public class CameraSubsystem(
                     if ((DateTime.UtcNow - lastNewFrameAt).TotalMilliseconds > StalenessThresholdMs)
                     {
                         logger.LogWarning("Camera {} stale — no frames for {}ms", name, StalenessThresholdMs);
-                        return; // triggers reconnect loop
+                        return;
                     }
 
                     await Task.Delay(10, token).ConfigureAwait(false);
@@ -341,10 +315,7 @@ public class CameraSubsystem(
                 old?.Dispose();
 
                 BroadcastFrame();
-                chronos?.WriteVideoFrame(
-                    name == "left" ? CameraId.Left : CameraId.Right,
-                    mat
-                );
+                chronos?.WriteVideoFrame(CameraId.Center, mat);
 
                 await Task.Delay(5, token).ConfigureAwait(false);
             }

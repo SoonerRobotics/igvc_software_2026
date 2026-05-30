@@ -38,22 +38,25 @@ public class RegionFilter : IFilter
         _fillValue = fillValue;
     }
 
-    public Mat Apply(Mat frame)
+public Mat Apply(Mat frame)
+{
+    using var mask = BuildMask(frame.Size());
+    using var invertedMask = new Mat();
+    var result = frame.Clone();
+    var fillScalar = new Scalar(_fillValue, _fillValue, _fillValue);
+
+    if (_mode == RegionFilterMode.KeepInside)
     {
-        using var mask = BuildMask(frame.Size());
-        var result = frame.Clone();
-
-        if (_mode == RegionFilterMode.KeepInside)
-        {
-            result.SetTo(_fillValue, ~mask);
-        }
-        else
-        {
-            result.SetTo(_fillValue, mask);
-        }
-
-        return result;
+        Cv2.BitwiseNot(mask, invertedMask);
+        result.SetTo(fillScalar, invertedMask);
     }
+    else
+    {
+        result.SetTo(fillScalar, mask);
+    }
+
+    return result;
+}
 
     private Mat BuildMask(Size size)
     {

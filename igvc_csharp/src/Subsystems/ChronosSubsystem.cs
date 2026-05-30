@@ -32,6 +32,7 @@ public class ChronosSubsystem : AbstractChronosSubsystem
         public const int Left = 0x0001;
         public const int Right = 0x0002;
         public const int Zed2i = 0x0003;
+        public const int Center = 0x0004;
     }
 
     // Overrides
