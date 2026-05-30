@@ -2,7 +2,7 @@ using OpenCvSharp;
 
 namespace igvc_csharp.Subsystems.Vision.Filters;
 
-public class InflationFilter(int kernelWidth = 71, int kernelHeight = 71) : IFilter
+public class InflationFilter(int kernelWidth = 105, int kernelHeight = 105) : IFilter
 {
     private readonly Mat _kernel = Cv2.GetStructuringElement(
         MorphShapes.Ellipse,

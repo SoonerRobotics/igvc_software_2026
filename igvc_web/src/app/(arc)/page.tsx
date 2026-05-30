@@ -47,6 +47,7 @@ export default function Home() {
             </div>
 
             <div className="flex flex-row items-center max-w-full">
+                <Camera id="combined_debug" />
                 <Camera id="combined_filtered" />
                 <Camera id="combined_inflated" />
                 {/* <Camera id="debug_feelers" /> */}

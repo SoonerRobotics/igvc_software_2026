@@ -180,6 +180,7 @@ function HsvRangeSliders({ draft, onChange }: {
 const CAMERA_KEYS: Record<string, string> = {
     "vision.ground_threshold": "combined_filtered",
     "vision.yellow_threshold": "combined_filtered",
+    "vision.left_source_points": "combined_debug"
 };
 
 function ColorRangeEditor({ path, value, onLiveChange, onRevert }: {

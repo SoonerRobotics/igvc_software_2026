@@ -59,6 +59,8 @@ public class NavigationSubsystem : SubsystemBase
             _waypointHeadingRad = null;
             _prevPosition = null;
             _robotThetaRad = null;
+            LastGridPath = null;
+            LastLocalPath = null;
         }
 
         return Task.CompletedTask;

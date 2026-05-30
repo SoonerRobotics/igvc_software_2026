@@ -23,7 +23,9 @@ public class VisionSubsystem() : SubsystemBase
 
     // Guards against concurrent filter rebuilds (config change vs state change)
     private readonly Lock _filterLock = new();
-    private bool _needsHsvCalibration = false;
+
+    // volatile so the processing task sees writes from the ARC command thread immediately
+    private volatile bool _needsHsvCalibration = false;
 
     // Config paths that require a filter rebuild when changed
     private static readonly HashSet<string> _visionConfigPaths =
@@ -225,24 +227,26 @@ public class VisionSubsystem() : SubsystemBase
                     Logger.LogWarning("No mission matched, skipping combined publish");
                 }
 
-                // Raw combined view for debug
+                // Raw combined view for debug — also used for HSV calibration
                 var leftRaw = CvUtils.AsMat(leftFrame);
                 var rightRaw = CvUtils.AsMat(rightFrame);
+
                 if (_needsHsvCalibration)
                 {
                     var centerPoint = CvUtils.GetCenterPoint(leftRaw);
+
+                    // ExtractHsvRange expects a BGR mat and converts to HSV internally
                     var leftRange = CvUtils.ExtractHsvRange(leftRaw, centerPoint, 50);
                     var rightRange = CvUtils.ExtractHsvRange(rightRaw, centerPoint, 50);
 
                     if (leftRange != null && rightRange != null)
                     {
-                        // Convert both ranges to their HSV values
                         var (lowerH, lowerS, lowerV) = leftRange.Lower.ToHsv();
                         var (upperH, upperS, upperV) = leftRange.Upper.ToHsv();
                         var (lowerH2, lowerS2, lowerV2) = rightRange.Lower.ToHsv();
                         var (upperH2, upperS2, upperV2) = rightRange.Upper.ToHsv();
-                        
-                        // Get the min/max of both ranges
+
+                        // Merge both cameras: take the widest range across both
                         var lowerHFinal = Math.Min(lowerH, lowerH2);
                         var lowerSFinal = Math.Min(lowerS, lowerS2);
                         var lowerVFinal = Math.Min(lowerV, lowerV2);
@@ -250,15 +254,29 @@ public class VisionSubsystem() : SubsystemBase
                         var upperSFinal = Math.Max(upperS, upperS2);
                         var upperVFinal = Math.Max(upperV, upperV2);
 
-                        // Apply it to the configuration
-                        var realRange = ColorUtils.ColorRange.From(
+                        var calibratedRange = ColorUtils.ColorRange.From(
                             ColorUtils.Color.FromHsv(lowerHFinal, lowerSFinal, lowerVFinal),
                             ColorUtils.Color.FromHsv(upperHFinal, upperSFinal, upperVFinal)
                         );
-                        var (rH, rS, rV) = realRange.Lower.ToHsv();
-                        var (rH2, rS2, rV2) = realRange.Upper.ToHsv();
-                        VisionConfig.GroundThreshold = realRange;
+
+                        Logger.LogInformation(
+                            "HSV calibration complete — H:[{LH},{UH}] S:[{LS},{US}] V:[{LV},{UV}]",
+                            lowerHFinal, upperHFinal,
+                            lowerSFinal, upperSFinal,
+                            lowerVFinal, upperVFinal
+                        );
+
+                        VisionConfig.GroundThreshold = calibratedRange;
+
+                        // Rebuild filters so the new threshold takes effect immediately
+                        RebuildFilters(BaseRobot.Instance?.State);
                     }
+                    else
+                    {
+                        Logger.LogWarning("HSV calibration skipped — could not extract range from one or both cameras");
+                    }
+
+                    _needsHsvCalibration = false;
                 }
 
                 var leftFilter = new TopDownFilter(

@@ -17,12 +17,9 @@ static constexpr int FRAME_WIDTH = 640;
 static constexpr int FRAME_HEIGHT = 480;
 static constexpr int FRAME_BYTES = FRAME_WIDTH * FRAME_HEIGHT * 3; // BGR
 
-static const char *SHM_LEFT_NAME = "/camera_left";
-static const char *SEM_LEFT_NAME = "/camera_left_sem";
-static const char *SHM_RIGHT_NAME = "/camera_right";
-static const char *SEM_RIGHT_NAME = "/camera_right_sem";
-static const char *SHM_CMD_LEFT_NAME = "/camera_cmd_left";
-static const char *SHM_CMD_RIGHT_NAME = "/camera_cmd_right";
+static const char *SHM_CENTER_NAME = "/camera_center";
+static const char *SEM_CENTER_NAME = "/camera_center_sem";
+static const char *SHM_CMD_CENTER_NAME = "/camera_cmd_center";
 
 #pragma pack(push, 1)
 struct CameraFrameHeader
@@ -280,36 +277,23 @@ int main()
 
     spdlog::info("CAMERA_STARTING");
 
-    ShmContext leftShm = openShm(SHM_LEFT_NAME, SEM_LEFT_NAME);
-    ShmContext rightShm = openShm(SHM_RIGHT_NAME, SEM_RIGHT_NAME);
-    CmdContext leftCmd = openCmdShm(SHM_CMD_LEFT_NAME);
-    CmdContext rightCmd = openCmdShm(SHM_CMD_RIGHT_NAME);
+    ShmContext centerShm = openShm(SHM_CENTER_NAME, SEM_CENTER_NAME);
+    CmdContext centerCmd = openCmdShm(SHM_CMD_CENTER_NAME);
 
-    if (!leftShm.ptr || !rightShm.ptr || !leftCmd.ptr || !rightCmd.ptr)
+    if (!centerShm.ptr || !centerCmd.ptr)
     {
         spdlog::error("SHM_INIT_FAILED");
         return 1;
     }
 
-    std::thread leftThread([&]()
-                           { runCamera("/dev/video0", leftShm, leftCmd, "LEFT", g_running); });
-    std::thread rightThread([&]()
-                            { runCamera("/dev/video2", rightShm, rightCmd, "RIGHT", g_running); });
+    runCamera("/dev/video0", centerShm, centerCmd, "CENTER", g_running);
 
-    leftThread.join();
-    rightThread.join();
+    closeShm(centerShm);
+    closeCmdShm(centerCmd);
 
-    closeShm(leftShm);
-    closeShm(rightShm);
-    closeCmdShm(leftCmd);
-    closeCmdShm(rightCmd);
-
-    shm_unlink(SHM_LEFT_NAME);
-    sem_unlink(SEM_LEFT_NAME);
-    shm_unlink(SHM_RIGHT_NAME);
-    sem_unlink(SEM_RIGHT_NAME);
-    shm_unlink(SHM_CMD_LEFT_NAME);
-    shm_unlink(SHM_CMD_RIGHT_NAME);
+    shm_unlink(SHM_CENTER_NAME);
+    sem_unlink(SEM_CENTER_NAME);
+    shm_unlink(SHM_CMD_CENTER_NAME);
 
     return 0;
 }

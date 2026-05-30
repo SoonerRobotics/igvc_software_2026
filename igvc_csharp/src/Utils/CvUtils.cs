@@ -72,11 +72,10 @@ public class CvUtils
         int cx = bounding.X + bounding.Width / 2;
         int cy = bounding.Y + bounding.Height / 2;
 
-        // Clamp center to mat bounds first
         cx = Math.Clamp(cx, 0, depthMat.Width - 1);
         cy = Math.Clamp(cy, 0, depthMat.Height - 1);
 
-        const int sampleRadius = 8; // slightly larger window for better coverage
+        const int sampleRadius = 8;
         int x0 = Math.Max(0, cx - sampleRadius);
         int y0 = Math.Max(0, cy - sampleRadius);
         int x1 = Math.Min(depthMat.Width - 1, cx + sampleRadius);
@@ -94,7 +93,6 @@ public class CvUtils
 
         if (samples.Count == 0) return float.NaN;
 
-        // Median is much more robust than mean for sparse/noisy depth data
         samples.Sort();
         return samples[samples.Count / 2];
     }
@@ -148,46 +146,54 @@ public class CvUtils
     // Histogram stuff
 
     /// <summary>
-    /// Extracts the HSV color range from a mat
-    /// Takes in a point and a radius to sample around, and returns the min/max HSV values in that area within the 10% lower and upper percentiles to filter out outliers
+    /// Extracts the HSV color range from a BGR mat.
+    /// Converts to HSV internally, samples a square region around <paramref name="center"/>
+    /// with the given <paramref name="radius"/>, trims the outer 10% of each channel
+    /// independently to filter outliers, and returns the resulting min/max HSV range.
     /// </summary>
-    public static ColorUtils.ColorRange? ExtractHsvRange(Mat mat, Point center, int radius)
+    public static ColorUtils.ColorRange? ExtractHsvRange(Mat bgrMat, Point center, int radius)
     {
+        // Convert BGR -> HSV so Item0/1/2 are actually H, S, V
+        using var hsvMat = new Mat();
+        Cv2.CvtColor(bgrMat, hsvMat, ColorConversionCodes.BGR2HSV);
+
         int x0 = Math.Max(0, center.X - radius);
         int y0 = Math.Max(0, center.Y - radius);
-        int x1 = Math.Min(mat.Width - 1, center.X + radius);
-        int y1 = Math.Min(mat.Height - 1, center.Y + radius);
+        int x1 = Math.Min(hsvMat.Width - 1, center.X + radius);
+        int y1 = Math.Min(hsvMat.Height - 1, center.Y + radius);
 
-        var hsvValues = new List<Vec3b>((x1 - x0 + 1) * (y1 - y0 + 1));
+        int capacity = (x1 - x0 + 1) * (y1 - y0 + 1);
+        var hValues = new List<byte>(capacity);
+        var sValues = new List<byte>(capacity);
+        var vValues = new List<byte>(capacity);
+
         for (int y = y0; y <= y1; y++)
         {
             for (int x = x0; x <= x1; x++)
             {
-                hsvValues.Add(mat.At<Vec3b>(y, x));
+                var px = hsvMat.At<Vec3b>(y, x);
+                hValues.Add(px.Item0);
+                sValues.Add(px.Item1);
+                vValues.Add(px.Item2);
             }
         }
 
-        if (hsvValues.Count == 0)
-        {
+        if (hValues.Count == 0)
             return null;
-        }
 
-        hsvValues.Sort((a, b) =>
-        {
-            int ha = a.Item0 * 256 * 256 + a.Item1 * 256 + a.Item2;
-            int hb = b.Item0 * 256 * 256 + b.Item1 * 256 + b.Item2;
-            return ha.CompareTo(hb);
-        });
+        hValues.Sort();
+        sValues.Sort();
+        vValues.Sort();
 
-        int lowerIndex = (int)(hsvValues.Count * 0.1);
-        int upperIndex = (int)(hsvValues.Count * 0.9);
+        int lowerIndex = (int)(hValues.Count * 0.1);
+        int upperIndex = (int)(hValues.Count * 0.9);
 
-        var lower = hsvValues[lowerIndex];
-        var upper = hsvValues[upperIndex];
+        // Clamp upperIndex so it stays in bounds
+        upperIndex = Math.Min(upperIndex, hValues.Count - 1);
 
         return ColorUtils.ColorRange.From(
-            ColorUtils.Color.FromHsv(lower.Item0, lower.Item1, lower.Item2),
-            ColorUtils.Color.FromHsv(upper.Item0, upper.Item1, upper.Item2)
+            ColorUtils.Color.FromHsv(hValues[lowerIndex], sValues[lowerIndex], vValues[lowerIndex]),
+            ColorUtils.Color.FromHsv(hValues[upperIndex], sValues[upperIndex], vValues[upperIndex])
         );
     }
 
@@ -206,14 +212,13 @@ public class CvUtils
         var engine = new TesseractEngine(
             FileUtils.GetFileRelativeToRoot("resources/eng.traineddata"),
             "eng",
-            EngineMode.LstmOnly  // faster than Default for simple text
+            EngineMode.LstmOnly
         );
         engine.SetVariable("tessedit_char_whitelist", "STOP");
-        engine.SetVariable("tessedit_pageseg_mode", "8"); // PSM_WORD — single word mode
+        engine.SetVariable("tessedit_pageseg_mode", "8");
         return engine;
     });
 
-    // Reusable Mats to avoid per-call allocation
     [ThreadStatic] private static Mat? _gray;
     [ThreadStatic] private static Mat? _upscaled;
     [ThreadStatic] private static Mat? _thresh;

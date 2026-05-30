@@ -19,10 +19,10 @@ public class MotorSubsystem(
 
     // Velocity limits
     [Config("autonomous.forward_speed")]
-    public static double ForwardSpeed = 0.6;
+    public static double ForwardSpeed = 0.8;
 
     [Config("autonomous.angular_aggression")]
-    public static double AngularAggression = 1.8;
+    public static double AngularAggression = 1.7;
 
     [Config("autonomous.max_angular_speed")]
     public static double MaxAngularSpeed = 1.1;
@@ -53,6 +53,13 @@ public class MotorSubsystem(
         {
             SendVelocities(0, 0, 0);
             _sentStopOnExit = true;
+        }
+
+        if (!IsActive(old) && IsActive(updated))
+        {
+            _reverseFrames = 0;
+            _sentStopOnExit = false;
+            _pursuit.SetPoints(new List<(float, float)>());
         }
 
         if (updated.MotionAllowed && updated.Mode == RobotModeEnum.Autonomous)

@@ -19,7 +19,7 @@ export default function Camera(props: CameraProps)
                 {props.id}
             </div>
 
-            <img src={`http://${newPath}:8001/${props.id}`} className="w-full h-full object-cover" />
+            <img src={`http://${newPath}:8001/${props.id}`} className="w-fit h-fit object-cover" />
         </div>
     )
 }

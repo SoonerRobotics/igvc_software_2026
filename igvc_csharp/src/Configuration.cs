@@ -180,8 +180,8 @@ public static class Configuration
         [Config("vision.left_dest_points")]
         public static Point2f[] leftDestPoints =
         [
-            new(0, 0),
-            new(640, 0),
+            new(0, 120),
+            new(640, 120),
             new(640, 480), // same here
             new(0, 480), // same here
         ];
@@ -204,8 +204,8 @@ public static class Configuration
         [Config("vision.right_dest_points")]
         public static Point2f[] rightDestPoints =
         [
-            new(0, 0),
-            new(640, 0),
+            new(0, 120),
+            new(640, 120),
             new(640, 480),   // same here
             new(0, 480),   // same here
         ];

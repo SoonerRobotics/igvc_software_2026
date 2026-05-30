@@ -15,14 +15,14 @@ public record AStarConfig
     public float DepthWeight { get; init; } = 2.2f;
     public float ForwardWeight { get; init; } = 1.3f;
 
-    public int MaxFrontierDepth { get; init; } = 50;
+    public int MaxFrontierDepth { get; init; } = 40;
 
-    public byte ObstacleThreshold { get; init; } = 50;
+    public byte ObstacleThreshold { get; init; } = 35;
 
-    public float WaypointWeight { get; init; } = 5.0f;
-    public float WaypointMaxWeight { get; init; } = 200.0f;
+    public float WaypointWeight { get; init; } = 1.5f;
+    public float WaypointMaxWeight { get; init; } = 10.0f;
 
-    public ulong WaypointDelayMs { get; init; } = 60000;
+    public ulong WaypointDelayMs { get; init; } = 45000;
     public bool UseOnlyWaypoints { get; init; } = false;
 }
 
