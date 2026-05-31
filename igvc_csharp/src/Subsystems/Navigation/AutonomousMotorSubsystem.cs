@@ -31,7 +31,6 @@ public class MotorSubsystem(
 
     private readonly PurePursuit _pursuit = new();
 
-    private bool _sentStopOnExit = false;
     private int _reverseFrames = 0;
 
     public override Task Init(CancellationToken token)
@@ -49,17 +48,24 @@ public class MotorSubsystem(
 
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
-        if (IsActive(old) && !IsActive(updated))
+        if (IsAutonomous(old) && !IsAutonomous(updated))
         {
             SendVelocities(0, 0, 0);
-            _sentStopOnExit = true;
+            return Task.CompletedTask;
         }
 
-        if (!IsActive(old) && IsActive(updated))
+        if (!IsAutonomous(old) && IsAutonomous(updated))
         {
             _reverseFrames = 0;
-            _sentStopOnExit = false;
             _pursuit.SetPoints(new List<(float, float)>());
+            return Task.CompletedTask;
+        }
+
+        if (!updated.MotionAllowed && updated.Mode == RobotModeEnum.Autonomous)
+        {
+            SendVelocities(0, 0, 0);
+            canbus.SafetyLights.SetAutoDisabled();
+            return Task.CompletedTask;
         }
 
         if (updated.MotionAllowed && updated.Mode == RobotModeEnum.Autonomous)
@@ -80,13 +86,9 @@ public class MotorSubsystem(
             {
                 var state = BaseRobot.Instance.State;
 
-                if (!IsActive(state))
+                if (!IsAutonomous(state))
                 {
-                    if (!_sentStopOnExit)
-                    {
-                        SendVelocities(0, 0, 0);
-                        _sentStopOnExit = true;
-                    }
+                    SendVelocities(0, 0, 0);
                     continue;
                 }
 
@@ -97,14 +99,13 @@ public class MotorSubsystem(
                     continue;
                 }
 
-                _sentStopOnExit = false;
-
                 if (navigation.LastLocalPath is { Count: > 0 } localPath)
+                {
                     _pursuit.SetPoints(localPath);
+                }
 
                 if (_pursuit.Count == 0)
                 {
-                    Logger.LogDebug("No path available, holding position");
                     SendVelocities(0, 0, 0);
                     continue;
                 }
@@ -119,17 +120,13 @@ public class MotorSubsystem(
 
                 if (lookahead is null)
                 {
-                    Logger.LogDebug("No lookahead found, reversing");
                     SendVelocities(-0.4, 0, 0);
                     continue;
                 }
 
-                float distSq = lookahead.Value.X * lookahead.Value.X
-                             + lookahead.Value.Y * lookahead.Value.Y;
-
+                float distSq = lookahead.Value.X * lookahead.Value.X + lookahead.Value.Y * lookahead.Value.Y;
                 if (distSq <= AtGoalDistanceSq)
                 {
-                    // Logger.LogDebug("At goal, holding position");
                     SendVelocities(0, 0, 0);
                     _reverseFrames = 15;
                     continue;
@@ -137,17 +134,17 @@ public class MotorSubsystem(
 
                 double angleToLookahead = Math.Atan2(lookahead.Value.Y, lookahead.Value.X);
                 double error = NormaliseAngle(angleToLookahead) / Math.PI;
-
-                // Deadband — ignore tiny errors to prevent oscillation
                 if (Math.Abs(error) < 0.02)
+                {
                     error = 0;
+                }
 
                 double forward = ForwardSpeed * Math.Max(0.25, Math.Pow(1.0 - Math.Abs(error), 2));
                 double angular = Math.Clamp(
                     error * AngularAggression,
                     -MaxAngularSpeed,
-                    MaxAngularSpeed);
-
+                    MaxAngularSpeed
+                );
                 SendVelocities(forward, 0, angular);
             }
         }
@@ -159,11 +156,7 @@ public class MotorSubsystem(
         }
     }
 
-    private static bool IsActive(RobotState state) =>
-        state.Mode == RobotModeEnum.Autonomous
-        && state.MotionAllowed
-        && !state.Estopped
-        && state.Mission == MissionEnum.Autonav;
+    private static bool IsAutonomous(RobotState state) => state.Mode == RobotModeEnum.Autonomous && state.MotionAllowed;
 
     private void SendVelocities(double forward, double sideways, double angular)
     {
@@ -177,6 +170,5 @@ public class MotorSubsystem(
         }
     }
 
-    private static double NormaliseAngle(double angle) =>
-        (angle + Math.PI) % (2 * Math.PI) - Math.PI;
+    private static double NormaliseAngle(double angle) => (angle + Math.PI) % (2 * Math.PI) - Math.PI;
 }
