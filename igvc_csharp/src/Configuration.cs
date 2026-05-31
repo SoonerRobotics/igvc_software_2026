@@ -138,7 +138,7 @@ public static class Configuration
         [Config("vision.ground_threshold")]
         public static ColorUtils.ColorRange GroundThreshold = ColorUtils.ColorRange.From(
             ColorUtils.Color.FromHsv(0, 0, 0),
-            ColorUtils.Color.FromHsv(179, 131, 212)
+            ColorUtils.Color.FromHsv(179, 62, 221)
         );
 
         [Config("vision.yellow_threshold")]
