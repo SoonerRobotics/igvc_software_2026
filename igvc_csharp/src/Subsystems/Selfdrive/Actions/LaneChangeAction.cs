@@ -38,12 +38,12 @@ public class LaneChangeAction(ulong timeoutMs = 0) : ISelfdriveAction
         if (goalLane == SelfdriveLane.Left)
         {
             // strafe left
-            context.canbus.MotorControl.SetVelocities(1, 0.5, 0); //FIXME make this configurable?
+            context.Canbus.MotorControl.SetVelocities(1, 0.5, 0); //FIXME make this configurable?
         }
         else
         {
             // strafe right
-            context.canbus.MotorControl.SetVelocities(1, -0.5, 0); //FIXME make this configurable?
+            context.Canbus.MotorControl.SetVelocities(1, -0.5, 0); //FIXME make this configurable?
         }
     }
 

@@ -9,294 +9,244 @@ using igvc_csharp.src.Subsystems.selfdrive.actions;
 using igvc_csharp.Core.Units;
 using Messages;
 using igvc_csharp.Utils;
+using Microsoft.Extensions.Logging;
+
+using Mat = OpenCvSharp.Mat;
 
 namespace igvc_csharp.src.subsystems.selfdrive;
 
 [Subsystem("SelfdriveSubsystem", Disabled = true)]
-public class SelfdriveSubsystem(
-    CanbusSubsystem? canbus
-) : SubsystemBase
+public class SelfdriveSubsystem(CanbusSubsystem? canbus) : SubsystemBase
 {
+    // --- Config ---
+
     [Config("selfdrive.forward_speed")]
-    public LinearVelocity ForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(3);
+    public static LinearVelocity ForwardSpeed = LinearVelocityUnit.MilesPerHour.Of(1);
 
     [Config("selfdrive.lane_change_speed")]
     public LinearVelocity LaneChangeSpeed = LinearVelocityUnit.MilesPerHour.Of(0.5);
 
     [Config("selfdrive.turn_speed")]
-    public AngularVelocity TurnSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
+    public static AngularVelocity TurnSpeed = AngularVelocityUnit.DegreesPerSecond.Of(30);
 
     [Config("selfdrive.feet_to_stop")]
-    public Distance ObstacleStopDistnace = DistanceUnit.Feet.Of(2);
+    public Distance ObstacleStopDistance = DistanceUnit.Feet.Of(2);
 
     [Config("selfdrive.pull_out_direction")]
-    public int PullOutDirection = 0; // positive is to the left
+    public int PullOutDirection = 0; // positive = left
 
     [Config("selfdrive.obstacle_reaction_distance")]
     public Distance ObstacleReactionDistance = DistanceUnit.Feet.Of(12);
 
     [Config("selfdrive.lane_change_timeout")]
-    public ulong laneChangeTimeoutMs = 3000;
-
-    public SubsystemProperty<SelfdriveGoal> mGoal = new SubsystemProperty<SelfdriveGoal>("goal", SelfdriveGoal.LaneKeep);
-    public SubsystemProperty<SelfdriveLane> mLane = new SubsystemProperty<SelfdriveLane>("lane", SelfdriveLane.Right);
-    public SubsystemProperty<SelfdriveTest> mTest = new SubsystemProperty<SelfdriveTest>("functional_test", SelfdriveTest.PedestrianDetection_FI_1);
-    public SubsystemProperty<QualificationTest> mQualTest = new SubsystemProperty<QualificationTest>("qualification_test", QualificationTest.LaneKeeping_Q1);
+    public ulong LaneChangeTimeoutMs = 3000;
 
     [Config("selfdrive.qualification_mode")]
-    public bool QualificationMode = false;
+    public bool QualificationMode = true;
 
-    private SelfdriveContext context = new();
-    // private lock object contextLock = new();
-    private RobotPosition? mLastPosition = null;
+    [Config("selfdrive.qualification_test")]
+    public QualificationTest QualTest = QualificationTest.LaneKeeping_Q1;
+
+    // --- State ---
+
+    public SubsystemProperty<SelfdriveGoal> mGoal = new("goal", SelfdriveGoal.LaneKeep);
+    public SubsystemProperty<SelfdriveLane> mLane = new("lane", SelfdriveLane.Right);
+    public SubsystemProperty<SelfdriveTest> mTest = new("functional_test", SelfdriveTest.PedestrianDetection_FI_1);
+
+    private bool shouldBuild = true;
+    private readonly SelfdriveContext _context = new()
+    {
+        Canbus = canbus ?? throw new ArgumentNullException(nameof(canbus),
+            "SelfdriveSubsystem requires a CanbusSubsystem."),
+        YoloDetections = new(),
+    };
+
+    // Protects all _context.Last*Frame writes and YoloDetections mutations.
+    private readonly object _contextLock = new();
+
+    // The currently running action; null means we need to build a new one.
+    private ISelfdriveAction? _currentAction;
+
+    // --- Lifecycle ---
 
     public override Task Init(CancellationToken token)
     {
-        context = new()
-        {
-            canbus = canbus!,
-            whiteLaneDistance = 0,
-            lastZedFrame = null,
-            lastCenterFrame = null
-        };
-
         Subscribe<YoloDetectionEvent>(OnDetectionEvent, token);
         SubscribeImage("zed", OnZedImageReceived, token);
         SubscribeImage("center", OnCenterImageReceived, token);
+        SubscribeImage("combined_filtered", OnFilteredImageReceived, token);
 
-        _ = Task.Run(() => SelfdriveTask(token), token);
-
-        return Task.CompletedTask;
-    }
-
-    public Task OnZedImageReceived(ImageFrame frame, CancellationToken ct)
-    {
-        var mat = CvUtils.AsMat(frame);
-
-        // l
-
-        return Task.CompletedTask;
-    }
-
-    public Task OnCenterImageReceived(ImageFrame frame, CancellationToken ct)
-    {
-        var mat = CvUtils.AsMat(frame);
-        var lane = CvUtils.ExtractLaneSingle(mat);
-        var laneDistance = CvUtils.DistanceToWhiteLane(mat);
+        _ = Task.Run(() => SelfdriveLoop(token), token);
         return Task.CompletedTask;
     }
 
     public override Task OnRobotStateChanged(RobotState old, RobotState updated)
     {
+        if (old.Mode != RobotModeEnum.Autonomous && updated.Mode == RobotModeEnum.Autonomous)
+        {
+            Logger.LogInformation("Entered Autonomous mode, resetting selfdrive action.");
+            shouldBuild = true;
+        }
+
         return Task.CompletedTask;
     }
 
-    public override void OnPositionChanged(RobotPosition position)
-    {
-        if (mLastPosition == null)
-        {
-            mLastPosition = position;
-            return;
-        }
+    public override void OnPositionChanged(RobotPosition position) { }
 
-        mLastPosition = position;
+    // --- Image subscriptions ---
+
+    public Task OnZedImageReceived(ImageFrame frame, CancellationToken ct)
+    {
+        SwapFrame(ref _context.LastZedFrame, CvUtils.AsMat(frame));
+        return Task.CompletedTask;
     }
+
+    public Task OnCenterImageReceived(ImageFrame frame, CancellationToken ct)
+    {
+        SwapFrame(ref _context.LastCenterFrame, CvUtils.AsMat(frame));
+        return Task.CompletedTask;
+    }
+
+    public Task OnFilteredImageReceived(ImageFrame frame, CancellationToken ct)
+    {
+        SwapFrame(ref _context.LastFilteredFrame, CvUtils.AsMat(frame));
+        return Task.CompletedTask;
+    }
+
+    // Thread-safe Mat swap — disposes the old frame under the lock.
+    private void SwapFrame(ref Mat? slot, Mat incoming)
+    {
+        Mat? old;
+        lock (_contextLock)
+        {
+            old = slot;
+            slot = incoming;
+        }
+        old?.Dispose();
+    }
+
+    // --- Detection events ---
 
     public Task OnDetectionEvent(YoloDetectionEvent e, CancellationToken token)
     {
-        if (!context.YoloDetections.TryAdd(e.label, e))
+        lock (_contextLock)
         {
-            context.YoloDetections.Remove(e.label); //FIXME is there any sort of cleanup / Dispose we need to do here?
-            context.YoloDetections.Add(e.label, e);
+            _context.YoloDetections[e.label] = e;       // AddOrReplace, no manual Remove needed
+            _context.DetectionTracker.Feed(e);
         }
-
-        //TODO: need to like, clear the dictionary once we move to a new action or something...
-        // have a _clearEverything flag? maybe clear it whenever we Init() a new Action?
-
         return Task.CompletedTask;
     }
 
-    private async Task SelfdriveTask(CancellationToken token)
+    // --- Main loop ---
+
+    private async Task SelfdriveLoop(CancellationToken token)
     {
-        // 10hz update loop
         while (!token.IsCancellationRequested)
         {
-            if (BaseRobot.Instance?.State.Mission != MissionEnum.Selfdrive)
+            try
             {
-                await Task.Delay(5000, token); // FIXME is this good?
-                continue;
-            }
-
-            ISelfdriveAction? action = null;
-            if (!QualificationMode)
-            {
-                // switch (mTest.Get())
-                // {
-                //     //TODO: should the static tests have actions? like a StaticTestAction that just sits there?
-                //     // because we're publishing the debug images regardless, right? but we shouldn't during a real run for performance?
-                //     case SelfdriveTest.PedestrianDetection_FI_1:
-                //         action = new SequentialAction([
-                //             // no action, static test
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.TireDetection_FI_2:
-                //         action = new SequentialAction([
-                //             // no action, static test
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.StopSignDetection_FII_1:
-                //         action = new SequentialAction([
-                //             // no action, static test
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.LaneKeeping_FIII_1:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
-                //             //FIXME we might need to insert a DriveStraightTimed here to make it through the intersection?
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.LeftTurn_FIII_2:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
-                //             //FIXME might need a WaitTimeout() so it's a "full" stop
-                //             new TimedDriveAction(ForwardSpeed*2, 0, TurnSpeed, 5000),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.RightTurn_FIII_3:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Stopsign, DistanceUnit.Feet.Of(feetToStop)),
-                //             //FIXME might need a WaitTimeout() so it's a "full" stop
-                //             new TimedDriveAction(ForwardSpeed, 0, -TurnSpeed, 3000),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.PullOut_FIV_1:
-                //         action = new SequentialAction([
-                //             new TimedDriveAction(ForwardSpeed, 0, TurnSpeed*PullOutDirection, 5000),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.PullIn_FIV_2:
-                //         action = new SequentialAction([
-                //             //TODO FIXME not sure how we're doing this one?
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.ParallelPark_FIV_3:
-                //         action = new SequentialAction([
-                //             //FIXME we should do like, actual lane/line detection for this one
-                //             new TimedDriveAction(-ForwardSpeed, 0, 0, 3000),
-                //             new TimedDriveAction(0, -SidewaysSpeed, 0, 1000)
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.StaticPedestrian_FV_1:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(6)) //FIXME configurable PedestrianStop distance?
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.DynamicPedestrian_FV_2:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(6)),
-                //             //TODO: might want a TimedWaitAction() for a full stop here?
-                //             //TODO: need a WaitForClear here
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.AvoidPedestrian_FV_3:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Pedestrian, DistanceUnit.Feet.Of(11)),
-                //             new LaneChangeAction(laneChangeTimeoutMs),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.BarrelLaneChange_FV_4:
-                //         action = new SequentialAction([
-                //             //FIXME we need to change lanes within a certain distance, not end within a certain distance?
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop)),
-                //             new LaneChangeAction(laneChangeTimeoutMs),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.CurvedLaneKeeping_FVI_1:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.CurvedLaneChange_FVI_2:
-                //         action = new SequentialAction([
-                //             //FIXME this is just the same as the regular lane change no?
-                //         ]);
-                //         break;
-                //     case SelfdriveTest.PotholeDetection_FVII_1:
-                //         action = new SequentialAction([
-                //             new LaneKeepAction(SelfdriveObstacles.Pothole, DistanceUnit.Feet.Of(feetToStop)),
-                //             new LaneChangeAction(laneChangeTimeoutMs),
-                //             new LaneKeepAction(SelfdriveObstacles.Barrel, DistanceUnit.Feet.Of(feetToStop))
-                //         ]);
-                //         break;
-
-                //     default:
-                //         canbus?.MotorControl.SetVelocities(0, 0, 0);
-                //         break;
-                // }
-            }
-            else
-            {
-                switch (mQualTest.Get())
+                if (!IsReadyToDrive())
                 {
-                    // All we do is display the annotated image
-                    case QualificationTest.LineDetection_Q2:
+                    Logger.LogInformation("Waiting...");
+                    ResetAction();
+                    await Task.Delay(5_000, token);
+                    continue;
+                }
 
-                    // Just 
-                    case QualificationTest.LaneKeeping_Q1:
-                        action = new SequentialAction(
-                            [new LaneKeepAction(SelfdriveObstacles.Barrel, ObstacleStopDistnace)
-                        ]);
-                        break;
+                if (shouldBuild)
+                {
+                    EnsureActionBuilt();
+                    shouldBuild = false;
+                }
 
-                    case QualificationTest.LeftTurn_Q3:
-                        action = new SequentialAction([
-                            new TimedDriveAction(ForwardSpeed, ForwardSpeed, TurnSpeed, 5000),
-                            new LaneKeepAction(SelfdriveObstacles.Barrel, ObstacleStopDistnace)
-                        ]);
-                        break;
+                if (_currentAction != null)
+                {
+                    if (!_currentAction.IsInit())
+                    {
+                        Logger.LogInformation("Initialising {Action}", _currentAction.GetType().Name);
+                        _currentAction.Init(_context);
+                    }
 
-                    case QualificationTest.RightTurn_Q4:
-                        action = new SequentialAction([
-                            new TimedDriveAction(ForwardSpeed, ForwardSpeed, -TurnSpeed, 3000),
-                            new LaneKeepAction(SelfdriveObstacles.Barrel, ObstacleStopDistnace)
-                        ]);
-                        break;
-                    default:
-                        //FIXME
-                        break;
+                    Logger.LogInformation("Running {Action}", _currentAction.GetType().Name);
+                    _currentAction.Run(_context);
+
+                    if (_currentAction.IsFinished(_context))
+                    {
+                        Logger.LogInformation("Finishing {Action}", _currentAction.GetType().Name);
+                        _currentAction.End(_context);
+                        _currentAction = null;
+                    }
+                }
+
+                lock (_contextLock)
+                {
+                    _context.DetectionTracker.TickMissing(_context.YoloDetections.Keys);
+                    _context.YoloDetections.Clear();
                 }
             }
-
-            // var ctx = context.Clone();
-            var ctx = context; // TOOD: Fix
-            if (!action?.IsInit() ?? false)
+            catch (Exception ex)
             {
-                action?.Init(ctx);
+                Logger.LogError(ex, "Exception in SelfdriveLoop");
             }
-
-            action?.Run(ctx);
-
-            if (action?.IsFinished(ctx) ?? false)
-            {
-                action.End(ctx);
-
-                action = null; //FIXME what do we do here? default action?
-            }
-
-            //TODO if we are completely out of actions then what?
-
-            // ctx.Dispose(); //???
-
-            //TODO: dispose regular context Mats?
 
             await Task.Delay(100, token);
         }
+    }
+
+    private bool IsReadyToDrive() =>
+        BaseRobot.Instance?.State.Mission == MissionEnum.Selfdrive &&
+        BaseRobot.Instance?.State.MotionAllowed == true &&
+        BaseRobot.Instance?.State.Mode == RobotModeEnum.Autonomous;
+
+    private void ResetAction()
+    {
+        _currentAction = null;
+    }
+
+    /// <summary>
+    /// Constructs (or re-uses) the action for the current test/goal selection.
+    /// Only builds a new action when <see cref="_currentAction"/> is null.
+    /// </summary>
+    private void EnsureActionBuilt()
+    {
+        if (_currentAction != null)
+            return;
+
+        _currentAction = QualificationMode
+            ? BuildQualificationAction()
+            : BuildFunctionalAction();
+
+        if (_currentAction != null)
+            Logger.LogInformation("Built action {Action}", _currentAction.GetType().Name);
+        else
+            Logger.LogWarning("No action built for current test selection.");
+    }
+
+    private ISelfdriveAction? BuildQualificationAction() =>
+        QualTest switch
+        {
+            QualificationTest.LineDetection_Q2 or
+            QualificationTest.LaneKeeping_Q1 =>
+                new LaneKeepAction(SelfdriveObstacles.Stopsign, ObstacleStopDistance),
+
+            QualificationTest.LeftTurn_Q3 =>
+                new SequentialAction([
+                    new TimedDriveAction(ForwardSpeed, LinearVelocityUnit.MetersPerSecond.Of(0), TurnSpeed,  5_000),
+                    new LaneKeepAction(SelfdriveObstacles.Barrel, ObstacleStopDistance),
+                ]),
+
+            QualificationTest.RightTurn_Q4 =>
+                new SequentialAction([
+                    new TimedDriveAction(ForwardSpeed, LinearVelocityUnit.MetersPerSecond.Of(0), -TurnSpeed, 3_000),
+                    new LaneKeepAction(SelfdriveObstacles.Barrel, ObstacleStopDistance),
+                ]),
+
+            _ => null,
+        };
+
+    private ISelfdriveAction? BuildFunctionalAction()
+    {
+        // Functional tests not yet implemented.
+        return null;
     }
 }

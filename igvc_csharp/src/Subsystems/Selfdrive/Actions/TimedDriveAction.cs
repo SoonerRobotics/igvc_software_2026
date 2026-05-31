@@ -1,4 +1,3 @@
-
 using igvc_csharp.Core;
 using igvc_csharp.Core.Units;
 using igvc_csharp.src.selfdrive.actions;
@@ -6,15 +5,17 @@ using igvc_csharp.Utils;
 
 namespace igvc_csharp.src.Subsystems.selfdrive.actions;
 
-public class TimedDriveAction(LinearVelocity forwardSpeed, LinearVelocity sidewaysSpeed, AngularVelocity turnSpeed, ulong timeoutMs) : ISelfdriveAction
+public class TimedDriveAction(
+    LinearVelocity forwardSpeed,
+    LinearVelocity sidewaysSpeed,
+    AngularVelocity turnSpeed,
+    ulong timeoutMs
+) : ISelfdriveAction
 {
-    private ulong _startTime = 0;
-    private bool _init = false;
+    private ulong _startTime;
+    private bool _init;
 
-    public bool IsInit()
-    {
-        return _init;
-    }
+    public bool IsInit() => _init;
 
     public void Init(SelfdriveContext context)
     {
@@ -26,27 +27,26 @@ public class TimedDriveAction(LinearVelocity forwardSpeed, LinearVelocity sidewa
     {
         if (BaseRobot.Instance?.State.MotionAllowed ?? false)
         {
-            // context.canbus.MotorControl.SetVelocities(forwardSpeed, sidewaysSpeed, turnSpeed);
+            context.Canbus.MotorControl.SetVelocities(
+                forwardSpeed.To(LinearVelocityUnit.MetersPerSecond),
+                sidewaysSpeed.To(LinearVelocityUnit.MetersPerSecond),
+                turnSpeed.To(AngularVelocityUnit.RadiansPerSecond));
         }
         else
         {
-            context.canbus.MotorControl.SetVelocities(0, 0, 0);
+            context.Canbus.MotorControl.SetVelocities(0, 0, 0);
         }
     }
 
     public void End(SelfdriveContext context)
     {
-        //TODO: do nothing??? Mat.Dispose()?
-
-        //TODO: set motors to 0?
+        context.Canbus.MotorControl.SetVelocities(0, 0, 0);
     }
 
     public bool IsFinished(SelfdriveContext context)
     {
-        if (_startTime == 0)
-        {
+        if (!_init)
             return false;
-        }
 
         return (TimeUtils.Now() - _startTime) > timeoutMs;
     }

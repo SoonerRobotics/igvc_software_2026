@@ -19,13 +19,13 @@ public class MotorSubsystem(
 
     // Velocity limits
     [Config("autonomous.forward_speed")]
-    public static double ForwardSpeed = 0.95;
+    public static double ForwardSpeed = 1.1;
 
     [Config("autonomous.angular_aggression")]
-    public static double AngularAggression = 1.7;
+    public static double AngularAggression = 2.6;
 
     [Config("autonomous.max_angular_speed")]
-    public static double MaxAngularSpeed = 1.1;
+    public static double MaxAngularSpeed = 1.8;
 
     public const float AtGoalDistanceSq = 0.1f;
 
@@ -142,7 +142,7 @@ public class MotorSubsystem(
                 if (Math.Abs(error) < 0.02)
                     error = 0;
 
-                double forward = ForwardSpeed * Math.Max(0.15, Math.Pow(1.0 - Math.Abs(error), 2));
+                double forward = ForwardSpeed * Math.Max(0.25, Math.Pow(1.0 - Math.Abs(error), 2));
                 double angular = Math.Clamp(
                     error * AngularAggression,
                     -MaxAngularSpeed,
@@ -162,7 +162,8 @@ public class MotorSubsystem(
     private static bool IsActive(RobotState state) =>
         state.Mode == RobotModeEnum.Autonomous
         && state.MotionAllowed
-        && !state.Estopped;
+        && !state.Estopped
+        && state.Mission == MissionEnum.Autonav;
 
     private void SendVelocities(double forward, double sideways, double angular)
     {

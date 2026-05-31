@@ -332,7 +332,6 @@ public abstract class BaseRobot : IDisposable
             ArcUtils.CreateArcData_Json("robot_position", position),
             CancellationToken.None
         );
-
     }
 
     public void Dispose()

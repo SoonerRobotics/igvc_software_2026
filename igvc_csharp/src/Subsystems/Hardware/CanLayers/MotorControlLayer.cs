@@ -29,7 +29,7 @@ public class MotorControlLayer(CanbusSubsystem canbus)
     {
         if (forwardVelocity > 0)
         {
-            angularVelocity -= 0.04;
+            // angularVelocity -= 0.04;
         }
 
         var fv = (short)(forwardVelocity / 0.001);

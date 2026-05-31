@@ -30,8 +30,12 @@ export default function Home() {
                         <span className="text-lg text-white/80">{vn?.numSatellites() ?? "N/A"}</span>
                     </div>
                     <div className="flex flex-col ml-4">
-                        <span className="text-sm text-white">Yaw</span>
+                        <span className="text-sm text-white">Yaw (Coord Based)</span>
                         <span className="text-lg text-white/80">{ws?.bearingDegrees?.toFixed(2) ?? "N/A"}°</span>
+                    </div>
+                    <div className="flex flex-col ml-4">
+                        <span className="text-sm text-white">Yaw (VN Based)</span>
+                        <span className="text-lg text-white/80">{vn?.yaw()?.toFixed(2) ?? "N/A"}°</span>
                     </div>
                 </div>
 

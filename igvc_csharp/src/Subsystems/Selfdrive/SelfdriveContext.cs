@@ -1,4 +1,3 @@
-
 using igvc_csharp.Events;
 using igvc_csharp.src.subsystems.selfdrive;
 using igvc_csharp.Subsystems.Hardware;
@@ -8,17 +7,16 @@ namespace igvc_csharp.src.Subsystems.selfdrive;
 
 public class SelfdriveContext
 {
-    public CanbusSubsystem canbus;
+    public required CanbusSubsystem Canbus { get; init; }
+    public SelfdriveLane CurrentLane { get; set; }
 
-    public SelfdriveLane CurrentLane;
+    // Field (not property) so SwapFrame can pass it as ref.
+    public Mat? LastZedFrame;
+    public Mat? LastCenterFrame;
+    public Mat? LastFilteredFrame;
 
-    public Dictionary<string, YoloDetectionEvent> YoloDetections;
-
-    public double whiteLaneDistance;
-    public Mat? lastZedFrame;
-    public Mat? lastCenterFrame;
-
-    // left, right, center camera
-    // curent lane
-    // canbus
+    // Private setter so the required-init pattern works.
+    public Dictionary<string, YoloDetectionEvent> YoloDetections { get; set; } = new();
+    public YoloDetectionTracker DetectionTracker { get; } = new(framesToConfirm: 3, framesToLose: 5);
+    public double WhiteLaneDistance { get; set; }
 }

@@ -20,6 +20,7 @@ public enum SelfdriveObstacles
     Stopsign,
     Tire,
     Pedestrian,
+    Person,
     WhiteLine,
     Pothole,
     Any

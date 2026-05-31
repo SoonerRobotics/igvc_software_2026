@@ -43,30 +43,32 @@ public struct ZedDepthChannel
 // ─── Frame reader ─────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Reads RGB (BGRA) frames written by igvc_zed into POSIX shared memory.
+/// Reads BGRA frames written by igvc_zed into POSIX shared memory.
 /// The SHM region layout is:  [ZedFrameHeader | pixel bytes (BGRA, 1280×720)]
+///
+/// The C++ writer does NOT use a semaphore for the frame channel — it relies on
+/// the sequence number for consistency (sequenceNum is written last, after pixels).
+/// We match that design here: no semaphore, torn-read detection via seq num.
 /// </summary>
 public sealed class ZedFrameSharedMemoryReader : IDisposable
 {
     private const string ShmName = "/zed_frame";
-    private const string SemName = "/zed_frame_sem";
 
-    public const int FrameWidth = 1280;
+    public const int FrameWidth  = 1280;
     public const int FrameHeight = 720;
-    public const int FrameBytes = FrameWidth * FrameHeight * 4; // BGRA
+    public const int FrameBytes  = FrameWidth * FrameHeight * 4; // BGRA
 
     private static readonly int HeaderSize = Marshal.SizeOf<ZedFrameHeader>();
-    private static readonly int TotalSize = HeaderSize + FrameBytes;
+    private static readonly int TotalSize  = HeaderSize + FrameBytes;
 
     private IntPtr _shmPtr = IntPtr.Zero;
-    private IntPtr _semPtr = IntPtr.Zero;
 
-    public bool IsOpen => _shmPtr != IntPtr.Zero && _semPtr != IntPtr.Zero;
+    public bool IsOpen => _shmPtr != IntPtr.Zero;
 
     public bool TryOpen()
     {
-        // O_RDONLY = 0, O_RDWR = 2
-        int fd = shm_open(ShmName, 0 /*O_RDONLY*/, 0);
+        // O_RDONLY = 0
+        int fd = shm_open(ShmName, 0, 0);
         if (fd < 0) return false;
 
         _shmPtr = mmap(IntPtr.Zero, (nuint)TotalSize, 1 /*PROT_READ*/, 1 /*MAP_SHARED*/, fd, 0);
@@ -78,72 +80,65 @@ public sealed class ZedFrameSharedMemoryReader : IDisposable
             return false;
         }
 
-        _semPtr = sem_open(SemName, 0 /*O_RDONLY flags, existing sem*/, 0, 0);
-        if (_semPtr == SEM_FAILED)
-        {
-            munmap(_shmPtr, (nuint)TotalSize);
-            _shmPtr = IntPtr.Zero;
-            _semPtr = IntPtr.Zero;
-            return false;
-        }
-
         return true;
     }
 
     /// <summary>
-    /// Attempts to read a frame. Returns null if the sem times out or no new data.
+    /// Attempts to read a frame newer than <paramref name="lastSeq"/>.
+    /// Uses sequence-number torn-read detection: if the header's sequence number
+    /// changes while pixels are being copied, the read is retried until
+    /// <paramref name="timeoutMs"/> elapses.
+    /// Returns null if no new frame is available within the timeout.
     /// The returned byte[] is a fresh copy of the BGRA pixel data — safe to hand to OpenCvSharp.
     /// </summary>
     public (ZedFrameHeader Header, byte[] Pixels)? TryRead(uint lastSeq, int timeoutMs = 100)
     {
         if (!IsOpen) return null;
 
-        if (!SemTimedWait(_semPtr, timeoutMs)) return null;
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
 
-        try
+        while (DateTime.UtcNow < deadline)
         {
+            // Read header first to check if there is a new frame.
             var header = Marshal.PtrToStructure<ZedFrameHeader>(_shmPtr);
-            if (header.Valid == 0 || header.SequenceNum == lastSeq) return null;
 
+            if (header.Valid == 0 || header.SequenceNum == lastSeq)
+                return null; // No new frame yet; caller should sleep and retry.
+
+            // Copy pixels.
             var pixels = new byte[FrameBytes];
             Marshal.Copy(_shmPtr + HeaderSize, pixels, 0, FrameBytes);
 
+            // Re-read sequence number after the copy. The C++ writer always writes
+            // sequenceNum last (after pixels), so if it matches we have a coherent frame.
+            var headerAfter = Marshal.PtrToStructure<ZedFrameHeader>(_shmPtr);
+            if (headerAfter.SequenceNum != header.SequenceNum)
+                continue; // Torn read — writer updated the frame mid-copy; retry.
+
             return (header, pixels);
         }
-        finally
-        {
-            sem_post(_semPtr);
-        }
+
+        return null; // Timed out with no coherent new frame.
     }
 
     public void Close()
     {
-        if (_shmPtr != IntPtr.Zero) { munmap(_shmPtr, (nuint)TotalSize); _shmPtr = IntPtr.Zero; }
-        if (_semPtr != IntPtr.Zero && _semPtr != SEM_FAILED) { sem_close(_semPtr); _semPtr = IntPtr.Zero; }
+        if (_shmPtr != IntPtr.Zero)
+        {
+            munmap(_shmPtr, (nuint)TotalSize);
+            _shmPtr = IntPtr.Zero;
+        }
     }
 
     public void Dispose() => Close();
 
     // ── POSIX P/Invoke ────────────────────────────────────────────────────────
     private static readonly IntPtr MAP_FAILED = new(-1);
-    private static readonly IntPtr SEM_FAILED = new(-1);
 
     [DllImport("librt.so.1")] private static extern int shm_open(string name, int oflag, uint mode);
     [DllImport("libc.so.6")] private static extern int close(int fd);
     [DllImport("libc.so.6")] private static extern IntPtr mmap(IntPtr addr, nuint length, int prot, int flags, int fd, long offset);
     [DllImport("libc.so.6")] private static extern int munmap(IntPtr addr, nuint length);
-    [DllImport("librt.so.1")] private static extern IntPtr sem_open(string name, int oflag, uint mode, uint value);
-    [DllImport("librt.so.1")] private static extern int sem_close(IntPtr sem);
-    [DllImport("librt.so.1")] private static extern int sem_post(IntPtr sem);
-
-    [DllImport("librt.so.1")]
-    private static extern int sem_timedwait(IntPtr sem, ref Timespec absTimeout);
-
-    private static bool SemTimedWait(IntPtr sem, int timeoutMs)
-    {
-        var ts = Timespec.FromNow(timeoutMs);
-        return sem_timedwait(sem, ref ts) == 0;
-    }
 }
 
 // ─── Depth channel reader/writer ──────────────────────────────────────────────
@@ -200,18 +195,18 @@ public sealed class ZedDepthSharedMemoryChannel : IDisposable
     {
         if (!IsOpen) return null;
 
-        // Write the request under the sem
+        // Write the request under the semaphore.
         if (!SemTimedWait(_semPtr, 200)) return null;
 
         var channel = Marshal.PtrToStructure<ZedDepthChannel>(_shmPtr);
         channel.Request.RequestId = requestId;
-        channel.Request.PixelX = pixelX;
-        channel.Request.PixelY = pixelY;
+        channel.Request.PixelX    = pixelX;
+        channel.Request.PixelY    = pixelY;
         Marshal.StructureToPtr(channel, _shmPtr, false);
 
         sem_post(_semPtr);
 
-        // Poll for the matching response
+        // Poll for the matching response.
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
         while (DateTime.UtcNow < deadline)
         {
@@ -219,14 +214,15 @@ public sealed class ZedDepthSharedMemoryChannel : IDisposable
 
             if (!SemTimedWait(_semPtr, 50)) continue;
 
-            var resp = Marshal.PtrToStructure<ZedDepthResponse>(_shmPtr + Marshal.OffsetOf<ZedDepthChannel>(nameof(ZedDepthChannel.Response)).ToInt32());
+            var resp = Marshal.PtrToStructure<ZedDepthResponse>(
+                _shmPtr + Marshal.OffsetOf<ZedDepthChannel>(nameof(ZedDepthChannel.Response)).ToInt32());
             sem_post(_semPtr);
 
             if (resp.RequestId == requestId)
                 return resp.Valid == 1 ? resp : null;
         }
 
-        return null; // timed out
+        return null; // Timed out.
     }
 
     public void Close()
@@ -237,7 +233,7 @@ public sealed class ZedDepthSharedMemoryChannel : IDisposable
 
     public void Dispose() => Close();
 
-    // ── POSIX P/Invoke (same set as above — keep in sync if you share a file) ─
+    // ── POSIX P/Invoke ────────────────────────────────────────────────────────
     private static readonly IntPtr MAP_FAILED = new(-1);
     private static readonly IntPtr SEM_FAILED = new(-1);
 
@@ -269,11 +265,11 @@ internal struct Timespec
 
     public static Timespec FromNow(int offsetMs)
     {
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var now    = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var target = now + offsetMs;
         return new Timespec
         {
-            TvSec = target / 1000,
+            TvSec  = target / 1000,
             TvNsec = (target % 1000) * 1_000_000L
         };
     }

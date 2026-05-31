@@ -178,6 +178,7 @@ public class WaypointsSubsystem(CanbusSubsystem canbus) : SubsystemBase
         // TODO: pick set based on mission/GPS region when competition logic is needed
         // _waypointSet = WaypointSetEnum.Qualification;
         _waypointSet = WaypointSetEnum.Autonav;
+        // _waypointSet = WaypointSetEnum.Practice;
         _waypointDirection = WaypointDirectionEnum.North;
         _waypointIndex = 0;
         _waypointsFinished = false;

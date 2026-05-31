@@ -136,7 +136,7 @@ function onMessage(msg: MessageWrapper, set: (state: any) => void) {
 
         if (identifier === "property_changed") {
             const d = buildArcData_PropertyChanged(payload);
-            console.log("[robot] Property Changed", d);
+            // console.log("[robot] Property Changed", d);
             if (d.subsystem === "CurrentSensorSubsystem") {
                 if (d.property === "current") set({ current: parseFloat(d.value) });
                 if (d.property === "voltage") set({ voltage: parseFloat(d.value) * -1 });

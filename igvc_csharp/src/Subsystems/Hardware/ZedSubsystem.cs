@@ -125,12 +125,37 @@ public class ZedSubsystem(
         while (!token.IsCancellationRequested)
         {
             shm.Close();
+
+            // Retry opening shared memory until the C++ process creates it.
+            // TryOpen() can throw if the shm doesn't exist yet, so we catch
+            // and keep retrying rather than letting the loop exit.
             while (!token.IsCancellationRequested && !shm.IsOpen)
             {
-                if (shm.TryOpen()) break;
-                await Task.Delay(1000, token).ConfigureAwait(false);
+                try
+                {
+                    Logger.LogDebug("ZED attempting shm open...");
+                    if (shm.TryOpen()) break;
+                    Logger.LogDebug("ZED shm TryOpen returned false");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "ZED shm not ready yet, retrying...");
+                }
+
+                try
+                {
+                    await Task.Delay(1000, token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
             }
 
+            Logger.LogDebug("ZED shm loop exited — IsCancellationRequested={}, IsOpen={}", 
+    token.IsCancellationRequested, shm.IsOpen);
+
+            if (token.IsCancellationRequested) break;
             if (!shm.IsOpen) break;
 
             if (!(_depthChannel?.IsOpen ?? false))
@@ -152,11 +177,13 @@ public class ZedSubsystem(
                     {
                         if ((DateTime.UtcNow - lastNewFrameAt).TotalMilliseconds > stalenessThresholdMs)
                         {
+                            Logger.LogWarning("ZED no frames for {}ms, reopening shm...", stalenessThresholdMs);
                             SetError("ZED_NO_FRAMES");
                             break;
                         }
 
-                        await Task.Delay(10, token).ConfigureAwait(false);
+                        try { await Task.Delay(10, token).ConfigureAwait(false); }
+                        catch (OperationCanceledException) { return; }
                         continue;
                     }
 
@@ -167,6 +194,10 @@ public class ZedSubsystem(
                     var mat = DecodeBgraFrame(pixels, ZedFrameSharedMemoryReader.FrameWidth,
                                                       ZedFrameSharedMemoryReader.FrameHeight);
 
+                    // Clone mat for chronos before swapping into LatestFrame, so we hold
+                    // a stable reference regardless of what happens to LatestFrame after.
+                    var chronosMat = mat.Clone();
+
                     Mat? old;
                     lock (_frameLock)
                     {
@@ -175,12 +206,10 @@ public class ZedSubsystem(
                     }
                     old?.Dispose();
 
-                    // TODO: Handle frame
-                    BroadcastFrame();
-                    chronos?.WriteVideoFrame(
-                        CameraId.Zed2i,
-                        mat
-                    );
+                    // Logger.LogDebug("ZED new frame: seq={}, timestamp={}", header.SequenceNum, header.TimestampUs);
+                    BroadcastFrame(mat);
+                    chronos?.WriteVideoFrame(CameraId.Zed2i, chronosMat);
+                    chronosMat.Dispose();
 
                     _pLastSequence.Set(header.SequenceNum);
 
@@ -195,7 +224,8 @@ public class ZedSubsystem(
                     SetOperatingState(SubsystemState.Operating);
                     SetError(string.Empty);
 
-                    await Task.Delay(5, token).ConfigureAwait(false);
+                    try { await Task.Delay(5, token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) { return; }
                 }
             }
             catch (OperationCanceledException)
@@ -212,18 +242,11 @@ public class ZedSubsystem(
         Logger.LogInformation("ZED frame loop stopped");
     }
 
-    private void BroadcastFrame()
+    // Accept the mat directly so we never need to re-acquire _frameLock or
+    // risk reading a disposed LatestFrame from another thread.
+    private void BroadcastFrame(Mat mat)
     {
-        if (LatestFrame == null)
-        {
-            return;
-        }
-
-        byte[] frameBytes;
-        lock (_frameLock)
-        {
-            frameBytes = CvUtils.FromMat(LatestFrame);
-        }
+        byte[] frameBytes = CvUtils.FromMat(mat);
 
         var frame = MessageConstructor.CreateImageFrame(1280, 720, "zed", frameBytes);
         var msg = MessageWrapper.From(MessageType.ImageFrame, frame.ByteBuffer);

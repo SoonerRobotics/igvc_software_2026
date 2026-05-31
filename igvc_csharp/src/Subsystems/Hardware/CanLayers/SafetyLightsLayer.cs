@@ -57,8 +57,8 @@ public class SafetyLightsLayer(CanbusSubsystem canbus)
         canbus.SendCanFrame(new CanFrame((uint)CanId.SafetyLights, bytes));
     }
 
-    public void SetDisabled() => Send(SafetyLightsMode.Disabled);
-    public void SetManual() => Send(SafetyLightsMode.Manual);
+    public void SetDisabled() => Send(SafetyLightsMode.Manual);
+    public void SetManual() => Send(SafetyLightsMode.Disabled);
     public void SetAutoEnabled() => Send(SafetyLightsMode.AutoEnabled);
     public void SetAutoDisabled() => Send(SafetyLightsMode.AutoDisabled);
     public void SetLowPower() => Send(SafetyLightsMode.LowPower);

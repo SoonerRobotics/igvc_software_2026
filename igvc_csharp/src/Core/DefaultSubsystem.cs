@@ -33,7 +33,7 @@ public class DefaultSubsystem : SubsystemBase
 
         var distance = GeoUtils.LatLngDistance(mLastLatLng, ll);
         // Logger.LogDebug("Moved: {meters}", distance.To(DistanceUnit.Meters));
-        if (distance.To(DistanceUnit.Meters) < 0.05)
+        if (distance.To(DistanceUnit.Feet) < 1.0)
         {
             // Still update the position, but don't update the heading since we can't get a good estimate of it
             var h = mLastPosition?.Heading;
@@ -48,12 +48,12 @@ public class DefaultSubsystem : SubsystemBase
         }
 
         var heading = GeoUtils.EstimateHeading(mLastLatLng, ll);
-        // Logger.LogDebug("Robot Moved: {hd}", heading);
         if (heading == null || !heading.HasValue)
         {
             return Task.CompletedTask;
         }
         
+        // Logger.LogDebug("Robot Moved: {hd}", heading);
         var position = new RobotPosition(ll, heading.Value);
         BaseRobot.Instance?.SetRobotPosition(position);
         mLastLatLng = ll;

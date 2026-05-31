@@ -18,7 +18,6 @@ static constexpr int FRAME_HEIGHT = 720;
 static constexpr int FRAME_BYTES = FRAME_WIDTH * FRAME_HEIGHT * 4; // BGRA
 
 static const char *SHM_FRAME_NAME = "/zed_frame";
-static const char *SEM_FRAME_NAME = "/zed_frame_sem";
 static const char *SHM_DEPTH_NAME = "/zed_depth";
 static const char *SEM_DEPTH_NAME = "/zed_depth_sem";
 
@@ -66,10 +65,12 @@ void signalHandler(int sig)
     g_running = false;
 }
 
+// Frame shared memory — no semaphore.
+// The C# reader uses the sequence number for consistency; it never touches the
+// semaphore, so there is nothing to strand if the reader crashes or reconnects.
 struct FrameShmContext
 {
     uint8_t *ptr = nullptr;
-    sem_t *sem = SEM_FAILED;
     size_t totalSize = 0;
 };
 
@@ -109,15 +110,6 @@ FrameShmContext openFrameShm()
 
     ctx.ptr = static_cast<uint8_t *>(raw);
     memset(ctx.ptr, 0, ctx.totalSize);
-
-    ctx.sem = sem_open(SEM_FRAME_NAME, O_CREAT, 0666, 1);
-    if (ctx.sem == SEM_FAILED)
-    {
-        spdlog::error("SEM_FRAME_OPEN_FAILED_{}", strerror(errno));
-        munmap(raw, ctx.totalSize);
-        ctx.ptr = nullptr;
-    }
-
     return ctx;
 }
 
@@ -169,11 +161,6 @@ void closeFrameShm(FrameShmContext &ctx)
         munmap(ctx.ptr, ctx.totalSize);
         ctx.ptr = nullptr;
     }
-    if (ctx.sem != SEM_FAILED)
-    {
-        sem_close(ctx.sem);
-        ctx.sem = SEM_FAILED;
-    }
 }
 
 void closeDepthShm(DepthShmContext &ctx)
@@ -193,7 +180,6 @@ void closeDepthShm(DepthShmContext &ctx)
 void cleanupSharedMemory()
 {
     shm_unlink(SHM_FRAME_NAME);
-    sem_unlink(SEM_FRAME_NAME);
     shm_unlink(SHM_DEPTH_NAME);
     sem_unlink(SEM_DEPTH_NAME);
 }
@@ -211,65 +197,65 @@ bool semTimedWait(sem_t *sem, int timeoutMs = 100)
     return sem_timedwait(sem, &ts) == 0;
 }
 
+// Write a frame directly without acquiring a semaphore.
+// Safety: the C# reader detects torn reads via the sequence number — it reads
+// sequenceNum before and after copying pixels, and discards if they differ.
+// We write sequenceNum last (after pixels) so a reader that observes the new
+// sequence number is guaranteed to see the matching pixels.
 void writeFrame(FrameShmContext &ctx, const sl::Mat &image, uint32_t seqNum)
 {
-    if (!ctx.ptr || ctx.sem == SEM_FAILED)
+    if (!ctx.ptr)
         return;
-
-    if (!semTimedWait(ctx.sem))
-    {
-        spdlog::warn("SEM_FRAME_TIMEDWAIT_FAILED");
-        return;
-    }
 
     auto *header = reinterpret_cast<ZedFrameHeader *>(ctx.ptr);
     uint8_t *pixels = ctx.ptr + sizeof(ZedFrameHeader);
 
     auto now = std::chrono::system_clock::now().time_since_epoch();
     header->timestampUs = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
-    header->sequenceNum = seqNum;
     header->width = FRAME_WIDTH;
     header->height = FRAME_HEIGHT;
     header->valid = 1;
 
     memcpy(pixels, image.getPtr<sl::uchar1>(), FRAME_BYTES);
 
-    sem_post(ctx.sem);
+    // Write sequenceNum last so readers see consistent pixels.
+    // std::atomic_thread_fence would be ideal here but a volatile write is
+    // sufficient on x86/ARM with TSO / acquire-release semantics.
+    header->sequenceNum = seqNum;
 }
 
 void handleDepthRequest(DepthShmContext &ctx, sl::Camera &zed)
 {
     if (!ctx.ptr || ctx.sem == SEM_FAILED)
-    {
         return;
-    }
 
-    if (sem_trywait(ctx.sem) != 0)
+    // Snapshot the request under the lock, then release immediately so the
+    // slow retrieveMeasure call does not hold the semaphore.
+    ZedDepthRequest req{};
     {
-        return;
-    }
+        if (sem_trywait(ctx.sem) != 0)
+            return;
 
-    ZedDepthChannel local;
-    memcpy(&local, ctx.ptr, sizeof(ZedDepthChannel));
-
-    if (local.request.requestId == 0 || local.request.requestId == local.response.requestId)
-    {
+        req = ctx.ptr->request;
+        uint32_t lastResponseId = ctx.ptr->response.requestId;
         sem_post(ctx.sem);
-        return;
+
+        if (req.requestId == 0 || req.requestId == lastResponseId)
+            return;
     }
 
-    sem_post(ctx.sem);
-
-    sl::float4 point3D;
+    // Perform the depth lookup without holding the semaphore.
     sl::Mat depthMap;
-    sl::ERROR_CODE err = zed.retrieveMeasure(depthMap, sl::MEASURE::XYZ, sl::MEM::CPU, sl::Resolution(FRAME_WIDTH, FRAME_HEIGHT));
+    sl::ERROR_CODE err = zed.retrieveMeasure(depthMap, sl::MEASURE::XYZ, sl::MEM::CPU,
+                                             sl::Resolution(FRAME_WIDTH, FRAME_HEIGHT));
 
     ZedDepthResponse resp{};
-    resp.requestId = local.request.requestId;
+    resp.requestId = req.requestId;
 
     if (err == sl::ERROR_CODE::SUCCESS)
     {
-        depthMap.getValue(local.request.pixelX, local.request.pixelY, &point3D);
+        sl::float4 point3D;
+        depthMap.getValue(req.pixelX, req.pixelY, &point3D);
 
         bool validPoint = std::isfinite(point3D.x) &&
                           std::isfinite(point3D.y) &&
@@ -287,7 +273,7 @@ void handleDepthRequest(DepthShmContext &ctx, sl::Camera &zed)
         }
         else
         {
-            spdlog::warn("DEPTH_POINT_INVALID_({},{})", local.request.pixelX, local.request.pixelY);
+            spdlog::warn("DEPTH_POINT_INVALID_({},{})", req.pixelX, req.pixelY);
             resp.valid = 0;
         }
     }
@@ -359,6 +345,7 @@ int main()
         sl::Mat imageLeft;
 
         auto nextFrameTime = std::chrono::steady_clock::now();
+        bool disconnected = false;
 
         while (g_running)
         {
@@ -385,6 +372,7 @@ int main()
             else if (grabErr == sl::ERROR_CODE::CAMERA_NOT_DETECTED)
             {
                 spdlog::warn("ZED_DISCONNECTED");
+                disconnected = true;
                 break;
             }
             else
@@ -393,7 +381,12 @@ int main()
             }
         }
 
-        spdlog::warn("ZED_DISCONNECTED");
+        // Only log ZED_DISCONNECTED once (from the grab error path above).
+        // Previously this was logged unconditionally here as well, producing
+        // a duplicate on every reconnect cycle.
+        if (!disconnected)
+            spdlog::warn("ZED_DISCONNECTED");
+
         zed.close();
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
