@@ -100,6 +100,24 @@ public class VisionSubsystem() : SubsystemBase
                 // Apply HSV and Blur
                 var centerFrame = await mCenterChannel.Reader.ReadAsync(token).AsTask();
                 var centerMat = CvUtils.AsMat(centerFrame);
+
+                // Equalize the V channel in HSV space to reduce shadow-induced false positives.
+                // CLAHE (Contrast Limited Adaptive Histogram Equalization) is used instead of
+                // global equalization to avoid over-amplifying noise in uniform regions.
+                // If shadows are still an issue you can try raising clipLimit (e.g. 3.0–4.0)
+                // or shrinking tileGridSize (e.g. 4×4) for more aggressive local correction.
+                using (var clahe = Cv2.CreateCLAHE(clipLimit: 2.0, tileGridSize: new Size(8, 8)))
+                {
+                    var hsvEq = new Mat();
+                    Cv2.CvtColor(centerMat, hsvEq, ColorConversionCodes.BGR2HSV);
+                    Mat[] hsvChannels = Cv2.Split(hsvEq);
+                    clahe.Apply(hsvChannels[2], hsvChannels[2]);
+                    Cv2.Merge(hsvChannels, hsvEq);
+                    foreach (var ch in hsvChannels) ch.Dispose();
+                    Cv2.CvtColor(hsvEq, centerMat, ColorConversionCodes.HSV2BGR);
+                    hsvEq.Dispose();
+                }
+
                 var blurFilter = new BlurFilter(VisionConfig.BlurRadius, VisionConfig.BlurStrength);
                 var hsvFilter = new HsvFilter(
                     VisionConfig.GroundThreshold,
@@ -192,7 +210,8 @@ public class VisionSubsystem() : SubsystemBase
                 centerMat = topDownFilter.Apply(centerMat);
 
                 // Inflate the image
-                var inflationFilter = new InflationFilter();
+                // var inflationFilter = new InflationFilter();
+                var inflationFilter = new ZemlinInflationFilter();
                 centerMat = inflationFilter.Apply(centerMat);
 
                 static Mat EnsureBgr(Mat m)
