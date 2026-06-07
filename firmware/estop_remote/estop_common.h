@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GLOBAL_PASSWORD "CCAKES"
+#define GLOBAL_PASSWORD "BAPPLE"
 
 // Message IDs
 static const uint8_t MSG_NONE_ID = 99;

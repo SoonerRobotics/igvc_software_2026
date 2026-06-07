@@ -12,7 +12,7 @@
 #define ESTOP_BUTTON_PIN 10
 #define MOBSTOP_BUTTON_PIN 11
 #define MOBSTART_BUTTON_PIN 12
-#define RF95_FREQ 915.0
+#define RF95_FREQ 912.0
 
 #define LED_PIN 13
 #define VBATPIN A7
@@ -119,7 +119,7 @@ void setup()
   lcd.clear();
   lcd.print("EStop Remote");
   lcd.setCursor(0, 1);
-  lcd.print("v2026-05-25");
+  lcd.print("v2026-05-29");
   delay(2000);
   lcd.clear();
 

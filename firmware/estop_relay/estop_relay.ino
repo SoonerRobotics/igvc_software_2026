@@ -90,7 +90,7 @@ void setup() {
   if (!rf95.init()) {
     Serial.println("Radio Initialization Failure");
   }
-  rf95.setFrequency(915.0);
+  rf95.setFrequency(912.0);
   rf95.setTxPower(23, false);
 
   lastHandshake = millis();
@@ -111,7 +111,7 @@ void onCanRecieve() {
     case 0x3f3: { // Robot voltage in millivolts (int32)
       int32_t voltage_mv;
       memcpy(&voltage_mv, frame.data, sizeof(int32_t));
-      robot_voltage_signal = (uint8_t)(voltage_mv / 100); // convert to 0.1V increments
+      robot_voltage_signal = (uint8_t)(-voltage_mv / 100); // convert to 0.1V increments
       break;
     }
   }
